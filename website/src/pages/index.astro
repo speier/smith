@@ -16,7 +16,7 @@ import Layout from '../layouts/Layout.astro';
           </p>
           <p class="hero-description">
             Orchestrate specialized AI agents to plan, implement, test, and review your code.
-            Built for developers who want intelligent automation without losing control.
+            One command. One chat. Multiple agents working together.
           </p>
           <div class="hero-actions">
             <a href="#install" class="btn btn-primary">
@@ -54,7 +54,7 @@ import Layout from '../layouts/Layout.astro';
           <div class="feature-card">
             <div class="feature-icon">🎨</div>
             <h3>Beautiful TUI</h3>
-            <p>Modern terminal interface with streaming responses, keyboard shortcuts, and intuitive navigation.</p>
+            <p>Modern terminal interface with streaming responses, real-time updates, and intuitive slash commands.</p>
           </div>
           <div class="feature-card">
             <div class="feature-icon">📦</div>
@@ -79,23 +79,26 @@ import Layout from '../layouts/Layout.astro';
             <div class="step-number">1</div>
             <div class="step-content">
               <h3>Install Smith</h3>
-              <pre><code>go install github.com/speier/smith@latest</code></pre>
+              <pre><code>curl -fsSL https://agentsmith.sh/install | bash</code></pre>
+              <p class="step-note">Or with Go: <code>go install github.com/speier/smith@latest</code></p>
             </div>
           </div>
           <div class="step">
             <div class="step-number">2</div>
             <div class="step-content">
-              <h3>Initialize Your Project</h3>
+              <h3>Start the REPL</h3>
               <pre><code>cd your-project
-smith init</code></pre>
+smith</code></pre>
+              <p class="step-note">Smith launches directly into an interactive chat session.</p>
             </div>
           </div>
           <div class="step">
             <div class="step-number">3</div>
             <div class="step-content">
               <h3>Start Building</h3>
-              <pre><code>smith chat</code></pre>
-              <p class="step-note">Choose your provider and start collaborating with AI agents.</p>
+              <pre><code>💬 You: Add user authentication with JWT
+🤖 Smith: I'll help with that...</code></pre>
+              <p class="step-note">Chat naturally. Use slash commands like /status, /agents, /settings.</p>
             </div>
           </div>
         </div>
@@ -134,7 +137,7 @@ smith init</code></pre>
     <section class="cta">
       <div class="container">
         <h2>Ready to accelerate your development?</h2>
-        <p>Start using Smith today and experience AI-powered development done right.</p>
+        <p>Just run <code>smith</code> and start chatting. It's that simple.</p>
         <div class="cta-actions">
           <a href="#install" class="btn btn-primary btn-large">
             Get Started Now
@@ -447,6 +450,14 @@ smith init</code></pre>
     font-size: 1.25rem;
     color: var(--color-text-secondary);
     margin-bottom: 2rem;
+  }
+
+  .cta p code {
+    background: var(--color-surface);
+    padding: 0.25rem 0.75rem;
+    border-radius: 0.375rem;
+    font-size: 1.1rem;
+    color: var(--color-accent);
   }
 
   .cta-actions {

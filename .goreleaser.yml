@@ -1,0 +1,95 @@
+project_name: smith
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    # Skip unsupported combinations
+    ignore:
+      - goos: windows
+        goarch: arm64
+    binary: smith
+    ldflags:
+      - -s -w
+      - -X main.version={{.Version}}
+      - -X main.commit={{.Commit}}
+      - -X main.date={{.Date}}
+
+archives:
+  - format: tar.gz
+    name_template: >-
+      {{ .ProjectName }}_
+      {{- .Os }}_
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else if eq .Arch "386" }}i386
+      {{- else }}{{ .Arch }}{{ end }}
+    format_overrides:
+      - goos: windows
+        format: zip
+    files:
+      - README.md
+      - LICENSE*
+
+checksum:
+  name_template: 'checksums.txt'
+
+snapshot:
+  version_template: "{{ incpatch .Version }}-next"
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+      - '^chore:'
+      - '^ci:'
+      - Merge pull request
+      - Merge branch
+
+release:
+  github:
+    owner: speier
+    name: smith
+  draft: false
+  prerelease: auto
+  mode: replace
+  header: |
+    ## Smith {{ .Tag }}
+    
+    Multi-agent AI development system.
+  footer: |
+    **Full Changelog**: https://github.com/speier/smith/compare/{{ .PreviousTag }}...{{ .Tag }}
+    
+    ## Installation
+    
+    ```bash
+    curl -fsSL https://agentsmith.sh/install | bash
+    ```
+    
+    Or with Go:
+    ```bash
+    go install github.com/speier/smith@{{ .Tag }}
+    ```
+
+brews:
+  - repository:
+      owner: speier
+      name: homebrew-tap
+    directory: Formula
+    homepage: https://github.com/speier/smith
+    description: Multi-agent AI development system
+    license: MIT
+    skip_upload: auto
+    install: |
+      bin.install "smith"
