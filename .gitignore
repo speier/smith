@@ -1,0 +1,39 @@
+# Binaries
+smith
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Test binary
+*.test
+
+# Output of the go coverage tool
+*.out
+
+# Go workspace file
+go.work
+
+# Dependencies
+vendor/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+
+# Environment
+.env
+.env.local
+
+# Logs
+*.log
+logs/
+
+# Temporary agent files
+.smith/

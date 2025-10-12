@@ -1,0 +1,155 @@
+# Smith Safety Rules
+# These rules are embedded into the binary at compile time
+# Version: 1.0.0
+
+version: "1.0.0"
+
+levels:
+  low:
+    description: "File edits, creation, and read-only commands"
+    allowPatterns:
+      # Version control (read-only)
+      - "^git status$"
+      - "^git diff"
+      - "^git log"
+      - "^git show"
+      - "^git blame"
+      
+      # File operations (read-only)
+      - "^ls"
+      - "^cat "
+      - "^grep "
+      - "^find "
+      - "^pwd$"
+      - "^tree"
+      - "^head "
+      - "^tail "
+      - "^less "
+      - "^wc "
+      
+      # Language tools (read-only)
+      - "^go list"
+      - "^go doc"
+      - "^go version$"
+      - "^npm list"
+      - "^npm outdated"
+      - "^cargo check$"
+      - "^cargo --version$"
+      - "^python --version$"
+      - "^node --version$"
+      
+    allowTools:
+      - "create"
+      - "edit"
+      - "read"
+      - "search"
+      - "list"
+
+  medium:
+    description: "Everything from Low plus reversible workspace changes"
+    allowPatterns:
+      # Version control (local changes)
+      - "^git add"
+      - "^git commit"
+      - "^git checkout"
+      - "^git branch"
+      - "^git stash"
+      - "^git reset"
+      - "^git revert"
+      
+      # Build & test (Go)
+      - "^go build"
+      - "^go test"
+      - "^go mod tidy$"
+      - "^go mod download$"
+      - "^go fmt"
+      - "^go vet"
+      
+      # Build & test (Node/npm)
+      - "^npm install"
+      - "^npm test"
+      - "^npm run build$"
+      - "^npm run test$"
+      - "^npm run lint$"
+      
+      # Build & test (Python)
+      - "^pip install"
+      - "^pytest"
+      - "^python -m pytest"
+      - "^python -m unittest"
+      
+      # Build & test (Rust)
+      - "^cargo build"
+      - "^cargo test"
+      - "^cargo fmt"
+      - "^cargo clippy"
+      
+      # Build tools
+      - "^make$"
+      - "^make test$"
+      - "^make build$"
+      - "^make clean$"
+      
+      # File operations (safe)
+      - "^mv "
+      - "^cp "
+      - "^mkdir "
+      - "^touch "
+      - "^chmod "
+
+  high:
+    description: "All commands except explicitly blocked"
+    # Everything allowed except blocked patterns
+
+blocked:
+  patterns:
+    # Filesystem destruction
+    - "rm -rf /"
+    - "rm -rf ~"
+    - "rm -rf \\*"
+    - "rm.*--no-preserve-root"
+    
+    # Disk/device operations
+    - "dd if=.*of=/dev"
+    - "dd of=/dev"
+    - "mkfs"
+    - "> */dev/sd"
+    - "> */dev/nvme"
+    
+    # Dangerous sudo
+    - "sudo rm -rf"
+    - "sudo dd"
+    - "sudo mkfs"
+    
+    # Remote execution
+    - "curl.*\\|.*sh"
+    - "curl.*\\|.*bash"
+    - "wget.*\\|.*sh"
+    - "wget.*\\|.*bash"
+    - "\\|.*sh$"
+    - "\\|.*bash$"
+    
+    # Code execution
+    - "eval \\$"
+    - "exec \\$"
+    
+    # Fork bomb
+    - ":\\(\\).*:\\|:"
+    
+    # Git dangerous operations
+    - "git push.*--force"
+    - "git push.*-f"
+    
+    # Docker/container destruction
+    - "docker.*rm.*-f.*\\*"
+    - "docker.*system.*prune.*-a"
+    
+  features:
+    # Command substitution always blocked
+    - "commandSubstitution"  # $(...) and `...`
+    - "pipeToShell"          # | sh, | bash
+
+sessionAllowlist:
+  # Runtime additions go here (in memory, not in file)
+  # When user approves a command, can add to session allowlist
+  enabled: true
