@@ -64,6 +64,38 @@ Focus on making the code work. Documentation comes **ONLY when user explicitly r
 - ✅ "Done! All tests pass."
 - ❌ "Done! I've created MIGRATION_STATUS.md to track progress"
 
+### Rule #5: Shell Commands Must Be Portable
+**NEVER use shell-specific features** - team members use different shells (bash, zsh, fish, etc.)
+
+**Shell-Specific Features to AVOID:**
+- ❌ Heredocs (`<< EOF`) - fish doesn't support them
+- ❌ Bash arrays (`arr=(1 2 3)`) - not portable
+- ❌ Process substitution (`<(command)`) - bash/zsh only
+- ❌ Bash-specific syntax (`[[`, `source`, etc.)
+
+**Use PORTABLE alternatives:**
+- ✅ `printf "line1\nline2\n" > file` instead of heredocs
+- ✅ `echo "content" > file` for simple content
+- ✅ Temporary files instead of process substitution
+- ✅ POSIX-compliant syntax (`[`, `.` instead of `source`)
+
+**Example - WRONG:**
+```bash
+cat > file.txt << EOF
+This won't work in fish
+EOF
+```
+
+**Example - CORRECT:**
+```bash
+printf "This works everywhere\n" > file.txt
+```
+
+**Or use Go directly:**
+```bash
+go run script.go  # Better: write a small Go program
+```
+
 ---
 
 ## � Development Workflow

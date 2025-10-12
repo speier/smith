@@ -2,10 +2,12 @@ package coordinator
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
-	"time"
+	"path/filepath"
 
 	"github.com/speier/smith/internal/eventbus"
+	"github.com/speier/smith/internal/kanban"
 	"github.com/speier/smith/internal/locks"
 	"github.com/speier/smith/internal/registry"
 	"github.com/speier/smith/internal/storage"
@@ -28,13 +30,20 @@ func NewSQLite(projectPath string) (*SQLiteCoordinator, error) {
 		return nil, fmt.Errorf("failed to initialize storage: %w", err)
 	}
 
-	return &SQLiteCoordinator{
+	c := &SQLiteCoordinator{
 		projectPath: projectPath,
 		db:          db,
 		eventBus:    eventbus.New(db.DB),
 		lockMgr:     locks.New(db.DB),
 		registry:    registry.New(db.DB),
-	}, nil
+	}
+
+	// Sync kanban.md to database on initialization
+	if err := c.syncKanbanToDB(); err != nil {
+		return nil, fmt.Errorf("failed to sync kanban to database: %w", err)
+	}
+
+	return c, nil
 }
 
 // EnsureDirectories creates the .smith directory structure
@@ -69,31 +78,29 @@ func (c *SQLiteCoordinator) GetTaskStats() (*TaskStats, error) {
 		}
 
 		switch status {
-		case "claimed":
-			stats.Available = count
-		case "in_progress":
-			stats.InProgress = count
-		case "completed":
+		case "backlog":
+			stats.Backlog = count
+		case "wip":
+			stats.WIP = count
+		case "review":
+			stats.Review = count
+		case "done":
 			stats.Done = count
-		case "failed":
-			stats.Blocked = count
 		}
 	}
 
 	return stats, nil
 }
 
-// GetAvailableTasks returns tasks that haven't been claimed yet
+// GetAvailableTasks returns tasks in the backlog (not yet claimed)
 func (c *SQLiteCoordinator) GetAvailableTasks() ([]Task, error) {
 	ctx := context.Background()
 
-	// Query for unclaimed tasks
-	// For now, we'll parse from kanban.md (future: store in DB)
-	// This is a simplified implementation - you'd read from kanban.md
+	// Query for backlog tasks
 	rows, err := c.db.QueryContext(ctx, `
-		SELECT task_id, agent_role, status, started_at
+		SELECT task_id, agent_role, status
 		FROM task_assignments
-		WHERE status = 'claimed'
+		WHERE status = 'backlog'
 		ORDER BY started_at ASC
 	`)
 	if err != nil {
@@ -103,17 +110,22 @@ func (c *SQLiteCoordinator) GetAvailableTasks() ([]Task, error) {
 
 	var tasks []Task
 	for rows.Next() {
-		var taskID, role, status string
-		var startedAt time.Time
-		if err := rows.Scan(&taskID, &role, &status, &startedAt); err != nil {
+		var taskID, status string
+		var role sql.NullString
+		if err := rows.Scan(&taskID, &role, &status); err != nil {
 			return nil, fmt.Errorf("failed to scan task: %w", err)
+		}
+
+		roleStr := ""
+		if role.Valid {
+			roleStr = role.String
 		}
 
 		tasks = append(tasks, Task{
 			ID:     taskID,
 			Status: status,
-			Role:   role,
-			Title:  taskID, // TODO: Parse from kanban.md
+			Role:   roleStr,
+			Title:  taskID, // Title is the task ID for now
 		})
 	}
 
@@ -176,24 +188,36 @@ func (c *SQLiteCoordinator) GetMessages() ([]Message, error) {
 func (c *SQLiteCoordinator) ClaimTask(taskID, agent string) error {
 	ctx := context.Background()
 
-	// Check if task already claimed
-	var existingAgent string
+	// Check if task exists and is available
+	var currentStatus string
+	var currentAgent sql.NullString
 	err := c.db.QueryRowContext(ctx, `
-		SELECT agent_id FROM task_assignments WHERE task_id = ?
-	`, taskID).Scan(&existingAgent)
+		SELECT status, agent_id FROM task_assignments WHERE task_id = ?
+	`, taskID).Scan(&currentStatus, &currentAgent)
 
-	if err == nil {
-		return fmt.Errorf("task %s already claimed by %s", taskID, existingAgent)
+	if err != nil {
+		return fmt.Errorf("task %s not found: %w", taskID, err)
 	}
 
-	// Insert task assignment
+	if currentStatus != "backlog" {
+		return fmt.Errorf("task %s is not available (status: %s)", taskID, currentStatus)
+	}
+
+	// Update task to WIP and assign to agent
 	_, err = c.db.ExecContext(ctx, `
-		INSERT INTO task_assignments (task_id, agent_id, agent_role, status)
-		VALUES (?, ?, ?, 'claimed')
-	`, taskID, agent, "implementation") // TODO: Determine role
+		UPDATE task_assignments 
+		SET agent_id = ?, agent_role = ?, status = 'wip'
+		WHERE task_id = ?
+	`, agent, "implementation", taskID) // TODO: Determine role
 
 	if err != nil {
 		return fmt.Errorf("failed to claim task: %w", err)
+	}
+
+	// Sync back to kanban.md
+	if err := c.syncDBToKanban(); err != nil {
+		// Log error but don't fail the claim
+		fmt.Printf("Warning: failed to sync to kanban.md: %v\n", err)
 	}
 
 	// Publish event
@@ -238,4 +262,112 @@ func (c *SQLiteCoordinator) LockFiles(taskID, agent string, files []string) erro
 // Close closes the database connection
 func (c *SQLiteCoordinator) Close() error {
 	return c.db.Close()
+}
+
+// syncKanbanToDB reads kanban.md and syncs tasks to the database
+func (c *SQLiteCoordinator) syncKanbanToDB() error {
+	kanbanPath := filepath.Join(c.projectPath, ".smith", "kanban.md")
+
+	// Parse kanban.md
+	board, err := kanban.Parse(kanbanPath)
+	if err != nil {
+		return fmt.Errorf("failed to parse kanban.md: %w", err)
+	}
+
+	ctx := context.Background()
+
+	// Begin transaction
+	tx, err := c.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	// Clear existing tasks
+	if _, err := tx.ExecContext(ctx, "DELETE FROM task_assignments"); err != nil {
+		return fmt.Errorf("failed to clear existing tasks: %w", err)
+	}
+
+	// Insert all tasks from the board
+	stmt, err := tx.PrepareContext(ctx, `
+		INSERT INTO task_assignments (task_id, title, agent_id, agent_role, status)
+		VALUES (?, ?, NULL, NULL, ?)
+	`)
+	if err != nil {
+		return fmt.Errorf("failed to prepare insert statement: %w", err)
+	}
+	defer stmt.Close()
+
+	// Insert tasks from each section
+	for _, task := range board.AllTasks() {
+		// Skip empty task IDs
+		if task.ID == "" {
+			continue
+		}
+
+		_, err = stmt.ExecContext(ctx, task.ID, task.Title, task.Status)
+		if err != nil {
+			return fmt.Errorf("failed to insert task %s: %w", task.ID, err)
+		}
+	} // Commit transaction
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	return nil
+}
+
+// syncDBToKanban reads tasks from the database and writes them to kanban.md
+func (c *SQLiteCoordinator) syncDBToKanban() error {
+	ctx := context.Background()
+
+	// Query all tasks grouped by status
+	rows, err := c.db.QueryContext(ctx, `
+		SELECT task_id, title, status
+		FROM task_assignments
+		ORDER BY status, started_at ASC
+	`)
+	if err != nil {
+		return fmt.Errorf("failed to query tasks: %w", err)
+	}
+	defer rows.Close()
+
+	// Build board from database
+	board := &kanban.Board{}
+
+	for rows.Next() {
+		var taskID, title, status string
+		if err := rows.Scan(&taskID, &title, &status); err != nil {
+			return fmt.Errorf("failed to scan task: %w", err)
+		}
+
+		task := kanban.Task{
+			ID:     taskID,
+			Title:  title,
+			Status: status,
+		}
+
+		// Add to appropriate section
+		switch status {
+		case "backlog":
+			board.Backlog = append(board.Backlog, task)
+		case "wip":
+			task.Checked = true // Tasks in progress are checked
+			board.WIP = append(board.WIP, task)
+		case "review":
+			task.Checked = true // Tasks in review are checked
+			board.Review = append(board.Review, task)
+		case "done":
+			task.Checked = true // Completed tasks are checked
+			board.Done = append(board.Done, task)
+		}
+	}
+
+	// Write to kanban.md
+	kanbanPath := filepath.Join(c.projectPath, ".smith", "kanban.md")
+	if err := board.WriteToFile(kanbanPath); err != nil {
+		return fmt.Errorf("failed to write kanban.md: %w", err)
+	}
+
+	return nil
 }

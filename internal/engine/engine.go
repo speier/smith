@@ -6,14 +6,12 @@ import (
 
 	"github.com/speier/smith/internal/coordinator"
 	"github.com/speier/smith/internal/llm"
-	"github.com/speier/smith/internal/orchestrator"
 )
 
 // Engine is the core Smith system
 // It's frontend-agnostic - can be used by CLI, web UI, API, etc.
 type Engine struct {
-	coord       *coordinator.FileCoordinator
-	orc         *orchestrator.Orchestrator
+	coord       coordinator.Coordinator
 	llm         llm.Provider
 	projectPath string
 
@@ -140,11 +138,11 @@ func (e *Engine) GetStatus() string {
 
 	return fmt.Sprintf(`
 📊 Task Status:
-   Todo:   %d tasks ready
-   WIP:    %d in progress
-   Review: %d awaiting review
-   Done:   %d completed
-`, stats.Available, stats.InProgress, stats.Blocked, stats.Done)
+   Backlog: %d tasks ready
+   WIP:     %d in progress
+   Review:  %d awaiting review
+   Done:    %d completed
+`, stats.Backlog, stats.WIP, stats.Review, stats.Done)
 }
 
 type Status struct {

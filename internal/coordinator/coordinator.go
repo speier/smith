@@ -1,29 +1,35 @@
 package coordinator
 
 import (
+	"fmt"
 	"log"
-	"os"
 )
 
-// New creates a new Coordinator instance
-// Returns SQLiteCoordinator if SMITH_USE_SQLITE=true, otherwise FileCoordinator
-func New(projectPath string) *FileCoordinator {
-	// Feature flag for SQLite implementation
-	if os.Getenv("SMITH_USE_SQLITE") == "true" {
-		coord, err := NewSQLite(projectPath)
-		if err != nil {
-			log.Printf("Warning: Failed to create SQLite coordinator: %v, falling back to file-based", err)
-			return NewFile(projectPath)
-		}
+// Coordinator defines the interface for task and file coordination
+type Coordinator interface {
+	EnsureDirectories() error
+	GetTaskStats() (*TaskStats, error)
+	GetAvailableTasks() ([]Task, error)
+	GetActiveLocks() ([]Lock, error)
+	GetMessages() ([]Message, error)
+	ClaimTask(taskID, agent string) error
+	LockFiles(taskID, agent string, files []string) error
+}
 
-		// Return as FileCoordinator type for now (both implement same methods)
-		// TODO: Create interface to avoid this
-		_ = coord
-		log.Println("Note: SQLite coordinator created but not yet fully integrated")
-		// For now, still return FileCoordinator
-		return NewFile(projectPath)
+// New creates a new SQLite-based Coordinator instance
+func New(projectPath string) Coordinator {
+	coord, err := NewSQLite(projectPath)
+	if err != nil {
+		log.Fatalf("Failed to create coordinator: %v", err)
 	}
+	return coord
+}
 
-	// Default to file-based coordinator
-	return NewFile(projectPath)
+// MustNew creates a coordinator or panics
+func MustNew(projectPath string) Coordinator {
+	coord, err := NewSQLite(projectPath)
+	if err != nil {
+		panic(fmt.Sprintf("Failed to create coordinator: %v", err))
+	}
+	return coord
 }

@@ -4,20 +4,21 @@
 
 **Inevitable. Multiplying. Building.**
 
-An autonomous multi-agent development system that duplicates itself to plan, implement, test, and review your software.
+An AI coding assistant with a powerful REPL interface and SQLite-based coordination system.
 
-## 🕶️ What It Does
+## 🕶️ What It Is
 
-**You chat naturally. Smith multiplies to build it.**
+**Chat naturally with AI. Built-in coordination for future multi-agent workflows.**
 
-Like Agent Smith from The Matrix, this system replicates itself into specialized agents:
+A smart coding assistant powered by GitHub Copilot that helps you build software through natural conversation.
 
-1. **Planning Agent** - Breaks down features into atomic tasks
-2. **Implementation Agent(s)** - Write code in parallel (duplicates as needed)
-3. **Testing Agent** - Validates implementations automatically
-4. **Review Agent** - Ensures quality before completion
+**Current features:**
+- **Interactive REPL** - Bubble Tea powered terminal interface  
+- **GitHub Copilot Integration** - Uses GPT-4o for intelligent responses
+- **SQLite Coordination** - Event bus, file locking, agent registry for future multi-agent work
+- **Safety Levels** - Control execution permissions (Low/Medium/High)
 
-**All while preventing file conflicts and coordinating work between agents.**
+**Future:** Specialized agents (planning, implementation, testing, review) that coordinate via SQLite.
 
 ## Installation
 
@@ -30,137 +31,74 @@ Or download from [releases](https://github.com/speier/smith/releases).
 ## Usage
 
 ```bash
+# Start interactive REPL
 smith
-```
 
-Start chatting. Smith will help you build.
+# Execute single prompt
+smith exec "create a hello world program"
+```
 
 ## ⚡ Quick Start
 
 ```bash
-# Build
+# Build from source
 go build -o smith .
 
-# Start interactive REPL
+# Run the REPL
 ./smith
-
-# Start autonomous mode
-./smith watch
 ```
 
-**That's it!** Agents will plan, implement, test, and review automatically.
+**That's it!** Start chatting and building.
 
 ## 🏗️ Architecture
 
-### Four Specialized Agent Roles
+### SQLite Coordination System
 
-- **Planning Agent** - Analyzes features, creates detailed task breakdown
-- **Implementation Agent** - Writes code following specifications
-- **Testing Agent** - Creates test suites, validates implementations
-- **Review Agent** - Ensures quality, coding standards, security
+State managed in `.smith/` directory (auto-created on first run):
 
-### Coordination via Markdown
+- **`smith.db`** - SQLite database with WAL mode (gitignored)
+- **`kanban.md`** - Human-readable task board (committed to git)  
+- **`config.yaml`** - User settings (gitignored)
+- **`.gitignore`** - Auto-generated ignore rules
 
-All state lives in version-controlled markdown files:
+### Coordination Infrastructure
 
-- **`AGENTS.md`** - Role definitions & responsibilities (read-only)
-- **`TODO.md`** - Task board with status tracking (read/write)
-- **`COMMS.md`** - File locks, messages, handoffs (real-time)
+Built for future multi-agent workflows:
 
-### Key Commands
+- **Event Bus** - Poll-based event streaming between agents
+- **File Locking** - Transactional locks prevent file conflicts
+- **Agent Registry** - Heartbeat tracking and status management
+- **Task Management** - Kanban-style workflow (ready for integration)
 
-```bash
-smith watch          # Autonomous monitoring & orchestration
-smith orchestrate    # One-time orchestration run
-smith agent          # Run single agent (usually spawned)
-smith status         # View current workflow state
-smith init [path]    # Bootstrap new project
-```
+## 🚀 Project Status
 
-## 🔄 Autonomous Workflow
+**Current - v0.1.0:**
 
-```
-You add feature to TODO.md
-       ↓
-Watch mode detects change (hash-based)
-       ↓
-Planning Agent breaks into tasks
-       ↓
-Implementation Agents execute (parallel, file-locked)
-       ↓
-Testing Agents validate
-       ↓
-Review Agent approves
-       ↓
-Done! Notification sent
-```
+✅ Interactive REPL with Bubble Tea  
+✅ GitHub Copilot integration (GPT-4o)  
+✅ SQLite coordination infrastructure  
+✅ Safety levels and execution control  
+✅ Event bus and file locking system  
+✅ Clean, minimal codebase  
 
-**You only intervene if:**
-- Review rejects (needs architectural decision)
-- Agent times out (stuck)
-- Merge conflicts occur
+🚧 **Next Steps:**
+- Kanban.md task parsing and management
+- Multi-agent spawning and coordination
+- Specialized agent roles (planning, implementation, testing, review)
+- Agent-to-agent communication via event bus
 
-## 🚀 Getting Started
+## 🎓 Technology Stack
 
-See **[QUICKSTART.md](QUICKSTART.md)** for installation and first run.
-
-See **[WATCH_MODE.md](WATCH_MODE.md)** for autonomous mode details
-
-## 🎓 Design Principles
-
-- **Autonomy** - Runs hands-off once started, no manual triggers
-- **Simplicity** - Markdown files, not databases
-- **Transparency** - All coordination visible and version-controlled
-- **Specialization** - Each agent optimized for their role
-- **Safety** - File-level locking prevents conflicts
-- **BYOK** - Bring your own API keys, control costs
-
-## �️ Technology
-
-- **Language:** Go (perfect for concurrent agent management)
-- **LLM:** Anthropic Claude (configurable to OpenAI/others)
-- **CLI:** Cobra (clean command structure)
-- **State:** Markdown files (git-friendly, transparent)
-
-## � Project Status
-
-**~80% Complete** - Core functionality implemented:
-
-✅ Watch mode with file monitoring  
-✅ Orchestrator with subprocess spawning  
-✅ Agent LLM loop with tools (read/write/exec)  
-✅ Coordinator with task & lock management  
-✅ File conflict detection  
-✅ Status transitions (available → done)  
-
-🚧 To finish:
-- Planning agent implementation
-- Testing/review agent workflows
-- Error handling & retries
-
-See **[SUMMARY.md](SUMMARY.md)** for complete project overview.
-
-## � Roadmap
-
-**This Week:**
-- Complete planning agent
-- Implement testing/review workflows
-- Production testing
-
-**Next Month:**
-- Web dashboard for real-time monitoring
-- Metrics & cost tracking
-- Multi-LLM support (mix GPT-4 + Claude)
-
-**Long-term:**
-- Smart agent routing with ML
-- Checkpoint/resume for long-running workflows
-- Integration with CI/CD pipelines
+- **Go** - Concurrent operations and clean architecture
+- **GitHub Copilot** - GPT-4o powered intelligent responses
+- **Bubble Tea** - Modern, composable terminal UI
+- **SQLite** - WAL mode with 25 concurrent connections
+- **Markdown** - Human-readable state management (kanban.md)
 
 ## 🤝 Contributing
 
-This is an experimental autonomous development system. Ideas, issues, and PRs welcome!
+Experimental AI coding assistant. Ideas, issues, and PRs welcome!
 
 ---
 
-**Built to automate the repetitive parts of coding, so you can focus on what matters.**
+**Built to make coding with AI more powerful and coordinated.**
