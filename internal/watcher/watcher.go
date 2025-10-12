@@ -21,7 +21,7 @@ type Config struct {
 
 type Watcher struct {
 	config        Config
-	coord         *coordinator.Coordinator
+	coord         *coordinator.FileCoordinator
 	lastTodoHash  string
 	orchestrating bool
 }

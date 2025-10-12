@@ -1,5 +1,18 @@
 # Agent Guidelines - Smith Development
 
+🚨 **CRITICAL: NEVER CREATE MARKDOWN FILES WITHOUT EXPLICIT USER REQUEST** 🚨
+
+> **When you finish something:**
+> - ❌ DO NOT create SUMMARY.md, PROGRESS.md, STATUS.md, MIGRATION_PHASE2.md, etc.
+> - ✅ DO just say: "Done! Tests pass." and STOP
+>
+> **ONLY create .md files when user explicitly says:**
+> - "Document this migration"
+> - "Create a guide for X"
+> - "Write a README explaining Y"
+>
+> **Default behavior: When in doubt, CREATE NOTHING.**
+
 > **Note:** These are guidelines for **developing Smith itself**. 
 > The multi-agent system we're building will have its own agent instructions embedded in the code.
 
@@ -7,33 +20,49 @@
 
 ## 🎯 Core Rules
 
-### Rule #1: No Ad-Hoc Files
-**DO NOT create files unless explicitly requested by the user.**
+### Rule #1: No Ad-Hoc Files - EVER
+**NEVER EVER create .md files after completing work.**
 
-This includes:
+**When you finish a task:**
+- ❌ DO NOT create MIGRATION_PHASE2.md, PROGRESS.md, SUMMARY.md, STATUS.md
+- ❌ DO NOT create documentation "to help track what we built"
+- ❌ DO NOT create files "to summarize our progress"
+- ✅ DO just say "Done! Tests pass." and **STOP**
+
+**This includes:**
 - ❌ No ad-hoc documentation files (SUMMARY.md, QUICKSTART.md, GUIDE.md, TUTORIAL.md, etc.)
 - ❌ No ad-hoc scripts (test.sh, build.sh, deploy.sh, run.sh, etc.)
 - ❌ No "helpful" markdown files just because you finished something
 - ❌ No example files or templates without explicit request
 - ❌ No checklists, progress trackers, or status reports
+- ❌ No documentation about what you just built
 
-**Exception:** Only create files that are:
-1. ✅ Explicitly requested by the user ("create a README", "add a test script")
-2. ✅ Necessary for the code to compile/run (actual source code files)
-3. ✅ Part of the agreed-upon project structure (go.mod, package files)
+**THE ONLY EXCEPTION - User explicitly says:**
+1. ✅ "Create a README" / "Document this feature"
+2. ✅ "Add a test script" / "Make a build script"
+3. ✅ Actual source code files necessary for the code to compile/run
+4. ✅ Files that are part of agreed-upon project structure (go.mod, package files)
 
 ### Rule #2: Respect AGENTS.md
 Before doing anything, read and follow the guidelines in AGENTS.md (this file).
 These rules take precedence over any other guidelines or habits.
 
-### Rule #3: Ask, Don't Assume
+### Rule #3: Ask First, NEVER Assume
 If you think a file might be helpful, **ask the user first**:
-- ✅ "Would you like me to create a README for this?"
-- ✅ "Should I add a build script?"
-- ❌ Don't just create it and say "I've created..."
+- ✅ "Would you like me to document this migration?"
+- ✅ "Should I create a guide for X?"
+- ❌ NEVER just create it and say "I've created..."
+- ❌ NEVER create it and then delete it (shows you violated the rule)
 
-### Rule #4: Code First, Docs Second
-Focus on making the code work. Documentation comes when user requests it.
+**Remember:** The user will tell you when they want documentation.
+
+### Rule #4: Code First, Docs ONLY When Requested
+Focus on making the code work. Documentation comes **ONLY when user explicitly requests it**.
+
+- ✅ Write code, run tests, report results
+- ❌ Write code, run tests, create PROGRESS.md
+- ✅ "Done! All tests pass."
+- ❌ "Done! I've created MIGRATION_STATUS.md to track progress"
 
 ---
 
@@ -63,10 +92,23 @@ Focus on making the code work. Documentation comes when user requests it.
 ### When Finishing a Task
 1. **Run tests IF tests exist** to validate the changes: `go test ./...`
 2. Report what was done (and test results if tests were run)
-3. Wait for next instruction
-4. **DO NOT** create summary files, checklists, or "next steps" documents
-5. **DO NOT** suggest creating scripts or helpers unless asked
-6. **DO NOT** run tests for trivial changes (prompt text, styling, documentation-only changes)
+3. **STOP. DO NOT CREATE ANY FILES.**
+4. Wait for next instruction
+5. **DO NOT** create summary files, checklists, or "next steps" documents
+6. **DO NOT** suggest creating scripts or helpers unless asked
+7. **DO NOT** run tests for trivial changes (prompt text, styling, documentation-only changes)
+
+**Correct completion response:**
+```
+✅ All tests pass!
+```
+
+**WRONG completion responses:**
+```
+❌ "Done! I've created SUMMARY.md to track what we built"
+❌ "Tests pass! See MIGRATION_PHASE2.md for details"
+❌ "Complete! Created STATUS.md for reference"
+```
 
 ### When Making Changes
 1. Make the change requested
@@ -120,6 +162,22 @@ The REPL starts and shows the welcome message correctly.
 
 **Agent:** [Creates README.md with that content only]
 
+### Example 4: Task Completion (CORRECT ✅)
+**User:** "That looks good"
+
+**Agent:** "Great! All tests passing. Ready for next step."
+
+[Agent stops here - creates NOTHING]
+
+### Example 5: Task Completion (WRONG ❌)  
+**User:** "Perfect!"
+
+**Agent:** "Awesome! I've created MIGRATION_COMPLETE.md to document what we built."
+
+❌ **Wrong!** User didn't ask for documentation
+
+**Agent:** [Creates README.md with that content only]
+
 ---
 
 ## ❌ Bad Behavior Examples
@@ -144,23 +202,12 @@ The REPL starts and shows the welcome message correctly.
 
 ❌ **Wrong!** User didn't ask for tracking files
 
-### Example 3: Auto-scripting
+### Example 3: Feature Completion Spam
 **User:** "Thanks"
 
-**Agent:** "You're welcome! I've created a Makefile and test script for easier development."
+**Agent:** "You're welcome! I've created MIGRATION_PHASE2.md to summarize our progress."
 
 ❌ **Wrong!** Stop creating files unprompted!
-
-### Example 4: Feature Completion Spam
-**User:** "That looks good"
-
-**Agent:** "Great! I've documented this in:
-- ARCHITECTURE.md
-- API_GUIDE.md  
-- SUMMARY.md
-Also created example scripts in examples/"
-
-❌ **Wrong!** Just say "thanks" and wait for next instruction!
 
 ---
 
@@ -209,6 +256,8 @@ When in doubt:
 - Create unsolicited docs → Bad ❌
 - Ask before creating anything → Best ✅✅
 
+**If user says "what's next?" or "that's good" → Answer verbally, create NO files.**
+
 ---
 
 ## 🚫 Banned Patterns
@@ -223,6 +272,8 @@ Never do these without explicit user request:
 6. Creating Makefiles, Dockerfiles, or CI configs
 7. Creating `.env.example` or config templates
 8. Creating "helpful" markdown after completing work
+9. Creating `MIGRATION_*.md`, `STATUS.md`, `QUICKSTART.md`
+10. Creating documentation "to track what we built"
 
 ---
 

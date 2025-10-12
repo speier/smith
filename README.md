@@ -19,6 +19,22 @@ Like Agent Smith from The Matrix, this system replicates itself into specialized
 
 **All while preventing file conflicts and coordinating work between agents.**
 
+## Installation
+
+```bash
+curl -fsSL https://agentsmith.sh/install | bash
+```
+
+Or download from [releases](https://github.com/speier/smith/releases).
+
+## Usage
+
+```bash
+smith
+```
+
+Start chatting. Smith will help you build.
+
 ## ⚡ Quick Start
 
 ```bash

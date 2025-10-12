@@ -17,7 +17,7 @@ type Config struct {
 
 type Orchestrator struct {
 	config Config
-	coord  *coordinator.Coordinator
+	coord  *coordinator.FileCoordinator
 	wg     sync.WaitGroup
 	sem    chan struct{} // Semaphore for max parallel agents
 }

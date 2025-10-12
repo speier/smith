@@ -1,180 +1,29 @@
 package coordinator
 
 import (
-	"fmt"
+	"log"
 	"os"
-	"path/filepath"
-	"strings"
 )
 
-const (
-	// Directory structure
-	SmithDir = ".smith"
-	BacklogDir   = "backlog"
-	InboxDir     = "inbox"
-	AgentsDir    = "agents"
-
-	// Backlog subdirectories
-	TodoDir   = "todo"
-	WipDir    = "wip" // Work in progress
-	ReviewDir = "review"
-	DoneDir   = "done"
-)
-
-type Coordinator struct {
-	projectPath string
-}
-
-type Task struct {
-	ID       string
-	Title    string
-	Status   string // "todo", "wip", "review", "done"
-	Role     string // Inferred from task type
-	Priority string
-	Assigned string
-}
-
-type Lock struct {
-	Agent  string
-	TaskID string
-	Files  string
-}
-
-type Message struct {
-	From    string
-	To      string
-	Subject string
-	Body    string
-}
-
-type TaskStats struct {
-	Available  int
-	InProgress int
-	Done       int
-	Blocked    int
-}
-
-func New(projectPath string) *Coordinator {
-	return &Coordinator{projectPath: projectPath}
-}
-
-// EnsureDirectories creates the .smith directory structure if it doesn't exist
-func (c *Coordinator) EnsureDirectories() error {
-	dirs := []string{
-		filepath.Join(c.projectPath, SmithDir, BacklogDir, TodoDir),
-		filepath.Join(c.projectPath, SmithDir, BacklogDir, WipDir),
-		filepath.Join(c.projectPath, SmithDir, BacklogDir, ReviewDir),
-		filepath.Join(c.projectPath, SmithDir, BacklogDir, DoneDir),
-		filepath.Join(c.projectPath, SmithDir, InboxDir),
-		filepath.Join(c.projectPath, SmithDir, AgentsDir),
-	}
-
-	for _, dir := range dirs {
-		if err := os.MkdirAll(dir, 0755); err != nil {
-			return fmt.Errorf("creating directory %s: %w", dir, err)
-		}
-	}
-
-	return nil
-}
-
-func (c *Coordinator) GetTaskStats() (*TaskStats, error) {
-	stats := &TaskStats{}
-
-	// Count tasks in each backlog directory
-	todoPath := filepath.Join(c.projectPath, SmithDir, BacklogDir, TodoDir)
-	wipPath := filepath.Join(c.projectPath, SmithDir, BacklogDir, WipDir)
-	reviewPath := filepath.Join(c.projectPath, SmithDir, BacklogDir, ReviewDir)
-	donePath := filepath.Join(c.projectPath, SmithDir, BacklogDir, DoneDir)
-
-	stats.Available = c.countTasks(todoPath)
-	stats.InProgress = c.countTasks(wipPath)
-	stats.Blocked = c.countTasks(reviewPath) // Review = blocked waiting
-	stats.Done = c.countTasks(donePath)
-
-	return stats, nil
-}
-
-func (c *Coordinator) countTasks(dir string) int {
-	entries, err := os.ReadDir(dir)
-	if err != nil {
-		return 0
-	}
-	count := 0
-	for _, entry := range entries {
-		if !entry.IsDir() && strings.HasSuffix(entry.Name(), ".md") {
-			count++
-		}
-	}
-	return count
-}
-
-func (c *Coordinator) GetAvailableTasks() ([]Task, error) {
-	return c.getTasksFromDir(TodoDir, "todo")
-}
-
-func (c *Coordinator) getTasksFromDir(subdir, status string) ([]Task, error) {
-	dir := filepath.Join(c.projectPath, SmithDir, BacklogDir, subdir)
-	entries, err := os.ReadDir(dir)
-	if err != nil {
-		return nil, fmt.Errorf("reading %s directory: %w", subdir, err)
-	}
-
-	var tasks []Task
-	for _, entry := range entries {
-		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".md") {
-			continue
+// New creates a new Coordinator instance
+// Returns SQLiteCoordinator if SMITH_USE_SQLITE=true, otherwise FileCoordinator
+func New(projectPath string) *FileCoordinator {
+	// Feature flag for SQLite implementation
+	if os.Getenv("SMITH_USE_SQLITE") == "true" {
+		coord, err := NewSQLite(projectPath)
+		if err != nil {
+			log.Printf("Warning: Failed to create SQLite coordinator: %v, falling back to file-based", err)
+			return NewFile(projectPath)
 		}
 
-		// Parse task file
-		// TODO: Implement YAML frontmatter parsing
-		tasks = append(tasks, Task{
-			ID:     strings.TrimSuffix(entry.Name(), ".md"),
-			Title:  strings.TrimSuffix(entry.Name(), ".md"),
-			Status: status,
-		})
+		// Return as FileCoordinator type for now (both implement same methods)
+		// TODO: Create interface to avoid this
+		_ = coord
+		log.Println("Note: SQLite coordinator created but not yet fully integrated")
+		// For now, still return FileCoordinator
+		return NewFile(projectPath)
 	}
 
-	return tasks, nil
-}
-
-func (c *Coordinator) GetActiveLocks() ([]Lock, error) {
-	content, err := c.readFile("COMMS.md")
-	if err != nil {
-		return nil, err
-	}
-
-	// TODO: Parse COMMS.md for active locks
-	// For now, return empty
-	_ = content
-	return []Lock{}, nil
-}
-
-func (c *Coordinator) GetMessages() ([]Message, error) {
-	// TODO: Parse COMMS.md for messages
-	return []Message{}, nil
-}
-
-func (c *Coordinator) ClaimTask(taskID, agent string) error {
-	// TODO: Update TODO.md to mark task as claimed
-	return fmt.Errorf("not implemented")
-}
-
-func (c *Coordinator) LockFiles(taskID, agent string, files []string) error {
-	// TODO: Update COMMS.md to add file locks
-	return fmt.Errorf("not implemented")
-}
-
-func (c *Coordinator) readFile(name string) (string, error) {
-	path := filepath.Join(c.projectPath, name)
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return "", fmt.Errorf("failed to read %s: %w", name, err)
-	}
-	return string(data), nil
-}
-
-func (c *Coordinator) writeFile(name, content string) error {
-	path := filepath.Join(c.projectPath, name)
-	return os.WriteFile(path, []byte(content), 0644)
+	// Default to file-based coordinator
+	return NewFile(projectPath)
 }

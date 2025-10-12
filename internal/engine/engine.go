@@ -12,7 +12,7 @@ import (
 // Engine is the core Smith system
 // It's frontend-agnostic - can be used by CLI, web UI, API, etc.
 type Engine struct {
-	coord       *coordinator.Coordinator
+	coord       *coordinator.FileCoordinator
 	orc         *orchestrator.Orchestrator
 	llm         llm.Provider
 	projectPath string

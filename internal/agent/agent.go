@@ -19,7 +19,7 @@ type Config struct {
 
 type Agent struct {
 	config Config
-	coord  *coordinator.Coordinator
+	coord  *coordinator.FileCoordinator
 }
 
 func New(config Config) *Agent {
