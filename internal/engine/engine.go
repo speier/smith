@@ -83,6 +83,43 @@ func (e *Engine) Chat(userMessage string) (string, error) {
 	return response, nil
 }
 
+// ChatStream sends a message and streams the response
+func (e *Engine) ChatStream(userMessage string, callback func(string) error) error {
+	// Add user message to history
+	e.conversationHistory = append(e.conversationHistory, Message{
+		Role:    "user",
+		Content: userMessage,
+	})
+
+	// Convert conversation history to LLM messages
+	messages := make([]llm.Message, len(e.conversationHistory))
+	for i, msg := range e.conversationHistory {
+		messages[i] = llm.Message{
+			Role:    msg.Role,
+			Content: msg.Content,
+		}
+	}
+
+	// Stream the response
+	var fullResponse strings.Builder
+	err := e.llm.ChatStream(messages, nil, func(response *llm.Response) error {
+		fullResponse.WriteString(response.Content)
+		return callback(response.Content)
+	})
+
+	if err != nil {
+		return err
+	}
+
+	// Add complete assistant response to history
+	e.conversationHistory = append(e.conversationHistory, Message{
+		Role:    "assistant",
+		Content: fullResponse.String(),
+	})
+
+	return nil
+}
+
 // GetConversationHistory returns the full conversation
 func (e *Engine) GetConversationHistory() []Message {
 	return e.conversationHistory
@@ -163,42 +200,20 @@ func (e *Engine) GetPendingPlan() *Plan {
 // processMessage handles the conversation logic
 // This is where the magic happens - LLM integration, plan creation, etc.
 func (e *Engine) processMessage(input string) string {
-	// TODO: Call LLM API with conversation history
-	// For now, simple mock logic
-
-	lowerInput := strings.ToLower(strings.TrimSpace(input))
-
-	// Check for commit confirmation
-	if e.pendingPlan != nil {
-		if lowerInput == "yes" || lowerInput == "y" || lowerInput == "sure" ||
-			lowerInput == "ok" || lowerInput == "okay" {
-			e.CommitPlan()
-			return "✅ Plan committed to backlog! Agents will start working on it."
-		}
-
-		if lowerInput == "no" || lowerInput == "nope" || lowerInput == "wait" {
-			e.pendingPlan = nil
-			return "No problem! Let's refine it. What would you like to change?"
+	// Convert conversation history to LLM messages
+	messages := make([]llm.Message, len(e.conversationHistory))
+	for i, msg := range e.conversationHistory {
+		messages[i] = llm.Message{
+			Role:    msg.Role,
+			Content: msg.Content,
 		}
 	}
 
-	// Detect feature requests
-	if strings.Contains(lowerInput, "add") ||
-		strings.Contains(lowerInput, "create") ||
-		strings.Contains(lowerInput, "implement") ||
-		strings.Contains(lowerInput, "build") {
-		// Create a mock plan
-		e.pendingPlan = &Plan{
-			Title:       "User Feature Request",
-			Description: input,
-			Tasks: []Task{
-				{ID: "001", Title: "Task 1"},
-				{ID: "002", Title: "Task 2"},
-			},
-		}
-		return "I can help with that! Here's what I'm thinking:\n\n" +
-			"1. Task 1\n2. Task 2\n\nShall I commit this to the backlog?"
+	// Call LLM
+	response, err := e.llm.Chat(messages, nil)
+	if err != nil {
+		return fmt.Sprintf("Error: %v", err)
 	}
 
-	return "I understand. Could you tell me more about what you'd like to build?"
+	return response.Content
 }

@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"path/filepath"
 
+	"github.com/speier/smith/internal/agent/prompts"
 	"github.com/speier/smith/internal/coordinator"
 )
 
@@ -63,15 +64,19 @@ func (a *Agent) Execute() error {
 }
 
 func (a *Agent) loadRolePrompt() (string, error) {
-	path := filepath.Join(a.config.ProjectPath, "AGENTS.md")
-	content, err := os.ReadFile(path)
+	// Load embedded prompts
+	prompts, err := prompts.LoadPrompts()
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to load agent prompts: %w", err)
 	}
 
-	// TODO: Parse AGENTS.md and extract section for this role
-	// For now, return full file
-	return string(content), nil
+	// Get the system prompt for this role
+	systemPrompt, err := prompts.GetSystemPrompt(a.config.Role)
+	if err != nil {
+		return "", fmt.Errorf("failed to get prompt for role %s: %w", a.config.Role, err)
+	}
+
+	return systemPrompt, nil
 }
 
 func (a *Agent) loadTaskDetails() (string, error) {

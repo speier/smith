@@ -335,3 +335,54 @@ func (c *CopilotProvider) Chat(messages []Message, tools []Tool) (*Response, err
 		Content: result.Choices[0].Message.Content,
 	}, nil
 }
+
+func (c *CopilotProvider) ChatStream(messages []Message, tools []Tool, callback func(*Response) error) error {
+	// For now, just call the regular Chat method and send the full response
+	response, err := c.Chat(messages, tools)
+	if err != nil {
+		return err
+	}
+
+	// Send the full response as done
+	response.Done = true
+	return callback(response)
+}
+
+func (c *CopilotProvider) GetModels() ([]Model, error) {
+	// GitHub Copilot models (as of 2025)
+	// These are OpenAI models accessible via Copilot
+	return []Model{
+		{
+			ID:          "gpt-4o",
+			Name:        "GPT-4o",
+			Description: "Most capable model, best for complex tasks",
+			ContextSize: 128000,
+		},
+		{
+			ID:          "gpt-4o-mini",
+			Name:        "GPT-4o Mini",
+			Description: "Faster and cheaper, good for most tasks",
+			ContextSize: 128000,
+		},
+		{
+			ID:          "o1-preview",
+			Name:        "O1 Preview",
+			Description: "Advanced reasoning model (preview)",
+			ContextSize: 128000,
+		},
+		{
+			ID:          "o1-mini",
+			Name:        "O1 Mini",
+			Description: "Faster reasoning model",
+			ContextSize: 128000,
+		},
+	}, nil
+}
+
+func (c *CopilotProvider) GetName() string {
+	return "GitHub Copilot"
+}
+
+func (c *CopilotProvider) RequiresAuth() bool {
+	return true
+}

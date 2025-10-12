@@ -34,7 +34,15 @@ func (r *REPL) Start(initialPrompt string) error {
 		r.model = model
 	}
 
-	p := tea.NewProgram(r.model, tea.WithAltScreen())
+	p := tea.NewProgram(
+		r.model,
+		tea.WithAltScreen(),
+		tea.WithMouseCellMotion(), // Enable mouse support
+	)
+
+	// Note: Bubble Tea catches SIGINT (Ctrl+C) by default and converts it to a KeyMsg
+	// Our Update handler catches tea.KeyCtrlC to show goodbye message before quitting
+
 	if _, err := p.Run(); err != nil {
 		return fmt.Errorf("running bubble tea: %w", err)
 	}

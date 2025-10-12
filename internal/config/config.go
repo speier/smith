@@ -7,11 +7,19 @@ import (
 	"path/filepath"
 )
 
+// AgentConfig represents configuration for a specific agent
+type AgentConfig struct {
+	Model     string `json:"model,omitempty"`
+	AutoLevel string `json:"autoLevel,omitempty"`
+	Reasoning string `json:"reasoning,omitempty"` // low/medium/high
+}
+
 // Config represents the Smith configuration
 type Config struct {
-	Provider     string            `json:"provider"`     // "copilot", "ollama", "openai"
-	Model        string            `json:"model"`        // Model identifier
-	ProviderOpts map[string]string `json:"providerOpts"` // Provider-specific options
+	Provider     string                 `json:"provider"`     // "copilot", "ollama", "openai"
+	Model        string                 `json:"model"`        // Model identifier
+	ProviderOpts map[string]string      `json:"providerOpts"` // Provider-specific options
+	Agents       map[string]AgentConfig `json:"agents"`       // Default agent configurations
 }
 
 // Auth represents stored authentication data
@@ -60,11 +68,39 @@ func Load() (*Config, error) {
 
 	// Return default config if file doesn't exist
 	if _, err := os.Stat(configPath); os.IsNotExist(err) {
-		return &Config{
+		defaultCfg := &Config{
 			Provider:     "copilot",
 			Model:        "gpt-4o",
 			ProviderOpts: make(map[string]string),
-		}, nil
+			Agents: map[string]AgentConfig{
+				"planning": {
+					Model:     "gpt-4o",
+					AutoLevel: "high",
+					Reasoning: "high",
+				},
+				"implementation": {
+					Model:     "gpt-4o",
+					AutoLevel: "medium",
+					Reasoning: "medium",
+				},
+				"testing": {
+					Model:     "gpt-4o",
+					AutoLevel: "low",
+					Reasoning: "low",
+				},
+				"review": {
+					Model:     "gpt-4o",
+					AutoLevel: "high",
+					Reasoning: "high",
+				},
+			},
+		}
+		// Save the default config
+		if err := defaultCfg.Save(); err != nil {
+			// Just log, don't fail
+			fmt.Printf("Warning: Could not save default config: %v\n", err)
+		}
+		return defaultCfg, nil
 	}
 
 	data, err := os.ReadFile(configPath)

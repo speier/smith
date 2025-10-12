@@ -11,12 +11,7 @@ import (
 
 var authCmd = &cobra.Command{
 	Use:   "auth",
-	Short: "Manage authentication",
-}
-
-var authLoginCmd = &cobra.Command{
-	Use:   "login",
-	Short: "Login to GitHub Copilot",
+	Short: "Authenticate with GitHub Copilot",
 	Long: `Authenticate with GitHub Copilot using device flow.
 
 This will:

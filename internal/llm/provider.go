@@ -12,6 +12,17 @@ import (
 // Provider interface for different LLM providers
 type Provider interface {
 	Chat(messages []Message, tools []Tool) (*Response, error)
+	ChatStream(messages []Message, tools []Tool, callback func(*Response) error) error
+	GetModels() ([]Model, error)
+	GetName() string
+	RequiresAuth() bool
+}
+
+type Model struct {
+	ID          string
+	Name        string
+	Description string
+	ContextSize int
 }
 
 type Message struct {

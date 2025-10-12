@@ -2,6 +2,7 @@ package repl
 
 import (
 	"testing"
+	"time"
 
 	"github.com/speier/smith/internal/safety"
 )
@@ -99,7 +100,6 @@ func TestHandleSlashCommand(t *testing.T) {
 		{"/exit", true, false, ""},
 		{"/help", false, true, "Commands:"},
 		{"/status", false, true, "Task Status:"},
-		{"/auth", false, true, "Authentication"},
 		{"/unknown", false, true, "/help"},
 	}
 
@@ -123,8 +123,8 @@ func TestHandleSlashCommand(t *testing.T) {
 				t.Errorf("Command '%s': expected message to be added", tt.command)
 			} else {
 				lastMsg := model.messages[len(model.messages)-1]
-				if tt.msgContains != "" && !contains(lastMsg, tt.msgContains) {
-					t.Errorf("Command '%s': expected message to contain '%s', got '%s'", tt.command, tt.msgContains, lastMsg)
+				if tt.msgContains != "" && !contains(lastMsg.Content, tt.msgContains) {
+					t.Errorf("Command '%s': expected message to contain '%s', got '%s'", tt.command, tt.msgContains, lastMsg.Content)
 				}
 			}
 		}
@@ -144,7 +144,7 @@ func TestRenderHistory(t *testing.T) {
 	}
 
 	// Add message
-	model.messages = append(model.messages, "Test message")
+	model.messages = append(model.messages, Message{Content: "Test message", Type: "system", Timestamp: time.Now()})
 	history = model.renderHistory(10, 80)
 	if !contains(history, "Test") {
 		t.Error("Expected history to contain test message")

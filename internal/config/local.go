@@ -9,17 +9,11 @@ import (
 
 // LocalConfig represents project-level configuration in .smith/config.json
 type LocalConfig struct {
-	Provider  string                 `json:"provider,omitempty"`  // Override global provider
-	Model     string                 `json:"model,omitempty"`     // Override global model
+	Provider  string                 `json:"provider"`            // Selected provider (required)
+	Model     string                 `json:"model"`               // Primary model
 	AutoLevel string                 `json:"autoLevel,omitempty"` // Default: "medium"
-	Agents    map[string]AgentConfig `json:"agents,omitempty"`
-}
-
-// AgentConfig represents configuration for a specific agent
-type AgentConfig struct {
-	Model     string `json:"model,omitempty"`
-	AutoLevel string `json:"autoLevel,omitempty"`
-	Reasoning string `json:"reasoning,omitempty"` // low/medium/high
+	Agents    map[string]AgentConfig `json:"agents"`              // Per-agent configuration
+	Version   int                    `json:"version"`             // Config schema version
 }
 
 const (
@@ -28,15 +22,13 @@ const (
 )
 
 // LoadLocal loads project-level configuration from .smith/config.json
+// Returns nil if no config exists (requires provider selection)
 func LoadLocal(projectPath string) (*LocalConfig, error) {
 	configPath := filepath.Join(projectPath, localConfigDir, localConfigFile)
 
-	// Return default if file doesn't exist
+	// Return nil if file doesn't exist - caller must handle provider selection
 	if _, err := os.Stat(configPath); os.IsNotExist(err) {
-		return &LocalConfig{
-			AutoLevel: "medium", // Default auto-level
-			Agents:    make(map[string]AgentConfig),
-		}, nil
+		return nil, nil
 	}
 
 	data, err := os.ReadFile(configPath)
@@ -49,6 +41,11 @@ func LoadLocal(projectPath string) (*LocalConfig, error) {
 		return nil, fmt.Errorf("parsing local config: %w", err)
 	}
 
+	// Validate required fields
+	if cfg.Provider == "" {
+		return nil, fmt.Errorf("config missing required field: provider")
+	}
+
 	// Set defaults if not specified
 	if cfg.AutoLevel == "" {
 		cfg.AutoLevel = "medium"
@@ -56,8 +53,27 @@ func LoadLocal(projectPath string) (*LocalConfig, error) {
 	if cfg.Agents == nil {
 		cfg.Agents = make(map[string]AgentConfig)
 	}
+	if cfg.Version == 0 {
+		cfg.Version = 1
+	}
 
 	return &cfg, nil
+}
+
+// CreateFromPreset creates a new local config from a provider preset
+func CreateFromPreset(providerID string) (*LocalConfig, error) {
+	preset, exists := GetProviderPreset(providerID)
+	if !exists {
+		return nil, fmt.Errorf("unknown provider: %s", providerID)
+	}
+
+	return &LocalConfig{
+		Provider:  preset.Provider,
+		Model:     preset.DefaultModel,
+		AutoLevel: "medium",
+		Agents:    preset.Agents,
+		Version:   1,
+	}, nil
 }
 
 // SaveLocal saves project-level configuration to .smith/config.json
