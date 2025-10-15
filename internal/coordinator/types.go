@@ -10,10 +10,14 @@ type TaskStats struct {
 
 // Task represents a task in the system
 type Task struct {
-	ID     string
-	Title  string
-	Status string
-	Role   string
+	ID          string
+	Title       string
+	Description string
+	Status      string // backlog, wip, review, done
+	Role        string // planning, implementation, testing, review
+	AgentID     string
+	Result      string // Output/result from task execution
+	Error       string // Error message if task failed
 }
 
 // Lock represents a file lock held by an agent

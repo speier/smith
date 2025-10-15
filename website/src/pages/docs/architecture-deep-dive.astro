@@ -1,0 +1,1531 @@
+---
+import DocsLayout from '../../layouts/DocsLayout.astro';
+---
+
+<DocsLayout title="Architecture Deep Dive" description="Complete technical architecture of Smith's multi-agent system">
+  <div class="docs-header">
+    <h1>Architecture Deep Dive</h1>
+    <p class="lead">Complete technical documentation of Smith's multi-agent architecture, from LLM orchestration to SQLite coordination.</p>
+  </div>
+
+  <div class="content">
+    <section class="docs-section">
+      <h2 id="overview">System Overview</h2>
+      <p>Smith is a multi-agent AI development system built in Go. It orchestrates multiple specialized LLM agents that work in parallel to accomplish complex software development tasks.</p>
+
+      <div class="architecture-diagram">
+        <div class="layer">
+          <div class="layer-title">User Interface Layer</div>
+          <div class="layer-boxes">
+            <div class="component-box">
+              <div class="box-title">REPL (Bubble Tea)</div>
+              <div class="box-desc">Interactive terminal UI</div>
+            </div>
+            <div class="component-box">
+              <div class="box-title">CLI (Cobra)</div>
+              <div class="box-desc">Command-line interface</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="layer-arrow">↓</div>
+
+        <div class="layer">
+          <div class="layer-title">Core Orchestration Layer</div>
+          <div class="layer-boxes">
+            <div class="component-box primary">
+              <div class="box-title">Engine</div>
+              <div class="box-desc">LLM orchestration + tool execution</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="layer-arrow">↓</div>
+
+        <div class="layer">
+          <div class="layer-title">Agent Layer</div>
+          <div class="layer-boxes">
+            <div class="component-box">
+              <div class="box-title">🕶️ Coordinator</div>
+            </div>
+            <div class="component-box">
+              <div class="box-title">🏛️ Planning</div>
+            </div>
+            <div class="component-box">
+              <div class="box-title">🔑 Implementation</div>
+            </div>
+            <div class="component-box">
+              <div class="box-title">🦑 Testing</div>
+            </div>
+            <div class="component-box">
+              <div class="box-title">🔮 Review</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="layer-arrow">↓</div>
+
+        <div class="layer">
+          <div class="layer-title">Coordination Layer</div>
+          <div class="layer-boxes">
+            <div class="component-box">
+              <div class="box-title">Coordinator</div>
+              <div class="box-desc">Task queue + SQLite</div>
+            </div>
+            <div class="component-box">
+              <div class="box-title">EventBus</div>
+              <div class="box-desc">Pub/Sub messaging</div>
+            </div>
+            <div class="component-box">
+              <div class="box-title">Registry</div>
+              <div class="box-desc">Agent heartbeats</div>
+            </div>
+            <div class="component-box">
+              <div class="box-title">Locks</div>
+              <div class="box-desc">Distributed locking</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="layer-arrow">↓</div>
+
+        <div class="layer">
+          <div class="layer-title">Infrastructure Layer</div>
+          <div class="layer-boxes">
+            <div class="component-box">
+              <div class="box-title">SQLite (WAL)</div>
+              <div class="box-desc">Persistent storage</div>
+            </div>
+            <div class="component-box">
+              <div class="box-title">LLM Providers</div>
+              <div class="box-desc">Copilot, OpenRouter</div>
+            </div>
+            <div class="component-box">
+              <div class="box-title">Tools</div>
+              <div class="box-desc">File, Command, Git ops</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="docs-section">
+      <h2 id="package-structure">Package Structure</h2>
+      <p>Smith is organized into 13 focused packages within <code>internal/</code>:</p>
+
+      <div class="package-grid">
+        <div class="package-card">
+          <div class="package-header">
+            <h3>engine/</h3>
+            <span class="file-count">1 file</span>
+          </div>
+          <p><strong>Purpose:</strong> Core LLM orchestration and tool execution</p>
+          <p><strong>Responsibilities:</strong></p>
+          <ul>
+            <li>LLM conversation management</li>
+            <li>Tool registration and execution</li>
+            <li>Role-specific system prompts</li>
+            <li>Task delegation to agents</li>
+          </ul>
+          <p><strong>Key Types:</strong> <code>Engine</code>, <code>Message</code>, <code>Plan</code></p>
+        </div>
+
+        <div class="package-card">
+          <div class="package-header">
+            <h3>agent/</h3>
+            <span class="file-count">5 files</span>
+          </div>
+          <p><strong>Purpose:</strong> All agent implementations</p>
+          <p><strong>Files:</strong></p>
+          <ul>
+            <li><code>agent.go</code> - Base agent interface</li>
+            <li><code>planning.go</code> - Planning agent</li>
+            <li><code>implementation.go</code> - Implementation agent</li>
+            <li><code>testing.go</code> - Testing agent</li>
+            <li><code>review.go</code> - Review agent</li>
+          </ul>
+          <p><strong>Dependencies:</strong> engine, coordinator, registry, eventbus</p>
+        </div>
+
+        <div class="package-card">
+          <div class="package-header">
+            <h3>coordinator/</h3>
+            <span class="file-count">3 files</span>
+          </div>
+          <p><strong>Purpose:</strong> Task queue and agent coordination</p>
+          <p><strong>Responsibilities:</strong></p>
+          <ul>
+            <li>Task creation and management</li>
+            <li>Task status tracking (pending/in-progress/completed)</li>
+            <li>SQLite-based queue persistence</li>
+            <li>Agent task assignment</li>
+          </ul>
+          <p><strong>Key Types:</strong> <code>Coordinator</code>, <code>Task</code>, <code>TaskStatus</code></p>
+        </div>
+
+        <div class="package-card">
+          <div class="package-header">
+            <h3>tools/</h3>
+            <span class="file-count">6 files</span>
+          </div>
+          <p><strong>Purpose:</strong> Agent tool implementations</p>
+          <p><strong>Files:</strong></p>
+          <ul>
+            <li><code>file.go</code> - File read/write/list operations</li>
+            <li><code>edit.go</code> - In-place file editing</li>
+            <li><code>search.go</code> - Code search (grep, semantic)</li>
+            <li><code>command.go</code> - Shell command execution</li>
+            <li><code>git.go</code> - Git operations</li>
+            <li><code>tools.go</code> - Tool interface and registry</li>
+          </ul>
+          <p><strong>All tools have comprehensive test coverage</strong></p>
+        </div>
+
+        <div class="package-card">
+          <div class="package-header">
+            <h3>eventbus/</h3>
+            <span class="file-count">2 files</span>
+          </div>
+          <p><strong>Purpose:</strong> Pub/Sub messaging between agents</p>
+          <p><strong>Responsibilities:</strong></p>
+          <ul>
+            <li>Event publication and subscription</li>
+            <li>Agent-to-agent communication</li>
+            <li>Event persistence in SQLite</li>
+          </ul>
+          <p><strong>Event Types:</strong> TaskCreated, TaskCompleted, AgentRegistered</p>
+        </div>
+
+        <div class="package-card">
+          <div class="package-header">
+            <h3>registry/</h3>
+            <span class="file-count">1 file</span>
+          </div>
+          <p><strong>Purpose:</strong> Agent registration and heartbeat tracking</p>
+          <p><strong>Responsibilities:</strong></p>
+          <ul>
+            <li>Agent registration with role and PID</li>
+            <li>Heartbeat monitoring</li>
+            <li>Dead agent detection</li>
+            <li>Agent status tracking (active/idle/dead)</li>
+          </ul>
+        </div>
+
+        <div class="package-card">
+          <div class="package-header">
+            <h3>locks/</h3>
+            <span class="file-count">1 file</span>
+          </div>
+          <p><strong>Purpose:</strong> Distributed lock manager</p>
+          <p><strong>Responsibilities:</strong></p>
+          <ul>
+            <li>SQLite-based distributed locks</li>
+            <li>Lock acquisition with timeout</li>
+            <li>Automatic lock release</li>
+            <li>Prevents concurrent access conflicts</li>
+          </ul>
+        </div>
+
+        <div class="package-card">
+          <div class="package-header">
+            <h3>llm/</h3>
+            <span class="file-count">4 files</span>
+          </div>
+          <p><strong>Purpose:</strong> LLM provider abstraction</p>
+          <p><strong>Files:</strong></p>
+          <ul>
+            <li><code>provider.go</code> - Provider interface</li>
+            <li><code>copilot.go</code> - GitHub Copilot integration</li>
+            <li><code>openrouter.go</code> - OpenRouter integration</li>
+            <li><code>factory.go</code> - Provider factory</li>
+          </ul>
+          <p><strong>Supports:</strong> Streaming responses, function calling</p>
+        </div>
+
+        <div class="package-card">
+          <div class="package-header">
+            <h3>cli/</h3>
+            <span class="file-count">4 files</span>
+          </div>
+          <p><strong>Purpose:</strong> Command-line interface</p>
+          <p><strong>Commands:</strong></p>
+          <ul>
+            <li><code>root.go</code> - Main command setup</li>
+            <li><code>exec.go</code> - Execute agent tasks</li>
+            <li><code>auth.go</code> - Authentication commands</li>
+            <li><code>safety.go</code> - Safety level management</li>
+          </ul>
+          <p><strong>Framework:</strong> Cobra</p>
+        </div>
+
+        <div class="package-card">
+          <div class="package-header">
+            <h3>repl/</h3>
+            <span class="file-count">2 files</span>
+          </div>
+          <p><strong>Purpose:</strong> Interactive terminal UI</p>
+          <p><strong>Features:</strong></p>
+          <ul>
+            <li>Full-screen terminal interface</li>
+            <li>Task queue visualization</li>
+            <li>Real-time agent status</li>
+            <li>Chat history</li>
+          </ul>
+          <p><strong>Framework:</strong> Bubble Tea + Lip Gloss</p>
+        </div>
+
+        <div class="package-card">
+          <div class="package-header">
+            <h3>config/</h3>
+            <span class="file-count">3 files</span>
+          </div>
+          <p><strong>Purpose:</strong> Configuration management</p>
+          <p><strong>Files:</strong></p>
+          <ul>
+            <li><code>config.go</code> - Config loading/saving</li>
+            <li><code>presets.go</code> - Model presets</li>
+            <li><code>local.go</code> - Local config overrides</li>
+          </ul>
+          <p><strong>Format:</strong> YAML</p>
+        </div>
+
+        <div class="package-card">
+          <div class="package-header">
+            <h3>safety/</h3>
+            <span class="file-count">1 file</span>
+          </div>
+          <p><strong>Purpose:</strong> Command filtering and safety levels</p>
+          <p><strong>Features:</strong></p>
+          <ul>
+            <li>Rule-based command filtering (YAML)</li>
+            <li>Safety level enforcement (off/low/medium/high)</li>
+            <li>Dangerous operation prevention</li>
+          </ul>
+        </div>
+
+        <div class="package-card">
+          <div class="package-header">
+            <h3>storage/</h3>
+            <span class="file-count">2 files</span>
+          </div>
+          <p><strong>Purpose:</strong> Database initialization and schema</p>
+          <p><strong>Responsibilities:</strong></p>
+          <ul>
+            <li>SQLite connection management</li>
+            <li>Schema creation and migrations</li>
+            <li>WAL mode configuration</li>
+          </ul>
+        </div>
+
+        <div class="package-card">
+          <div class="package-header">
+            <h3>scaffold/</h3>
+            <span class="file-count">1 file</span>
+          </div>
+          <p><strong>Purpose:</strong> SQL schema scaffolding from YAML</p>
+          <p><strong>Features:</strong></p>
+          <ul>
+            <li>YAML schema definition</li>
+            <li>SQL generation</li>
+            <li>Index and constraint creation</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="docs-section">
+      <h2 id="data-flow">Data Flow</h2>
+      
+      <div class="flow-diagram">
+        <div class="flow-step">
+          <div class="flow-number">1</div>
+          <div class="flow-content">
+            <h3>User Input</h3>
+            <p>User types command in REPL → CLI parses → Engine receives request</p>
+            <div class="code-block">
+              <pre><code>{`User: "implement JWT authentication with tests"`}</code></pre>
+            </div>
+          </div>
+        </div>
+
+        <div class="flow-step">
+          <div class="flow-number">2</div>
+          <div class="flow-content">
+            <h3>LLM Processing</h3>
+            <p>Engine sends to LLM provider with system prompt + available tools</p>
+            <div class="code-block">
+              <pre><code>{`Engine → GitHub Copilot API
+System Prompt: "You are Smith coordinator..."
+Tools: [create_task, write_file, read_file, ...]`}</code></pre>
+            </div>
+          </div>
+        </div>
+
+        <div class="flow-step">
+          <div class="flow-number">3</div>
+          <div class="flow-content">
+            <h3>Tool Execution</h3>
+            <p>LLM returns tool calls → Engine executes → Results returned to LLM</p>
+            <div class="code-block">
+              <pre><code>{`Tool: create_task
+  role: "planning"
+  title: "Design JWT architecture"
+  description: "Create plan for JWT implementation"
+  
+→ Coordinator.CreateTask() → SQLite INSERT → Task ID 123`}</code></pre>
+            </div>
+          </div>
+        </div>
+
+        <div class="flow-step">
+          <div class="flow-number">4</div>
+          <div class="flow-content">
+            <h3>Agent Spawning</h3>
+            <p>Background agents poll for tasks → Claim task → Execute</p>
+            <div class="code-block">
+              <pre><code>{`PlanningAgent.Start()
+  → RegisterAgent(agent_id, "planning", pid)
+  → Loop:
+      - GetNextTask(role="planning")
+      - ClaimTask(task_id, agent_id)
+      - Engine.ExecuteTask(ctx, "planning", title, desc)
+      - CompleteTask(task_id, result)`}</code></pre>
+            </div>
+          </div>
+        </div>
+
+        <div class="flow-step">
+          <div class="flow-number">5</div>
+          <div class="flow-content">
+            <h3>Event Communication</h3>
+            <p>Agents publish events → Other agents subscribe and react</p>
+            <div class="code-block">
+              <pre><code>{`PlanningAgent completes:
+  → EventBus.Publish(TaskCompleted, task_id=123, result=...)
+  
+ImplementationAgent subscribed:
+  → Receives event → Creates implementation tasks`}</code></pre>
+            </div>
+          </div>
+        </div>
+
+        <div class="flow-step">
+          <div class="flow-number">6</div>
+          <div class="flow-content">
+            <h3>Result Aggregation</h3>
+            <p>Coordinator monitors completion → Synthesizes results → Updates UI</p>
+            <div class="code-block">
+              <pre><code>{`Coordinator.GetTaskStats()
+  → completed: 5, in_progress: 0, pending: 0
+  
+REPL updates task queue display
+User sees: "✅ JWT authentication implemented with tests"`}</code></pre>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="docs-section">
+      <h2 id="sqlite-schema">SQLite Schema</h2>
+      <p>Smith uses SQLite with WAL mode for all persistence. The database contains:</p>
+
+      <div class="schema-tables">
+        <div class="schema-table">
+          <h3>tasks</h3>
+          <table>
+            <thead>
+              <tr>
+                <th>Column</th>
+                <th>Type</th>
+                <th>Description</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>id</code></td>
+                <td>TEXT PRIMARY KEY</td>
+                <td>Unique task ID (UUID)</td>
+              </tr>
+              <tr>
+                <td><code>title</code></td>
+                <td>TEXT</td>
+                <td>Task title</td>
+              </tr>
+              <tr>
+                <td><code>description</code></td>
+                <td>TEXT</td>
+                <td>Detailed description</td>
+              </tr>
+              <tr>
+                <td><code>status</code></td>
+                <td>TEXT</td>
+                <td>pending | in_progress | completed | failed</td>
+              </tr>
+              <tr>
+                <td><code>agent_role</code></td>
+                <td>TEXT</td>
+                <td>Required agent role</td>
+              </tr>
+              <tr>
+                <td><code>assigned_agent_id</code></td>
+                <td>TEXT NULL</td>
+                <td>Currently assigned agent</td>
+              </tr>
+              <tr>
+                <td><code>result</code></td>
+                <td>TEXT NULL</td>
+                <td>Task result/output</td>
+              </tr>
+              <tr>
+                <td><code>created_at</code></td>
+                <td>TIMESTAMP</td>
+                <td>Creation time</td>
+              </tr>
+              <tr>
+                <td><code>updated_at</code></td>
+                <td>TIMESTAMP</td>
+                <td>Last update time</td>
+              </tr>
+            </tbody>
+          </table>
+          <p class="schema-note"><strong>Indexes:</strong> status, agent_role, created_at</p>
+        </div>
+
+        <div class="schema-table">
+          <h3>agents</h3>
+          <table>
+            <thead>
+              <tr>
+                <th>Column</th>
+                <th>Type</th>
+                <th>Description</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>agent_id</code></td>
+                <td>TEXT PRIMARY KEY</td>
+                <td>Unique agent ID</td>
+              </tr>
+              <tr>
+                <td><code>agent_role</code></td>
+                <td>TEXT</td>
+                <td>planning | implementation | testing | review</td>
+              </tr>
+              <tr>
+                <td><code>status</code></td>
+                <td>TEXT</td>
+                <td>active | idle | dead</td>
+              </tr>
+              <tr>
+                <td><code>task_id</code></td>
+                <td>TEXT NULL</td>
+                <td>Currently assigned task</td>
+              </tr>
+              <tr>
+                <td><code>pid</code></td>
+                <td>INTEGER</td>
+                <td>Process ID</td>
+              </tr>
+              <tr>
+                <td><code>started_at</code></td>
+                <td>TIMESTAMP</td>
+                <td>Agent start time</td>
+              </tr>
+              <tr>
+                <td><code>last_heartbeat</code></td>
+                <td>TIMESTAMP</td>
+                <td>Last heartbeat signal</td>
+              </tr>
+            </tbody>
+          </table>
+          <p class="schema-note"><strong>Heartbeat Interval:</strong> Every 5 seconds. Dead after 30s without heartbeat.</p>
+        </div>
+
+        <div class="schema-table">
+          <h3>events</h3>
+          <table>
+            <thead>
+              <tr>
+                <th>Column</th>
+                <th>Type</th>
+                <th>Description</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>id</code></td>
+                <td>INTEGER PRIMARY KEY</td>
+                <td>Auto-increment event ID</td>
+              </tr>
+              <tr>
+                <td><code>event_type</code></td>
+                <td>TEXT</td>
+                <td>Event type identifier</td>
+              </tr>
+              <tr>
+                <td><code>agent_id</code></td>
+                <td>TEXT</td>
+                <td>Publishing agent ID</td>
+              </tr>
+              <tr>
+                <td><code>payload</code></td>
+                <td>TEXT</td>
+                <td>JSON event data</td>
+              </tr>
+              <tr>
+                <td><code>created_at</code></td>
+                <td>TIMESTAMP</td>
+                <td>Event timestamp</td>
+              </tr>
+            </tbody>
+          </table>
+          <p class="schema-note"><strong>Event Types:</strong> TaskCreated, TaskCompleted, AgentRegistered, AgentHeartbeat</p>
+        </div>
+
+        <div class="schema-table">
+          <h3>locks</h3>
+          <table>
+            <thead>
+              <tr>
+                <th>Column</th>
+                <th>Type</th>
+                <th>Description</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>lock_name</code></td>
+                <td>TEXT PRIMARY KEY</td>
+                <td>Lock identifier</td>
+              </tr>
+              <tr>
+                <td><code>owner_id</code></td>
+                <td>TEXT</td>
+                <td>Agent holding lock</td>
+              </tr>
+              <tr>
+                <td><code>acquired_at</code></td>
+                <td>TIMESTAMP</td>
+                <td>Lock acquisition time</td>
+              </tr>
+              <tr>
+                <td><code>expires_at</code></td>
+                <td>TIMESTAMP</td>
+                <td>Lock expiration time</td>
+              </tr>
+            </tbody>
+          </table>
+          <p class="schema-note"><strong>TTL:</strong> Locks auto-expire after 30 seconds if not renewed</p>
+        </div>
+      </div>
+
+      <div class="config-note">
+        <h3>SQLite Configuration</h3>
+        <div class="code-block">
+          <pre><code>{`PRAGMA journal_mode = WAL;
+PRAGMA synchronous = NORMAL;
+PRAGMA busy_timeout = 5000;
+PRAGMA foreign_keys = ON;`}</code></pre>
+        </div>
+        <p><strong>WAL Mode Benefits:</strong></p>
+        <ul>
+          <li>Allows concurrent reads while writing</li>
+          <li>Better performance for multi-agent workloads</li>
+          <li>Atomic commits with crash recovery</li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="docs-section">
+      <h2 id="tool-access">Tool Access Control</h2>
+      <p>Different agents have different tool permissions to prevent unintended actions:</p>
+
+      <table class="tools-table">
+        <thead>
+          <tr>
+            <th>Tool Category</th>
+            <th>Coordinator</th>
+            <th>Planning</th>
+            <th>Implementation</th>
+            <th>Testing</th>
+            <th>Review</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Task Management</strong></td>
+            <td class="has-tool">✅</td>
+            <td class="no-tool">❌</td>
+            <td class="no-tool">❌</td>
+            <td class="no-tool">❌</td>
+            <td class="no-tool">❌</td>
+          </tr>
+          <tr>
+            <td style="padding-left: 2rem;">create_task</td>
+            <td class="has-tool">✅</td>
+            <td class="no-tool">❌</td>
+            <td class="no-tool">❌</td>
+            <td class="no-tool">❌</td>
+            <td class="no-tool">❌</td>
+          </tr>
+          <tr>
+            <td style="padding-left: 2rem;">list_tasks</td>
+            <td class="has-tool">✅</td>
+            <td class="no-tool">❌</td>
+            <td class="no-tool">❌</td>
+            <td class="no-tool">❌</td>
+            <td class="no-tool">❌</td>
+          </tr>
+          <tr>
+            <td style="padding-left: 2rem;">get_task</td>
+            <td class="has-tool">✅</td>
+            <td class="no-tool">❌</td>
+            <td class="no-tool">❌</td>
+            <td class="no-tool">❌</td>
+            <td class="no-tool">❌</td>
+          </tr>
+          <tr>
+            <td><strong>File Operations</strong></td>
+            <td class="has-tool">✅</td>
+            <td class="has-tool">✅ (Read)</td>
+            <td class="has-tool">✅</td>
+            <td class="has-tool">✅</td>
+            <td class="has-tool">✅ (Read)</td>
+          </tr>
+          <tr>
+            <td style="padding-left: 2rem;">read_file</td>
+            <td class="has-tool">✅</td>
+            <td class="has-tool">✅</td>
+            <td class="has-tool">✅</td>
+            <td class="has-tool">✅</td>
+            <td class="has-tool">✅</td>
+          </tr>
+          <tr>
+            <td style="padding-left: 2rem;">write_file</td>
+            <td class="has-tool">✅</td>
+            <td class="no-tool">❌</td>
+            <td class="has-tool">✅</td>
+            <td class="has-tool">✅</td>
+            <td class="no-tool">❌</td>
+          </tr>
+          <tr>
+            <td style="padding-left: 2rem;">edit_file</td>
+            <td class="has-tool">✅</td>
+            <td class="no-tool">❌</td>
+            <td class="has-tool">✅</td>
+            <td class="has-tool">✅</td>
+            <td class="no-tool">❌</td>
+          </tr>
+          <tr>
+            <td style="padding-left: 2rem;">list_files</td>
+            <td class="has-tool">✅</td>
+            <td class="has-tool">✅</td>
+            <td class="has-tool">✅</td>
+            <td class="has-tool">✅</td>
+            <td class="has-tool">✅</td>
+          </tr>
+          <tr>
+            <td><strong>Command Execution</strong></td>
+            <td class="has-tool">✅</td>
+            <td class="no-tool">❌</td>
+            <td class="has-tool">✅</td>
+            <td class="has-tool">✅</td>
+            <td class="no-tool">❌</td>
+          </tr>
+          <tr>
+            <td style="padding-left: 2rem;">run_command</td>
+            <td class="has-tool">✅</td>
+            <td class="no-tool">❌</td>
+            <td class="has-tool">✅</td>
+            <td class="has-tool">✅</td>
+            <td class="no-tool">❌</td>
+          </tr>
+          <tr>
+            <td><strong>Search Tools</strong></td>
+            <td class="has-tool">✅</td>
+            <td class="has-tool">✅</td>
+            <td class="has-tool">✅</td>
+            <td class="has-tool">✅</td>
+            <td class="has-tool">✅</td>
+          </tr>
+          <tr>
+            <td style="padding-left: 2rem;">grep_search</td>
+            <td class="has-tool">✅</td>
+            <td class="has-tool">✅</td>
+            <td class="has-tool">✅</td>
+            <td class="has-tool">✅</td>
+            <td class="has-tool">✅</td>
+          </tr>
+          <tr>
+            <td style="padding-left: 2rem;">semantic_search</td>
+            <td class="has-tool">✅</td>
+            <td class="has-tool">✅</td>
+            <td class="has-tool">✅</td>
+            <td class="has-tool">✅</td>
+            <td class="has-tool">✅</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="security-note">
+        <h3>🛡️ Security Rationale</h3>
+        <p><strong>Why background agents can't create tasks:</strong></p>
+        <ul>
+          <li>Prevents infinite task creation loops</li>
+          <li>Keeps task delegation centralized in Coordinator</li>
+          <li>Simplifies debugging and monitoring</li>
+        </ul>
+        <p><strong>Why Planning and Review are read-only:</strong></p>
+        <ul>
+          <li>Planning analyzes and designs, doesn't implement</li>
+          <li>Review evaluates existing code, doesn't modify</li>
+          <li>Separation of concerns ensures quality gates</li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="docs-section">
+      <h2 id="llm-integration">LLM Provider Integration</h2>
+      <p>Smith supports multiple LLM providers through a unified interface:</p>
+
+      <div class="provider-grid">
+        <div class="provider-card">
+          <h3>GitHub Copilot</h3>
+          <p><strong>Default provider</strong> - Uses GitHub Copilot API</p>
+          <div class="code-block">
+            <pre><code>{`export GITHUB_TOKEN="ghp_..."
+smith  # Automatically uses Copilot`}</code></pre>
+          </div>
+          <p><strong>Models:</strong> gpt-4o, claude-3.5-sonnet</p>
+          <p><strong>Features:</strong> Function calling, streaming responses</p>
+        </div>
+
+        <div class="provider-card">
+          <h3>OpenRouter</h3>
+          <p>Access to 100+ models from various providers</p>
+          <div class="code-block">
+            <pre><code>{`export OPENROUTER_API_KEY="sk-..."
+smith --provider openrouter --model anthropic/claude-3.5-sonnet`}</code></pre>
+          </div>
+          <p><strong>Models:</strong> Claude, GPT-4, Gemini, Llama, etc.</p>
+          <p><strong>Use case:</strong> Testing different models, cost optimization</p>
+        </div>
+      </div>
+
+      <h3>Provider Interface</h3>
+      <div class="code-block">
+        <pre><code>{`type Provider interface {
+    Chat(ctx context.Context, messages []Message, tools []Tool) (*Response, error)
+    ChatStream(ctx context.Context, messages []Message, tools []Tool) (chan StreamChunk, error)
+}`}</code></pre>
+      </div>
+
+      <p>Adding a new provider requires implementing this interface and registering it in the factory.</p>
+    </section>
+
+    <section class="docs-section">
+      <h2 id="concurrency">Concurrency & Safety</h2>
+      
+      <div class="concurrency-grid">
+        <div class="concurrency-card">
+          <h3>Agent Lifecycle</h3>
+          <ul>
+            <li>Each agent runs in its own goroutine</li>
+            <li>Background agents poll for tasks every 100-300ms</li>
+            <li>Graceful shutdown on SIGINT/SIGTERM</li>
+            <li>Heartbeat every 5 seconds to prove liveness</li>
+          </ul>
+        </div>
+
+        <div class="concurrency-card">
+          <h3>Task Claiming</h3>
+          <ul>
+            <li>Atomic UPDATE with WHERE status=pending</li>
+            <li>Only one agent can claim a task</li>
+            <li>Failed claims retry with exponential backoff</li>
+            <li>Abandoned tasks requeued after timeout</li>
+          </ul>
+        </div>
+
+        <div class="concurrency-card">
+          <h3>Database Access</h3>
+          <ul>
+            <li>WAL mode allows concurrent reads + writes</li>
+            <li>busy_timeout=5000ms handles contention</li>
+            <li>Connection pooling managed by database/sql</li>
+            <li>Transactions for multi-step operations</li>
+          </ul>
+        </div>
+
+        <div class="concurrency-card">
+          <h3>Lock Manager</h3>
+          <ul>
+            <li>Distributed locks for critical sections</li>
+            <li>TTL-based expiration (30s default)</li>
+            <li>Lock renewal for long operations</li>
+            <li>Deadlock prevention via timeout</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="docs-section">
+      <h2 id="testing">Testing Strategy</h2>
+      <p>Smith has comprehensive test coverage across all packages:</p>
+
+      <div class="test-stats">
+        <div class="stat-box">
+          <div class="stat-number">35</div>
+          <div class="stat-label">Test Files</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-number">51</div>
+          <div class="stat-label">Source Files</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-number">69%</div>
+          <div class="stat-label">Test Ratio</div>
+        </div>
+      </div>
+
+      <h3>Test Coverage by Package</h3>
+      <ul>
+        <li><code>tools/</code> - 6/6 files have tests (100% coverage)</li>
+        <li><code>coordinator/</code> - Integration tests + SQLite tests</li>
+        <li><code>agent/</code> - All 5 agents tested</li>
+        <li><code>engine/</code> - Tool execution tests</li>
+        <li><code>eventbus/</code> - Pub/sub tests</li>
+        <li><code>locks/</code> - Concurrency tests</li>
+        <li><code>registry/</code> - Heartbeat tests</li>
+      </ul>
+
+      <h3>Test Patterns</h3>
+      <div class="code-block">
+        <pre><code>{`// Table-driven tests
+func TestToolExecution(t *testing.T) {
+    tests := []struct {
+        name     string
+        tool     string
+        params   map[string]interface{}
+        expected string
+    }{
+        // Test cases...
+    }
+    for _, tt := range tests {
+        t.Run(tt.name, func(t *testing.T) {
+            // Test implementation
+        })
+    }
+}`}</code></pre>
+      </div>
+    </section>
+
+    <section class="docs-section">
+      <h2 id="performance">Performance Characteristics</h2>
+      
+      <div class="perf-table">
+        <h3>Typical Latencies</h3>
+        <table>
+          <tr>
+            <td>Task creation</td>
+            <td>&lt; 10ms</td>
+            <td>Single SQLite INSERT</td>
+          </tr>
+          <tr>
+            <td>Task claim</td>
+            <td>&lt; 20ms</td>
+            <td>Atomic UPDATE + SELECT</td>
+          </tr>
+          <tr>
+            <td>Event publish</td>
+            <td>&lt; 5ms</td>
+            <td>SQLite INSERT + in-memory broadcast</td>
+          </tr>
+          <tr>
+            <td>LLM call (streaming)</td>
+            <td>500-2000ms</td>
+            <td>Network + model inference</td>
+          </tr>
+          <tr>
+            <td>File read (10KB)</td>
+            <td>&lt; 1ms</td>
+            <td>Local filesystem</td>
+          </tr>
+        </table>
+      </div>
+
+      <div class="perf-note">
+        <h3>Scalability</h3>
+        <ul>
+          <li><strong>Agent scaling:</strong> System handles 5-10 concurrent agents comfortably</li>
+          <li><strong>Task throughput:</strong> Limited by LLM API rate limits, not Smith</li>
+          <li><strong>Database size:</strong> SQLite performs well up to 100K+ tasks</li>
+          <li><strong>Memory usage:</strong> ~50MB base + ~10MB per active agent</li>
+        </ul>
+      </div>
+    </section>
+  </div>
+
+  <div slot="toc">
+    <nav class="toc-nav">
+      <a href="#overview">System Overview</a>
+      <a href="#package-structure">Package Structure</a>
+      <a href="#data-flow">Data Flow</a>
+      <a href="#sqlite-schema">SQLite Schema</a>
+      <a href="#tool-access">Tool Access Control</a>
+      <a href="#llm-integration">LLM Integration</a>
+      <a href="#concurrency">Concurrency & Safety</a>
+      <a href="#testing">Testing Strategy</a>
+      <a href="#performance">Performance</a>
+    </nav>
+  </div>
+</DocsLayout>
+
+<style>
+  :root {
+    --color-bg: #0a0a0a;
+    --color-surface: #111111;
+    --color-surface-hover: #1a1a1a;
+    --color-border: #222222;
+    --color-text: #e5e5e5;
+    --color-text-secondary: #a3a3a3;
+    --color-text-tertiary: #737373;
+    --color-primary: #00ff88;
+    --color-primary-dim: #00cc6a;
+    --color-info: #00a8ff;
+    --color-warning: #ffa500;
+    --color-success: #00ff88;
+  }
+
+  /* Reuse base styles from other docs pages */
+  .docs-header {
+    margin-bottom: 3rem;
+    padding-bottom: 2rem;
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .docs-header h1 {
+    font-size: 3rem;
+    font-weight: 700;
+    margin-bottom: 1rem;
+    background: linear-gradient(135deg, var(--color-primary) 0%, #00ccff 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .lead {
+    font-size: 1.25rem;
+    color: var(--color-text-secondary);
+    line-height: 1.6;
+  }
+
+  .content {
+    display: flex;
+    flex-direction: column;
+    gap: 3rem;
+  }
+
+  .docs-section h2 {
+    font-size: 1.75rem;
+    font-weight: 600;
+    margin-bottom: 1.5rem;
+    color: var(--color-text);
+    scroll-margin-top: 100px;
+  }
+
+  .docs-section h3 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin: 1.5rem 0 1rem;
+    color: var(--color-text);
+  }
+
+  .docs-section p {
+    margin-bottom: 1rem;
+    color: var(--color-text-secondary);
+    line-height: 1.8;
+  }
+
+  .docs-section ul,
+  .docs-section ol {
+    margin: 1rem 0 1.5rem 1.5rem;
+    color: var(--color-text-secondary);
+    line-height: 1.8;
+  }
+
+  .docs-section li {
+    margin-bottom: 0.5rem;
+  }
+
+  code {
+    font-family: 'SF Mono', 'Monaco', 'Consolas', monospace;
+    font-size: 0.9rem;
+    background: var(--color-surface);
+    padding: 0.2rem 0.4rem;
+    border-radius: 4px;
+    color: var(--color-primary);
+  }
+
+  .code-block {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    overflow: hidden;
+    margin: 1rem 0;
+  }
+
+  .code-block pre {
+    padding: 1.5rem;
+    margin: 0;
+    overflow-x: auto;
+  }
+
+  .code-block code {
+    background: none;
+    padding: 0;
+    color: var(--color-text);
+    font-size: 0.9rem;
+    line-height: 1.6;
+  }
+
+  /* Architecture Diagram */
+  .architecture-diagram {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    padding: 2rem;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+    margin: 2rem 0;
+  }
+
+  .layer {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .layer-title {
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--color-primary);
+    padding: 0.5rem 1rem;
+    background: rgba(0, 255, 136, 0.1);
+    border-radius: 4px;
+  }
+
+  .layer-boxes {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1rem;
+  }
+
+  .component-box {
+    padding: 1rem;
+    background: rgba(0, 168, 255, 0.05);
+    border: 1px solid rgba(0, 168, 255, 0.3);
+    border-radius: 8px;
+    text-align: center;
+  }
+
+  .component-box.primary {
+    background: rgba(0, 255, 136, 0.1);
+    border-color: var(--color-primary);
+    box-shadow: 0 0 20px rgba(0, 255, 136, 0.2);
+  }
+
+  .box-title {
+    font-weight: 600;
+    color: var(--color-text);
+    margin-bottom: 0.25rem;
+  }
+
+  .box-desc {
+    font-size: 0.75rem;
+    color: var(--color-text-tertiary);
+  }
+
+  .layer-arrow {
+    text-align: center;
+    font-size: 1.5rem;
+    color: var(--color-primary);
+    padding: 0.5rem 0;
+  }
+
+  /* Package Grid */
+  .package-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+    gap: 1.5rem;
+    margin: 2rem 0;
+  }
+
+  .package-card {
+    padding: 1.5rem;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-left: 3px solid var(--color-primary);
+    border-radius: 8px;
+  }
+
+  .package-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+  }
+
+  .package-header h3 {
+    margin: 0;
+    color: var(--color-primary);
+    font-size: 1.1rem;
+  }
+
+  .file-count {
+    font-size: 0.75rem;
+    color: var(--color-text-tertiary);
+    background: rgba(0, 255, 136, 0.1);
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+  }
+
+  .package-card p {
+    font-size: 0.9rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .package-card ul {
+    margin: 0.5rem 0 0.5rem 1.25rem;
+    font-size: 0.85rem;
+  }
+
+  .package-card li {
+    margin-bottom: 0.25rem;
+  }
+
+  /* Flow Diagram */
+  .flow-diagram {
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+    margin: 2rem 0;
+  }
+
+  .flow-step {
+    display: flex;
+    gap: 1.5rem;
+  }
+
+  .flow-number {
+    flex-shrink: 0;
+    width: 2.5rem;
+    height: 2.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, var(--color-primary), var(--color-info));
+    border-radius: 50%;
+    font-weight: 700;
+    color: var(--color-bg);
+  }
+
+  .flow-content {
+    flex: 1;
+  }
+
+  .flow-content h3 {
+    margin: 0 0 0.75rem 0;
+    font-size: 1.1rem;
+  }
+
+  /* Schema Tables */
+  .schema-tables {
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+    margin: 2rem 0;
+  }
+
+  .schema-table {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    padding: 1.5rem;
+  }
+
+  .schema-table h3 {
+    margin: 0 0 1rem 0;
+    color: var(--color-primary);
+    font-family: 'SF Mono', monospace;
+  }
+
+  .schema-table table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1rem 0;
+  }
+
+  .schema-table th {
+    text-align: left;
+    padding: 0.75rem;
+    background: rgba(0, 255, 136, 0.05);
+    border: 1px solid var(--color-border);
+    font-weight: 600;
+    color: var(--color-text);
+    font-size: 0.85rem;
+  }
+
+  .schema-table td {
+    padding: 0.75rem;
+    border: 1px solid var(--color-border);
+    color: var(--color-text-secondary);
+    font-size: 0.85rem;
+  }
+
+  .schema-table td:first-child {
+    font-family: 'SF Mono', monospace;
+    color: var(--color-primary);
+  }
+
+  .schema-note {
+    font-size: 0.85rem;
+    color: var(--color-text-tertiary);
+    font-style: italic;
+  }
+
+  /* Config Note */
+  .config-note {
+    padding: 1.5rem;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    margin: 1.5rem 0;
+  }
+
+  .config-note h3 {
+    margin: 0 0 1rem 0;
+  }
+
+  /* Tools Table */
+  .tools-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1.5rem 0;
+    font-size: 0.85rem;
+  }
+
+  .tools-table th {
+    text-align: left;
+    padding: 0.75rem;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    font-weight: 600;
+    color: var(--color-text);
+  }
+
+  .tools-table td {
+    padding: 0.75rem;
+    border: 1px solid var(--color-border);
+    color: var(--color-text-secondary);
+  }
+
+  .tools-table td:first-child {
+    color: var(--color-text);
+  }
+
+  .tools-table .has-tool {
+    text-align: center;
+    color: var(--color-success);
+    font-size: 1.1rem;
+  }
+
+  .tools-table .no-tool {
+    text-align: center;
+    color: var(--color-text-tertiary);
+    font-size: 1.1rem;
+  }
+
+  /* Security Note */
+  .security-note {
+    padding: 1.5rem;
+    background: rgba(0, 255, 136, 0.05);
+    border: 1px solid var(--color-primary);
+    border-radius: 8px;
+    margin: 1.5rem 0;
+  }
+
+  .security-note h3 {
+    margin: 0 0 1rem 0;
+    color: var(--color-primary);
+  }
+
+  /* Provider Grid */
+  .provider-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 1.5rem;
+    margin: 1.5rem 0;
+  }
+
+  .provider-card {
+    padding: 1.5rem;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+  }
+
+  .provider-card h3 {
+    margin: 0 0 0.75rem 0;
+  }
+
+  /* Concurrency Grid */
+  .concurrency-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1.5rem;
+    margin: 1.5rem 0;
+  }
+
+  .concurrency-card {
+    padding: 1.5rem;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+  }
+
+  .concurrency-card h3 {
+    margin: 0 0 1rem 0;
+    color: var(--color-primary);
+  }
+
+  .concurrency-card ul {
+    margin: 0 0 0 1.25rem;
+    font-size: 0.85rem;
+  }
+
+  /* Test Stats */
+  .test-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1.5rem;
+    margin: 1.5rem 0;
+  }
+
+  .stat-box {
+    padding: 2rem 1.5rem;
+    background: linear-gradient(135deg, rgba(0, 255, 136, 0.1), rgba(0, 204, 255, 0.1));
+    border: 1px solid var(--color-primary);
+    border-radius: 8px;
+    text-align: center;
+  }
+
+  .stat-number {
+    font-size: 3rem;
+    font-weight: 700;
+    color: var(--color-primary);
+    margin-bottom: 0.5rem;
+  }
+
+  .stat-label {
+    font-size: 0.9rem;
+    color: var(--color-text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  /* Performance Table */
+  .perf-table table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1rem 0;
+  }
+
+  .perf-table td {
+    padding: 0.75rem;
+    border: 1px solid var(--color-border);
+    font-size: 0.9rem;
+  }
+
+  .perf-table td:nth-child(1) {
+    color: var(--color-text);
+    font-weight: 500;
+  }
+
+  .perf-table td:nth-child(2) {
+    color: var(--color-primary);
+    font-family: 'SF Mono', monospace;
+  }
+
+  .perf-table td:nth-child(3) {
+    color: var(--color-text-tertiary);
+    font-size: 0.85rem;
+  }
+
+  .perf-note {
+    padding: 1.5rem;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    margin: 1.5rem 0;
+  }
+
+  .perf-note h3 {
+    margin: 0 0 1rem 0;
+  }
+
+  /* Table of Contents */
+  .toc-nav {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .toc-nav a {
+    padding: 0.5rem 0.75rem;
+    color: var(--color-text-secondary);
+    text-decoration: none;
+    font-size: 0.85rem;
+    border-left: 2px solid transparent;
+    transition: all 0.2s;
+  }
+
+  .toc-nav a:hover {
+    color: var(--color-text);
+    border-left-color: var(--color-primary);
+  }
+
+  .toc-nav a.active {
+    color: var(--color-primary);
+    border-left-color: var(--color-primary);
+  }
+</style>
+
+<script>
+  // Highlight current TOC section
+  const observerOptions = {
+    rootMargin: '-100px 0px -66%',
+    threshold: 0
+  };
+
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach(entry => {
+      const id = entry.target.id;
+      const link = document.querySelector(`.toc-nav a[href="#${id}"]`);
+      
+      if (entry.isIntersecting) {
+        document.querySelectorAll('.toc-nav a').forEach(a => a.classList.remove('active'));
+        link?.classList.add('active');
+      }
+    });
+  }, observerOptions);
+
+  document.querySelectorAll('h2[id], h3[id]').forEach(heading => {
+    observer.observe(heading);
+  });
+</script>

@@ -14,8 +14,10 @@ const (
 	EventAgentHeartbeat EventType = "agent_heartbeat"
 
 	// Task events
+	EventTaskCreated   EventType = "task_created"
 	EventTaskClaimed   EventType = "task_claimed"
 	EventTaskStarted   EventType = "task_started"
+	EventTaskUpdated   EventType = "task_updated"
 	EventTaskCompleted EventType = "task_completed"
 	EventTaskFailed    EventType = "task_failed"
 	EventTaskAbandoned EventType = "task_abandoned"

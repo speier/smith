@@ -1,0 +1,323 @@
+---
+const { title, description } = Astro.props;
+const currentPath = Astro.url.pathname;
+---
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{title} - Smith Documentation</title>
+  <meta name="description" content={description || "Smith multi-agent AI development system documentation"}>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+</head>
+<body>
+  <div class="docs-container">
+    <!-- Top Navigation -->
+    <nav class="docs-nav">
+      <div class="docs-nav-content">
+        <a href="/" class="docs-logo">
+          <span class="logo-icon">🕶️</span>
+          <span class="logo-text">Smith</span>
+        </a>
+        <div class="docs-nav-links">
+          <a href="/">Home</a>
+          <a href="/docs/quickstart" class="active">Docs</a>
+          <a href="https://github.com/speier/smith" target="_blank" rel="noopener">GitHub</a>
+        </div>
+      </div>
+    </nav>
+
+    <div class="docs-layout">
+      <!-- Sidebar Navigation -->
+      <aside class="docs-sidebar">
+        <div class="sidebar-content">
+          <div class="sidebar-section">
+            <div class="sidebar-title">Getting Started</div>
+            <a href="/docs/quickstart" class={currentPath === '/docs/quickstart' ? 'active' : ''}>Quickstart</a>
+            <a href="/docs/installation" class={currentPath === '/docs/installation' ? 'active' : ''}>Installation</a>
+            <a href="/docs/first-project" class={currentPath === '/docs/first-project' ? 'active' : ''}>Your First Project</a>
+          </div>
+
+          <div class="sidebar-section">
+            <div class="sidebar-title">Core Concepts</div>
+            <a href="/docs/multi-agent-system" class={currentPath === '/docs/multi-agent-system' ? 'active' : ''}>Multi-Agent System</a>
+            <a href="/docs/task-orchestration" class={currentPath === '/docs/task-orchestration' ? 'active' : ''}>Task Orchestration</a>
+            <a href="/docs/agents" class={currentPath === '/docs/agents' ? 'active' : ''}>Agent Roles</a>
+            <a href="/docs/tools" class={currentPath === '/docs/tools' ? 'active' : ''}>Tools & Capabilities</a>
+          </div>
+
+          <div class="sidebar-section">
+            <div class="sidebar-title">User Guides</div>
+            <a href="/docs/using-repl" class={currentPath === '/docs/using-repl' ? 'active' : ''}>Using the REPL</a>
+            <a href="/docs/safety-levels" class={currentPath === '/docs/safety-levels' ? 'active' : ''}>Safety Levels</a>
+            <a href="/docs/best-practices" class={currentPath === '/docs/best-practices' ? 'active' : ''}>Best Practices</a>
+            <a href="/docs/examples" class={currentPath === '/docs/examples' ? 'active' : ''}>Example Workflows</a>
+          </div>
+
+          <div class="sidebar-section">
+            <div class="sidebar-title">Configuration</div>
+            <a href="/docs/config-file" class={currentPath === '/docs/config-file' ? 'active' : ''}>Configuration File</a>
+            <a href="/docs/llm-providers" class={currentPath === '/docs/llm-providers' ? 'active' : ''}>LLM Providers</a>
+            <a href="/docs/presets" class={currentPath === '/docs/presets' ? 'active' : ''}>Presets</a>
+          </div>
+
+          <div class="sidebar-section">
+            <div class="sidebar-title">Reference</div>
+            <a href="/docs/cli-reference" class={currentPath === '/docs/cli-reference' ? 'active' : ''}>CLI Reference</a>
+            <a href="/docs/api" class={currentPath === '/docs/api' ? 'active' : ''}>Go API</a>
+            <a href="/docs/architecture-deep-dive" class={currentPath === '/docs/architecture-deep-dive' ? 'active' : ''}>Architecture</a>
+          </div>
+        </div>
+      </aside>
+
+      <!-- Main Content -->
+      <main class="docs-main">
+        <article class="docs-article">
+          <slot />
+        </article>
+
+        <!-- Page Navigation -->
+        <div class="page-nav">
+          <slot name="prev-next" />
+        </div>
+      </main>
+
+      <!-- Table of Contents (Right Sidebar) -->
+      <aside class="docs-toc">
+        <div class="toc-title">On this page</div>
+        <slot name="toc" />
+      </aside>
+    </div>
+  </div>
+
+  <style>
+    :root {
+      --color-bg: #0a0a0a;
+      --color-surface: #111111;
+      --color-surface-hover: #1a1a1a;
+      --color-border: #222222;
+      --color-text: #e5e5e5;
+      --color-text-secondary: #a3a3a3;
+      --color-text-tertiary: #737373;
+      --color-primary: #00ff88;
+      --color-primary-dim: #00cc6a;
+      --sidebar-width: 260px;
+      --toc-width: 220px;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--color-bg);
+      color: var(--color-text);
+      line-height: 1.6;
+    }
+
+    /* Top Navigation */
+    .docs-nav {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: rgba(10, 10, 10, 0.8);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--color-border);
+    }
+
+    .docs-nav-content {
+      max-width: 1600px;
+      margin: 0 auto;
+      padding: 1rem 2rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .docs-logo {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      text-decoration: none;
+      font-size: 1.25rem;
+      font-weight: 600;
+      color: var(--color-text);
+    }
+
+    .logo-icon {
+      font-size: 1.5rem;
+    }
+
+    .docs-nav-links {
+      display: flex;
+      gap: 2rem;
+    }
+
+    .docs-nav-links a {
+      color: var(--color-text-secondary);
+      text-decoration: none;
+      font-size: 0.95rem;
+      transition: color 0.2s;
+    }
+
+    .docs-nav-links a:hover {
+      color: var(--color-text);
+    }
+
+    .docs-nav-links a.active {
+      color: var(--color-primary);
+    }
+
+    /* Docs Layout */
+    .docs-container {
+      min-height: 100vh;
+    }
+
+    .docs-layout {
+      display: grid;
+      grid-template-columns: var(--sidebar-width) 1fr var(--toc-width);
+      max-width: 1600px;
+      margin: 0 auto;
+      gap: 2rem;
+    }
+
+    /* Sidebar */
+    .docs-sidebar {
+      position: sticky;
+      top: 73px;
+      height: calc(100vh - 73px);
+      overflow-y: auto;
+      padding: 2rem 1rem 2rem 2rem;
+      border-right: 1px solid var(--color-border);
+    }
+
+    .sidebar-content {
+      display: flex;
+      flex-direction: column;
+      gap: 2rem;
+    }
+
+    .sidebar-section {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .sidebar-title {
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--color-text-tertiary);
+      margin-bottom: 0.5rem;
+    }
+
+    .sidebar-section a {
+      padding: 0.5rem 0.75rem;
+      border-radius: 6px;
+      color: var(--color-text-secondary);
+      text-decoration: none;
+      font-size: 0.9rem;
+      transition: all 0.2s;
+    }
+
+    .sidebar-section a:hover {
+      background: var(--color-surface-hover);
+      color: var(--color-text);
+    }
+
+    .sidebar-section a.active {
+      background: var(--color-surface);
+      color: var(--color-primary);
+      font-weight: 500;
+    }
+
+    /* Main Content */
+    .docs-main {
+      padding: 2rem 2rem 4rem;
+      min-width: 0;
+    }
+
+    .docs-article {
+      max-width: 800px;
+    }
+
+    /* Table of Contents */
+    .docs-toc {
+      position: sticky;
+      top: 73px;
+      height: calc(100vh - 73px);
+      overflow-y: auto;
+      padding: 2rem 2rem 2rem 1rem;
+    }
+
+    .toc-title {
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--color-text-tertiary);
+      margin-bottom: 1rem;
+    }
+
+    /* Page Navigation */
+    .page-nav {
+      display: flex;
+      justify-content: space-between;
+      gap: 1rem;
+      margin-top: 4rem;
+      padding-top: 2rem;
+      border-top: 1px solid var(--color-border);
+    }
+
+    /* Responsive */
+    @media (max-width: 1200px) {
+      .docs-layout {
+        grid-template-columns: var(--sidebar-width) 1fr;
+      }
+      .docs-toc {
+        display: none;
+      }
+    }
+
+    @media (max-width: 768px) {
+      .docs-layout {
+        grid-template-columns: 1fr;
+      }
+      .docs-sidebar {
+        display: none;
+      }
+      .docs-main {
+        padding: 1.5rem;
+      }
+    }
+
+    /* Scrollbar Styling */
+    .docs-sidebar::-webkit-scrollbar,
+    .docs-toc::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    .docs-sidebar::-webkit-scrollbar-track,
+    .docs-toc::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    .docs-sidebar::-webkit-scrollbar-thumb,
+    .docs-toc::-webkit-scrollbar-thumb {
+      background: var(--color-border);
+      border-radius: 3px;
+    }
+
+    .docs-sidebar::-webkit-scrollbar-thumb:hover,
+    .docs-toc::-webkit-scrollbar-thumb:hover {
+      background: #333;
+    }
+  </style>
+</body>
+</html>

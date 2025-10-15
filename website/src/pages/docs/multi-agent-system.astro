@@ -1,0 +1,733 @@
+---
+import DocsLayout from '../../layouts/DocsLayout.astro';
+---
+
+<DocsLayout title="Multi-Agent System" description="Learn how Smith's multi-agent architecture works">
+  <div class="docs-header">
+    <h1>Multi-Agent System</h1>
+    <p class="lead">Understand how Smith coordinates multiple specialized agents to build software in parallel.</p>
+  </div>
+
+  <div class="content">
+    <section class="docs-section">
+      <h2 id="overview">Overview</h2>
+      <p>Smith uses a multi-agent architecture where specialized AI agents work together to accomplish complex development tasks. Unlike traditional single-agent systems, Smith can run multiple agents in parallel, each focused on their area of expertise.</p>
+
+      <div class="architecture-diagram">
+        <div class="diagram-box coordinator">
+          <div class="box-icon">🕶️</div>
+          <div class="box-title">Coordinator</div>
+          <div class="box-desc">Main agent you talk to</div>
+        </div>
+        
+        <div class="diagram-arrow">↓ delegates to ↓</div>
+        
+        <div class="diagram-agents">
+          <div class="diagram-box agent">
+            <div class="box-icon">🏛️</div>
+            <div class="box-title">Planning</div>
+            <div class="box-desc">Breaks down features</div>
+          </div>
+          
+          <div class="diagram-box agent">
+            <div class="box-icon">🔑</div>
+            <div class="box-title">Implementation</div>
+            <div class="box-desc">Writes code</div>
+          </div>
+          
+          <div class="diagram-box agent">
+            <div class="box-icon">🦑</div>
+            <div class="box-title">Testing</div>
+            <div class="box-desc">Creates tests</div>
+          </div>
+          
+          <div class="diagram-box agent">
+            <div class="box-icon">🔮</div>
+            <div class="box-title">Review</div>
+            <div class="box-desc">Checks quality</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="docs-section">
+      <h2 id="agent-roles">Agent Roles</h2>
+      
+      <div class="agent-card">
+        <div class="agent-header">
+          <span class="agent-icon">🕶️</span>
+          <h3>Coordinator Agent</h3>
+          <span class="agent-badge">Main Agent</span>
+        </div>
+        <p><strong>Role:</strong> The main agent that communicates with users and orchestrates the entire system.</p>
+        <p><strong>Responsibilities:</strong></p>
+        <ul>
+          <li>Understands user requests and requirements</li>
+          <li>Breaks down complex tasks into subtasks</li>
+          <li>Delegates work to specialized agents</li>
+          <li>Monitors progress and coordinates agent communication</li>
+          <li>Synthesizes results and reports back to user</li>
+        </ul>
+        <p><strong>Tools Available:</strong> Task management, file operations, command execution</p>
+      </div>
+
+      <div class="agent-card">
+        <div class="agent-header">
+          <span class="agent-icon">🏛️</span>
+          <h3>Planning Agent</h3>
+          <span class="agent-badge">Background</span>
+        </div>
+        <p><strong>Role:</strong> The architect who designs implementation strategies and breaks down features.</p>
+        <p><strong>Responsibilities:</strong></p>
+        <ul>
+          <li>Analyzes feature requirements</li>
+          <li>Creates detailed implementation plans</li>
+          <li>Identifies dependencies and order of operations</li>
+          <li>Suggests architecture and design patterns</li>
+          <li>Breaks complex features into manageable tasks</li>
+        </ul>
+        <p><strong>Tools Available:</strong> File operations (read-only), project analysis</p>
+      </div>
+
+      <div class="agent-card">
+        <div class="agent-header">
+          <span class="agent-icon">🔑</span>
+          <h3>Implementation Agent</h3>
+          <span class="agent-badge">Background</span>
+        </div>
+        <p><strong>Role:</strong> The coder who writes production-quality code following best practices.</p>
+        <p><strong>Responsibilities:</strong></p>
+        <ul>
+          <li>Implements features according to plan</li>
+          <li>Writes clean, idiomatic code</li>
+          <li>Follows project conventions and style</li>
+          <li>Handles edge cases and error conditions</li>
+          <li>Creates or updates documentation</li>
+        </ul>
+        <p><strong>Tools Available:</strong> Full file operations, command execution</p>
+      </div>
+
+      <div class="agent-card">
+        <div class="agent-header">
+          <span class="agent-icon">🦑</span>
+          <h3>Testing Agent</h3>
+          <span class="agent-badge">Background</span>
+        </div>
+        <p><strong>Role:</strong> The QA specialist who ensures code quality through comprehensive testing.</p>
+        <p><strong>Responsibilities:</strong></p>
+        <ul>
+          <li>Writes unit tests for new code</li>
+          <li>Creates integration tests</li>
+          <li>Ensures test coverage meets standards</li>
+          <li>Identifies edge cases and failure scenarios</li>
+          <li>Validates existing tests still pass</li>
+        </ul>
+        <p><strong>Tools Available:</strong> Full file operations, test execution</p>
+      </div>
+
+      <div class="agent-card">
+        <div class="agent-header">
+          <span class="agent-icon">🔮</span>
+          <h3>Review Agent</h3>
+          <span class="agent-badge">Background</span>
+        </div>
+        <p><strong>Role:</strong> The code reviewer who provides constructive feedback on quality and best practices.</p>
+        <p><strong>Responsibilities:</strong></p>
+        <ul>
+          <li>Reviews code for quality issues</li>
+          <li>Checks adherence to best practices</li>
+          <li>Identifies potential bugs or security issues</li>
+          <li>Suggests improvements and optimizations</li>
+          <li>Ensures consistency with project standards</li>
+        </ul>
+        <p><strong>Tools Available:</strong> File operations (read-only), analysis tools</p>
+      </div>
+    </section>
+
+    <section class="docs-section">
+      <h2 id="how-it-works">How It Works</h2>
+      
+      <div class="workflow-step">
+        <div class="step-number">1</div>
+        <div class="step-content">
+          <h3>User Request</h3>
+          <p>You chat with the Coordinator agent through the REPL:</p>
+          <div class="example-prompt">
+            <div class="prompt-icon">💬</div>
+            <div class="prompt-text">implement JWT authentication with tests</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="workflow-step">
+        <div class="step-number">2</div>
+        <div class="step-content">
+          <h3>Task Delegation</h3>
+          <p>The Coordinator analyzes your request and creates tasks for specialized agents:</p>
+          <ul>
+            <li>🏛️ Planning: "Design JWT auth architecture"</li>
+            <li>🔑 Implementation: "Implement JWT middleware"</li>
+            <li>🔑 Implementation: "Implement token generation"</li>
+            <li>🦑 Testing: "Write JWT auth tests"</li>
+            <li>🔮 Review: "Review JWT implementation"</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="workflow-step">
+        <div class="step-number">3</div>
+        <div class="step-content">
+          <h3>Parallel Execution</h3>
+          <p>Background agents work on their tasks simultaneously. You can see them in the task queue:</p>
+          <div class="code-block">
+            <pre><code>🏛️ Planning: Design JWT auth... [IN PROGRESS]
+🔑 Implementation: JWT middleware... [QUEUED]
+🦑 Testing: Write tests... [QUEUED]</code></pre>
+          </div>
+        </div>
+      </div>
+
+      <div class="workflow-step">
+        <div class="step-number">4</div>
+        <div class="step-content">
+          <h3>Communication</h3>
+          <p>Agents communicate through the EventBus to share progress and results. The Planning agent's output feeds into Implementation agents, which then triggers Testing and Review.</p>
+        </div>
+      </div>
+
+      <div class="workflow-step">
+        <div class="step-number">5</div>
+        <div class="step-content">
+          <h3>Coordination</h3>
+          <p>The Coordinator monitors all agents, handles dependencies, and ensures tasks complete in the correct order. It synthesizes results and presents them to you.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="docs-section">
+      <h2 id="benefits">Benefits of Multi-Agent Architecture</h2>
+      
+      <div class="benefit-grid">
+        <div class="benefit-card">
+          <div class="benefit-icon">⚡</div>
+          <h3>Parallel Execution</h3>
+          <p>Multiple agents work simultaneously, dramatically reducing time for complex tasks.</p>
+        </div>
+
+        <div class="benefit-card">
+          <div class="benefit-icon">🎯</div>
+          <h3>Specialization</h3>
+          <p>Each agent is optimized for its specific role, resulting in higher quality output.</p>
+        </div>
+
+        <div class="benefit-card">
+          <div class="benefit-icon">🔄</div>
+          <h3>Separation of Concerns</h3>
+          <p>Code, tests, and review happen independently, ensuring quality checks.</p>
+        </div>
+
+        <div class="benefit-card">
+          <div class="benefit-icon">🛡️</div>
+          <h3>Safety</h3>
+          <p>Background agents have limited tool access, preventing unintended actions.</p>
+        </div>
+
+        <div class="benefit-card">
+          <div class="benefit-icon">📈</div>
+          <h3>Scalability</h3>
+          <p>System scales naturally - more complex tasks just spawn more agents.</p>
+        </div>
+
+        <div class="benefit-card">
+          <div class="benefit-icon">🔍</div>
+          <h3>Transparency</h3>
+          <p>See exactly what each agent is doing in real-time through the task queue.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="docs-section">
+      <h2 id="task-lifecycle">Task Lifecycle</h2>
+      <p>Understanding how tasks flow through the system:</p>
+
+      <div class="lifecycle-flow">
+        <div class="lifecycle-stage">
+          <div class="stage-badge pending">PENDING</div>
+          <p>Task created by Coordinator, waiting for agent assignment</p>
+        </div>
+        
+        <div class="flow-arrow">→</div>
+        
+        <div class="lifecycle-stage">
+          <div class="stage-badge in-progress">IN PROGRESS</div>
+          <p>Agent actively working on the task</p>
+        </div>
+        
+        <div class="flow-arrow">→</div>
+        
+        <div class="lifecycle-stage">
+          <div class="stage-badge completed">COMPLETED</div>
+          <p>Agent finished, result available</p>
+        </div>
+      </div>
+
+      <p>Failed tasks are automatically retried or escalated to the Coordinator for manual intervention.</p>
+    </section>
+
+    <section class="docs-section">
+      <h2 id="coordination-patterns">Common Coordination Patterns</h2>
+
+      <div class="pattern-card">
+        <h3>🔄 Sequential Pipeline</h3>
+        <p>Tasks that must happen in order:</p>
+        <div class="code-block">
+          <pre><code>Planning → Implementation → Testing → Review</code></pre>
+        </div>
+      </div>
+
+      <div class="pattern-card">
+        <h3>⚡ Parallel Execution</h3>
+        <p>Independent tasks running simultaneously:</p>
+        <div class="code-block">
+          <pre><code>Implementation (API) ║ Implementation (UI) ║ Documentation</code></pre>
+        </div>
+      </div>
+
+      <div class="pattern-card">
+        <h3>🌳 Fan-out / Fan-in</h3>
+        <p>One task spawns many, then results merge:</p>
+        <div class="code-block">
+          <pre><code>Planning
+  ├─ Implementation 1 ┐
+  ├─ Implementation 2 ├─→ Review
+  └─ Implementation 3 ┘</code></pre>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <div slot="toc">
+    <nav class="toc-nav">
+      <a href="#overview">Overview</a>
+      <a href="#agent-roles">Agent Roles</a>
+      <a href="#how-it-works">How It Works</a>
+      <a href="#benefits">Benefits</a>
+      <a href="#task-lifecycle">Task Lifecycle</a>
+      <a href="#coordination-patterns">Coordination Patterns</a>
+    </nav>
+  </div>
+</DocsLayout>
+
+<style>
+  /* Reuse styles from quickstart plus new ones */
+  :root {
+    --color-bg: #0a0a0a;
+    --color-surface: #111111;
+    --color-surface-hover: #1a1a1a;
+    --color-border: #222222;
+    --color-text: #e5e5e5;
+    --color-text-secondary: #a3a3a3;
+    --color-text-tertiary: #737373;
+    --color-primary: #00ff88;
+    --color-primary-dim: #00cc6a;
+    --color-info: #00a8ff;
+    --color-warning: #ffa500;
+  }
+
+  .docs-header {
+    margin-bottom: 3rem;
+    padding-bottom: 2rem;
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .docs-header h1 {
+    font-size: 3rem;
+    font-weight: 700;
+    margin-bottom: 1rem;
+    background: linear-gradient(135deg, var(--color-primary) 0%, #00ccff 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .lead {
+    font-size: 1.25rem;
+    color: var(--color-text-secondary);
+    line-height: 1.6;
+  }
+
+  .content {
+    display: flex;
+    flex-direction: column;
+    gap: 3rem;
+  }
+
+  .docs-section h2 {
+    font-size: 1.75rem;
+    font-weight: 600;
+    margin-bottom: 1.5rem;
+    color: var(--color-text);
+    scroll-margin-top: 100px;
+  }
+
+  .docs-section h3 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin: 1.5rem 0 1rem;
+    color: var(--color-text);
+  }
+
+  .docs-section p {
+    margin-bottom: 1rem;
+    color: var(--color-text-secondary);
+    line-height: 1.8;
+  }
+
+  .docs-section ul {
+    margin: 1rem 0 1.5rem 1.5rem;
+    color: var(--color-text-secondary);
+    line-height: 1.8;
+  }
+
+  .docs-section li {
+    margin-bottom: 0.5rem;
+  }
+
+  /* Architecture Diagram */
+  .architecture-diagram {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2rem;
+    padding: 3rem;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+    margin: 2rem 0;
+  }
+
+  .diagram-box {
+    padding: 1.5rem 2rem;
+    background: linear-gradient(135deg, rgba(0, 255, 136, 0.1), rgba(0, 204, 255, 0.1));
+    border: 2px solid var(--color-primary);
+    border-radius: 12px;
+    text-align: center;
+    min-width: 200px;
+  }
+
+  .diagram-box.coordinator {
+    border-color: var(--color-primary);
+    box-shadow: 0 0 20px rgba(0, 255, 136, 0.3);
+  }
+
+  .box-icon {
+    font-size: 3rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .box-title {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--color-primary);
+    margin-bottom: 0.5rem;
+  }
+
+  .box-desc {
+    font-size: 0.9rem;
+    color: var(--color-text-secondary);
+  }
+
+  .diagram-arrow {
+    font-size: 1.25rem;
+    color: var(--color-primary);
+    font-weight: 600;
+  }
+
+  .diagram-agents {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1.5rem;
+    width: 100%;
+  }
+
+  .diagram-box.agent {
+    border-color: var(--color-info);
+    background: linear-gradient(135deg, rgba(0, 168, 255, 0.1), rgba(0, 204, 255, 0.1));
+  }
+
+  .diagram-box.agent .box-title {
+    color: var(--color-info);
+  }
+
+  /* Agent Cards */
+  .agent-card {
+    padding: 2rem;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-left: 4px solid var(--color-primary);
+    border-radius: 8px;
+    margin: 1.5rem 0;
+  }
+
+  .agent-header {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .agent-icon {
+    font-size: 2.5rem;
+  }
+
+  .agent-header h3 {
+    margin: 0;
+    flex: 1;
+    color: var(--color-primary);
+  }
+
+  .agent-badge {
+    padding: 0.25rem 0.75rem;
+    background: rgba(0, 255, 136, 0.1);
+    border: 1px solid var(--color-primary);
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--color-primary);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .agent-card p strong {
+    color: var(--color-primary);
+  }
+
+  /* Workflow Steps */
+  .workflow-step {
+    display: flex;
+    gap: 2rem;
+    margin: 2rem 0;
+  }
+
+  .step-number {
+    flex-shrink: 0;
+    width: 3rem;
+    height: 3rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, var(--color-primary), var(--color-info));
+    border-radius: 50%;
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--color-bg);
+  }
+
+  .step-content {
+    flex: 1;
+  }
+
+  .step-content h3 {
+    margin: 0 0 1rem 0;
+  }
+
+  /* Example Prompt */
+  .example-prompt {
+    display: flex;
+    gap: 1rem;
+    padding: 1.25rem;
+    background: linear-gradient(135deg, rgba(0, 255, 136, 0.05), rgba(0, 204, 255, 0.05));
+    border: 1px solid rgba(0, 255, 136, 0.2);
+    border-radius: 8px;
+    margin: 1rem 0;
+  }
+
+  .prompt-icon {
+    font-size: 1.5rem;
+    flex-shrink: 0;
+  }
+
+  .prompt-text {
+    font-family: 'SF Mono', 'Monaco', 'Consolas', monospace;
+    font-size: 0.95rem;
+    color: var(--color-text);
+    line-height: 1.6;
+  }
+
+  /* Code Blocks */
+  .code-block {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    overflow: hidden;
+    margin: 1rem 0;
+  }
+
+  pre {
+    padding: 1.5rem;
+    margin: 0;
+    overflow-x: auto;
+  }
+
+  code {
+    font-family: 'SF Mono', 'Monaco', 'Consolas', monospace;
+    font-size: 0.9rem;
+    line-height: 1.6;
+    color: var(--color-text);
+  }
+
+  /* Benefit Grid */
+  .benefit-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1.5rem;
+    margin: 2rem 0;
+  }
+
+  .benefit-card {
+    padding: 1.5rem;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    text-align: center;
+  }
+
+  .benefit-icon {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+  }
+
+  .benefit-card h3 {
+    margin: 0 0 0.75rem 0;
+    color: var(--color-primary);
+  }
+
+  .benefit-card p {
+    margin: 0;
+    font-size: 0.9rem;
+  }
+
+  /* Lifecycle Flow */
+  .lifecycle-flow {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    padding: 2rem;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    margin: 1.5rem 0;
+    overflow-x: auto;
+  }
+
+  .lifecycle-stage {
+    flex: 1;
+    text-align: center;
+    min-width: 200px;
+  }
+
+  .stage-badge {
+    display: inline-block;
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+    font-weight: 600;
+    font-size: 0.85rem;
+    margin-bottom: 1rem;
+    letter-spacing: 0.05em;
+  }
+
+  .stage-badge.pending {
+    background: rgba(255, 165, 0, 0.2);
+    color: var(--color-warning);
+    border: 1px solid var(--color-warning);
+  }
+
+  .stage-badge.in-progress {
+    background: rgba(0, 168, 255, 0.2);
+    color: var(--color-info);
+    border: 1px solid var(--color-info);
+  }
+
+  .stage-badge.completed {
+    background: rgba(0, 255, 136, 0.2);
+    color: var(--color-primary);
+    border: 1px solid var(--color-primary);
+  }
+
+  .flow-arrow {
+    font-size: 2rem;
+    color: var(--color-primary);
+    flex-shrink: 0;
+  }
+
+  .lifecycle-stage p {
+    font-size: 0.85rem;
+  }
+
+  /* Pattern Cards */
+  .pattern-card {
+    padding: 1.5rem;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    margin: 1.5rem 0;
+  }
+
+  .pattern-card h3 {
+    margin: 0 0 1rem 0;
+  }
+
+  .pattern-card p {
+    margin-bottom: 1rem;
+  }
+
+  /* Table of Contents */
+  .toc-nav {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .toc-nav a {
+    padding: 0.5rem 0.75rem;
+    color: var(--color-text-secondary);
+    text-decoration: none;
+    font-size: 0.85rem;
+    border-left: 2px solid transparent;
+    transition: all 0.2s;
+  }
+
+  .toc-nav a:hover {
+    color: var(--color-text);
+    border-left-color: var(--color-primary);
+  }
+
+  .toc-nav a.active {
+    color: var(--color-primary);
+    border-left-color: var(--color-primary);
+  }
+</style>
+
+<script>
+  // Highlight current TOC section
+  const observerOptions = {
+    rootMargin: '-100px 0px -66%',
+    threshold: 0
+  };
+
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach(entry => {
+      const id = entry.target.id;
+      const link = document.querySelector(`.toc-nav a[href="#${id}"]`);
+      
+      if (entry.isIntersecting) {
+        document.querySelectorAll('.toc-nav a').forEach(a => a.classList.remove('active'));
+        link?.classList.add('active');
+      }
+    });
+  }, observerOptions);
+
+  document.querySelectorAll('h2[id], h3[id]').forEach(heading => {
+    observer.observe(heading);
+  });
+</script>

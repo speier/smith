@@ -27,9 +27,12 @@ CREATE TABLE IF NOT EXISTS file_locks (
 CREATE TABLE IF NOT EXISTS task_assignments (
     task_id TEXT PRIMARY KEY,
     title TEXT NOT NULL DEFAULT '',
+    description TEXT NOT NULL DEFAULT '',
     agent_id TEXT,
     agent_role TEXT CHECK(agent_role IN ('planning', 'implementation', 'testing', 'review', '') OR agent_role IS NULL),
     status TEXT NOT NULL CHECK(status IN ('backlog', 'wip', 'review', 'done')) DEFAULT 'backlog',
+    result TEXT,
+    error TEXT,
     started_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     completed_at DATETIME,

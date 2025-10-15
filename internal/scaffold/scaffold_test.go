@@ -75,7 +75,7 @@ func TestInitProjectFilesIdempotent(t *testing.T) {
 	}
 
 	// Verify all files were created
-	files := []string{"kanban.md", "config.yaml", ".gitignore"}
+	files := []string{"config.yaml", ".gitignore"}
 	for _, file := range files {
 		path := filepath.Join(smithDir, file)
 		if _, err := os.Stat(path); os.IsNotExist(err) {

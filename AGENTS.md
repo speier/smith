@@ -96,6 +96,35 @@ printf "This works everywhere\n" > file.txt
 go run script.go  # Better: write a small Go program
 ```
 
+### Rule #6: All Tests Must Pass 100%
+**NO EXCEPTIONS** - Every test run must show 100% passing tests.
+
+**Test Requirements:**
+- ✅ Run `go test ./...` after making code changes
+- ✅ ALL tests must pass - no failures, no skips (unless pre-existing)
+- ✅ Fix any test failures before reporting completion
+- ✅ Aim for >80% code coverage on new code
+- ✅ Use table-driven tests where appropriate
+
+**When Tests Fail:**
+1. ❌ DO NOT report "done" if tests are failing
+2. ✅ Fix the failing tests immediately
+3. ✅ Re-run tests until 100% pass
+4. ✅ Only then report completion
+
+**Example - CORRECT:**
+```
+Running: go test ./...
+✅ All tests pass! (100%)
+```
+
+**Example - WRONG:**
+```
+❌ "Most tests pass, just one small failure"
+❌ "Tests pass except for that edge case"
+❌ "Done! (Tests are failing but the feature works)"
+```
+
 ---
 
 ## � Development Workflow
@@ -108,12 +137,13 @@ go run script.go  # Better: write a small Go program
 
 ### When User Asks to Build/Test
 1. **PREFER `go test ./...` over building** - Run tests to validate changes
-2. Only build when specifically asked or tests don't exist yet
-3. Use `go build` directly in terminal (no wrapper scripts)
-4. Run the binary directly for manual testing
-5. Report results
-6. **DO NOT** create wrapper scripts unless explicitly requested
-7. **DO NOT** automatically build after making code changes - just run tests
+2. **ALL TESTS MUST PASS 100%** - No failing tests are acceptable
+3. Only build when specifically asked or tests don't exist yet
+4. Use `go build` directly in terminal (no wrapper scripts)
+5. Run the binary directly for manual testing
+6. Report results
+7. **DO NOT** create wrapper scripts unless explicitly requested
+8. **DO NOT** automatically build after making code changes - just run tests
 
 ### When User Asks for Documentation
 1. Wait for explicit request: "create a README" or "document this feature"
@@ -145,12 +175,12 @@ go run script.go  # Better: write a small Go program
 ### When Making Changes
 1. Make the change requested
 2. **Run tests IF tests exist** to validate: `go test ./...`
-3. If tests fail, fix them
+3. **ALL TESTS MUST PASS 100%** - If tests fail, fix them before reporting
 4. Report what was done (and test results if tests were run)
 5. Stop and wait for next instruction
 6. **DO NOT** automatically build unless explicitly asked
 7. **DO NOT** create documentation about the change unless asked
-8. **DO NOT** run tests for trivial changes that don't affect code behavior (e.g., styling changes, prompt text updates)
+8. **DO NOT** run tests for trivial changes (prompt text, styling, documentation-only changes)
 
 ---
 

@@ -26,12 +26,6 @@ type AgentConfigDef struct {
 
 // InitProjectFiles creates the default files for a Smith project
 func InitProjectFiles(smithDir string) error {
-	// Create default kanban.md if it doesn't exist
-	kanbanPath := filepath.Join(smithDir, "kanban.md")
-	if err := createDefaultKanban(kanbanPath); err != nil {
-		return fmt.Errorf("failed to create kanban: %w", err)
-	}
-
 	// Create default config.yaml if it doesn't exist
 	configPath := filepath.Join(smithDir, "config.yaml")
 	if err := createDefaultConfig(configPath); err != nil {
@@ -45,30 +39,6 @@ func InitProjectFiles(smithDir string) error {
 	}
 
 	return nil
-}
-
-// createDefaultKanban creates a default kanban board if it doesn't exist
-func createDefaultKanban(path string) error {
-	if fileExists(path) {
-		return nil
-	}
-
-	content := `# Agent Kanban Board
-
-## Backlog
-<!-- Tasks waiting to be picked up -->
-
-## WIP
-<!-- Work in progress - tasks currently being worked on -->
-
-## Review
-<!-- Tasks pending review -->
-
-## Done
-<!-- Completed tasks -->
-`
-
-	return os.WriteFile(path, []byte(content), 0644)
 }
 
 // createDefaultConfig creates a default config file if it doesn't exist

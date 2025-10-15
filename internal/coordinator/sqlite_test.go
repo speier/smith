@@ -37,7 +37,7 @@ func TestSQLiteCoordinator(t *testing.T) {
 		t.Errorf("expected 0 backlog tasks, got %d", stats.Backlog)
 	}
 
-	// Add a task to the database first (simulate kanban sync)
+	// Add a task to the database
 	ctx := context.Background()
 	_, err = coord.db.ExecContext(ctx, `
 		INSERT INTO task_assignments (task_id, agent_id, agent_role, status)

@@ -33,12 +33,6 @@ func TestInitProjectStorage(t *testing.T) {
 		t.Error("smith.db was not created")
 	}
 
-	// Verify kanban.md was created
-	kanbanPath := filepath.Join(smithDir, "kanban.md")
-	if _, err := os.Stat(kanbanPath); os.IsNotExist(err) {
-		t.Error("kanban.md was not created")
-	}
-
 	// Verify config.yaml was created
 	configPath := filepath.Join(smithDir, "config.yaml")
 	if _, err := os.Stat(configPath); os.IsNotExist(err) {

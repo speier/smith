@@ -1,0 +1,699 @@
+---
+import DocsLayout from '../../layouts/DocsLayout.astro';
+---
+
+<DocsLayout title="Quickstart" description="Get started with Smith in 5 minutes">
+  <div class="docs-header">
+    <h1>Quickstart</h1>
+    <p class="lead">Get productive with Smith in 5 minutes using the interactive REPL.</p>
+  </div>
+
+  <div class="content">
+    <section class="docs-section">
+      <h2 id="before-you-begin">Before you begin</h2>
+      <p>Make sure you have:</p>
+      <ul>
+        <li>Go 1.21 or later installed</li>
+        <li>A terminal open in a code project</li>
+        <li>Git repository (recommended for full workflow demonstration)</li>
+      </ul>
+    </section>
+
+    <section class="docs-section">
+      <h2 id="step-1-install">Step 1: Install Smith</h2>
+      
+      <div class="tabs">
+        <div class="tab-buttons">
+          <button class="tab-btn active" data-tab="install-script">Install Script</button>
+          <button class="tab-btn" data-tab="go-install">Go Install</button>
+          <button class="tab-btn" data-tab="build-source">Build from Source</button>
+        </div>
+
+        <div class="tab-content active" data-tab="install-script">
+          <div class="code-block">
+            <div class="code-header">
+              <span class="code-lang">bash</span>
+              <button class="copy-btn" data-copy="curl -fsSL https://smith.dev/install | sh">Copy</button>
+            </div>
+            <pre><code>curl -fsSL https://smith.dev/install | sh</code></pre>
+          </div>
+          <p class="note">
+            <strong>Note:</strong> The install script will download the latest release and add it to your PATH.
+          </p>
+        </div>
+
+        <div class="tab-content" data-tab="go-install">
+          <div class="code-block">
+            <div class="code-header">
+              <span class="code-lang">bash</span>
+              <button class="copy-btn" data-copy="go install github.com/speier/smith@latest">Copy</button>
+            </div>
+            <pre><code>go install github.com/speier/smith@latest</code></pre>
+          </div>
+        </div>
+
+        <div class="tab-content" data-tab="build-source">
+          <div class="code-block">
+            <div class="code-header">
+              <span class="code-lang">bash</span>
+              <button class="copy-btn" data-copy="git clone https://github.com/speier/smith.git
+cd smith
+make build">Copy</button>
+            </div>
+            <pre><code>git clone https://github.com/speier/smith.git
+cd smith
+make build</code></pre>
+          </div>
+        </div>
+      </div>
+
+      <p>Verify the installation:</p>
+      <div class="code-block">
+        <div class="code-header">
+          <span class="code-lang">bash</span>
+          <button class="copy-btn" data-copy="smith --version">Copy</button>
+        </div>
+        <pre><code>smith --version</code></pre>
+      </div>
+    </section>
+
+    <section class="docs-section">
+      <h2 id="step-2-start-repl">Step 2: Start the REPL</h2>
+      <p>Navigate to your project and start Smith's interactive session:</p>
+      
+      <div class="code-block">
+        <div class="code-header">
+          <span class="code-lang">bash</span>
+          <button class="copy-btn" data-copy="cd /path/to/your/project
+smith">Copy</button>
+        </div>
+        <pre><code># Navigate to your project
+cd /path/to/your/project
+
+# Start interactive session
+smith</code></pre>
+      </div>
+
+      <p>You'll see Smith's welcome screen in a full-screen terminal interface with:</p>
+      <ul>
+        <li>Task queue showing active agents</li>
+        <li>Interactive chat input</li>
+        <li>Real-time agent status</li>
+      </ul>
+    </section>
+
+    <section class="docs-section">
+      <h2 id="step-3-explore">Step 3: Explore your codebase</h2>
+      <p>Let's start by having Smith understand your project. Try one of these questions:</p>
+
+      <div class="example-prompt">
+        <div class="prompt-icon">💬</div>
+        <div class="prompt-text">analyze this codebase and explain the overall architecture</div>
+      </div>
+
+      <div class="example-prompt">
+        <div class="prompt-icon">💬</div>
+        <div class="prompt-text">what technologies and frameworks does this project use?</div>
+      </div>
+
+      <div class="example-prompt">
+        <div class="prompt-icon">💬</div>
+        <div class="prompt-text">where are the main entry points and how is testing set up?</div>
+      </div>
+
+      <p>Smith reads your files contextually and provides comprehensive insights about your project structure.</p>
+    </section>
+
+    <section class="docs-section">
+      <h2 id="step-4-first-change">Step 4: Make your first code change</h2>
+      <p>Now let's see Smith's multi-agent system in action:</p>
+
+      <div class="example-prompt">
+        <div class="prompt-icon">💬</div>
+        <div class="prompt-text">add comprehensive logging to the main application startup</div>
+      </div>
+
+      <p>Smith will:</p>
+      <ol>
+        <li><strong>Planning Agent:</strong> Analyze your current setup and create a plan</li>
+        <li><strong>Implementation Agent:</strong> Write the logging code</li>
+        <li><strong>Testing Agent:</strong> Create or update tests</li>
+        <li><strong>Review Agent:</strong> Check code quality and best practices</li>
+      </ol>
+
+      <p>You'll see each agent working in the task queue and can review all changes before they're applied.</p>
+    </section>
+
+    <section class="docs-section">
+      <h2 id="step-5-multi-agent">Step 5: Experience multi-agent workflows</h2>
+      <p>Try a complex task that showcases parallel agent execution:</p>
+
+      <div class="example-prompt">
+        <div class="prompt-icon">💬</div>
+        <div class="prompt-text">implement JWT authentication with tests and documentation</div>
+      </div>
+
+      <p>Watch as multiple agents work in parallel:</p>
+      <ul>
+        <li>Planning agent breaks down the feature</li>
+        <li>Implementation agents work on different components simultaneously</li>
+        <li>Testing agents write unit and integration tests</li>
+        <li>Review agent ensures quality standards</li>
+      </ul>
+    </section>
+
+    <section class="docs-section">
+      <h2 id="step-6-git">Step 6: Handle version control</h2>
+      <p>Smith makes Git operations conversational:</p>
+
+      <div class="example-prompt">
+        <div class="prompt-icon">💬</div>
+        <div class="prompt-text">review my uncommitted changes and suggest improvements</div>
+      </div>
+
+      <div class="example-prompt">
+        <div class="prompt-icon">💬</div>
+        <div class="prompt-text">create a well-structured commit with a descriptive message</div>
+      </div>
+
+      <div class="example-prompt">
+        <div class="prompt-icon">💬</div>
+        <div class="prompt-text">analyze the last few commits and identify any issues</div>
+      </div>
+    </section>
+
+    <section class="docs-section">
+      <h2 id="essential-controls">Essential controls</h2>
+      
+      <table class="controls-table">
+        <thead>
+          <tr>
+            <th>Action</th>
+            <th>Description</th>
+            <th>Keyboard Shortcut</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Send message</td>
+            <td>Submit a task or question</td>
+            <td><code>Enter</code></td>
+          </tr>
+          <tr>
+            <td>Multi-line input</td>
+            <td>Write longer prompts</td>
+            <td><code>Shift+Enter</code></td>
+          </tr>
+          <tr>
+            <td>View tasks</td>
+            <td>See agent queue</td>
+            <td><code>Tab</code></td>
+          </tr>
+          <tr>
+            <td>Clear screen</td>
+            <td>Clear chat history</td>
+            <td><code>Ctrl+L</code></td>
+          </tr>
+          <tr>
+            <td>Exit session</td>
+            <td>Leave Smith</td>
+            <td><code>Ctrl+C</code> or type <code>exit</code></td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="docs-section">
+      <h2 id="best-practices">Collaboration best practices</h2>
+      
+      <div class="tip-box">
+        <h3>Be specific with context</h3>
+        <p><strong>Instead of:</strong> "fix the bug"</p>
+        <p><strong>Try:</strong> "fix the authentication timeout issue where users get logged out after 5 minutes instead of the configured 30 minutes"</p>
+      </div>
+
+      <div class="tip-box">
+        <h3>Let agents work in parallel</h3>
+        <p>For larger features, Smith automatically delegates to multiple agents working simultaneously. You'll see the task queue fill up and agents completing work in parallel.</p>
+      </div>
+
+      <div class="tip-box">
+        <h3>Use safety levels appropriately</h3>
+        <p>Start with <code>--safety medium</code> for development. Use <code>--safety high</code> for production changes.</p>
+      </div>
+
+      <div class="tip-box">
+        <h3>Review changes before applying</h3>
+        <p>Smith shows you exactly what will be modified. Take time to review agent proposals before accepting them.</p>
+      </div>
+    </section>
+
+    <section class="docs-section">
+      <h2 id="whats-next">What's next?</h2>
+      
+      <div class="next-steps">
+        <a href="/docs/multi-agent-system" class="next-step-card">
+          <div class="next-step-icon">🤖</div>
+          <div class="next-step-content">
+            <h3>Multi-Agent System</h3>
+            <p>Learn how Smith's agent architecture works</p>
+          </div>
+        </a>
+
+        <a href="/docs/using-repl" class="next-step-card">
+          <div class="next-step-icon">💻</div>
+          <div class="next-step-content">
+            <h3>Using the REPL</h3>
+            <p>Master the interactive terminal interface</p>
+          </div>
+        </a>
+
+        <a href="/docs/safety-levels" class="next-step-card">
+          <div class="next-step-icon">🛡️</div>
+          <div class="next-step-content">
+            <h3>Safety Levels</h3>
+            <p>Configure safety and permissions</p>
+          </div>
+        </a>
+
+        <a href="/docs/examples" class="next-step-card">
+          <div class="next-step-icon">📖</div>
+          <div class="next-step-content">
+            <h3>Example Workflows</h3>
+            <p>Explore real-world scenarios</p>
+          </div>
+        </a>
+      </div>
+    </section>
+  </div>
+
+  <div slot="toc">
+    <nav class="toc-nav">
+      <a href="#before-you-begin">Before you begin</a>
+      <a href="#step-1-install">Install Smith</a>
+      <a href="#step-2-start-repl">Start the REPL</a>
+      <a href="#step-3-explore">Explore codebase</a>
+      <a href="#step-4-first-change">First code change</a>
+      <a href="#step-5-multi-agent">Multi-agent workflows</a>
+      <a href="#step-6-git">Version control</a>
+      <a href="#essential-controls">Essential controls</a>
+      <a href="#best-practices">Best practices</a>
+      <a href="#whats-next">What's next?</a>
+    </nav>
+  </div>
+</DocsLayout>
+
+<style>
+  :root {
+    --color-bg: #0a0a0a;
+    --color-surface: #111111;
+    --color-surface-hover: #1a1a1a;
+    --color-border: #222222;
+    --color-text: #e5e5e5;
+    --color-text-secondary: #a3a3a3;
+    --color-text-tertiary: #737373;
+    --color-primary: #00ff88;
+    --color-primary-dim: #00cc6a;
+    --color-warning: #ffa500;
+    --color-info: #00a8ff;
+  }
+
+  .docs-header {
+    margin-bottom: 3rem;
+    padding-bottom: 2rem;
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .docs-header h1 {
+    font-size: 3rem;
+    font-weight: 700;
+    margin-bottom: 1rem;
+    background: linear-gradient(135deg, var(--color-primary) 0%, #00ccff 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .lead {
+    font-size: 1.25rem;
+    color: var(--color-text-secondary);
+    line-height: 1.6;
+  }
+
+  .content {
+    display: flex;
+    flex-direction: column;
+    gap: 3rem;
+  }
+
+  .docs-section h2 {
+    font-size: 1.75rem;
+    font-weight: 600;
+    margin-bottom: 1.5rem;
+    color: var(--color-text);
+    scroll-margin-top: 100px;
+  }
+
+  .docs-section h3 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin: 2rem 0 1rem;
+    color: var(--color-text);
+  }
+
+  .docs-section p {
+    margin-bottom: 1rem;
+    color: var(--color-text-secondary);
+    line-height: 1.8;
+  }
+
+  .docs-section ul,
+  .docs-section ol {
+    margin: 1rem 0 1.5rem 1.5rem;
+    color: var(--color-text-secondary);
+    line-height: 1.8;
+  }
+
+  .docs-section li {
+    margin-bottom: 0.5rem;
+  }
+
+  .docs-section li strong {
+    color: var(--color-primary);
+  }
+
+  /* Code Blocks */
+  .code-block {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    overflow: hidden;
+    margin: 1.5rem 0;
+  }
+
+  .code-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem 1rem;
+    background: rgba(0, 255, 136, 0.05);
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .code-lang {
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    color: var(--color-primary);
+    letter-spacing: 0.05em;
+  }
+
+  .copy-btn {
+    padding: 0.25rem 0.75rem;
+    background: transparent;
+    border: 1px solid var(--color-border);
+    border-radius: 4px;
+    color: var(--color-text-secondary);
+    font-size: 0.75rem;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .copy-btn:hover {
+    background: var(--color-surface-hover);
+    color: var(--color-primary);
+    border-color: var(--color-primary);
+  }
+
+  pre {
+    padding: 1.5rem;
+    margin: 0;
+    overflow-x: auto;
+  }
+
+  code {
+    font-family: 'SF Mono', 'Monaco', 'Consolas', monospace;
+    font-size: 0.9rem;
+    line-height: 1.6;
+    color: var(--color-text);
+  }
+
+  p code,
+  li code,
+  td code {
+    background: var(--color-surface);
+    padding: 0.2rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    color: var(--color-primary);
+  }
+
+  /* Tabs */
+  .tabs {
+    margin: 1.5rem 0;
+  }
+
+  .tab-buttons {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: -1px;
+  }
+
+  .tab-btn {
+    padding: 0.75rem 1.5rem;
+    background: transparent;
+    border: 1px solid var(--color-border);
+    border-bottom: none;
+    border-radius: 8px 8px 0 0;
+    color: var(--color-text-secondary);
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .tab-btn:hover {
+    background: var(--color-surface-hover);
+    color: var(--color-text);
+  }
+
+  .tab-btn.active {
+    background: var(--color-surface);
+    color: var(--color-primary);
+    border-color: var(--color-border);
+  }
+
+  .tab-content {
+    display: none;
+  }
+
+  .tab-content.active {
+    display: block;
+  }
+
+  /* Example Prompts */
+  .example-prompt {
+    display: flex;
+    gap: 1rem;
+    padding: 1.25rem;
+    background: linear-gradient(135deg, rgba(0, 255, 136, 0.05), rgba(0, 204, 255, 0.05));
+    border: 1px solid rgba(0, 255, 136, 0.2);
+    border-radius: 8px;
+    margin: 1rem 0;
+  }
+
+  .prompt-icon {
+    font-size: 1.5rem;
+    flex-shrink: 0;
+  }
+
+  .prompt-text {
+    font-family: 'SF Mono', 'Monaco', 'Consolas', monospace;
+    font-size: 0.95rem;
+    color: var(--color-text);
+    line-height: 1.6;
+  }
+
+  /* Note Box */
+  .note {
+    padding: 1rem 1.25rem;
+    background: rgba(0, 168, 255, 0.05);
+    border-left: 3px solid var(--color-info);
+    border-radius: 4px;
+    margin: 1rem 0;
+    color: var(--color-text-secondary);
+    font-size: 0.9rem;
+  }
+
+  .note strong {
+    color: var(--color-info);
+  }
+
+  /* Controls Table */
+  .controls-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1.5rem 0;
+  }
+
+  .controls-table th {
+    text-align: left;
+    padding: 0.75rem;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    font-weight: 600;
+    color: var(--color-text);
+    font-size: 0.9rem;
+  }
+
+  .controls-table td {
+    padding: 0.75rem;
+    border: 1px solid var(--color-border);
+    color: var(--color-text-secondary);
+    font-size: 0.9rem;
+  }
+
+  .controls-table tr:hover {
+    background: rgba(0, 255, 136, 0.02);
+  }
+
+  /* Tip Boxes */
+  .tip-box {
+    padding: 1.5rem;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-left: 3px solid var(--color-primary);
+    border-radius: 8px;
+    margin: 1.5rem 0;
+  }
+
+  .tip-box h3 {
+    margin: 0 0 0.75rem 0;
+    color: var(--color-primary);
+    font-size: 1rem;
+  }
+
+  .tip-box p {
+    margin-bottom: 0.5rem;
+  }
+
+  .tip-box p:last-child {
+    margin-bottom: 0;
+  }
+
+  /* Next Steps Grid */
+  .next-steps {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1.5rem;
+    margin-top: 2rem;
+  }
+
+  .next-step-card {
+    display: flex;
+    gap: 1rem;
+    padding: 1.5rem;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    text-decoration: none;
+    transition: all 0.2s;
+  }
+
+  .next-step-card:hover {
+    background: var(--color-surface-hover);
+    border-color: var(--color-primary);
+    transform: translateY(-2px);
+  }
+
+  .next-step-icon {
+    font-size: 2rem;
+    flex-shrink: 0;
+  }
+
+  .next-step-content h3 {
+    margin: 0 0 0.5rem 0;
+    color: var(--color-text);
+    font-size: 1.1rem;
+  }
+
+  .next-step-content p {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: 0.9rem;
+  }
+
+  /* Table of Contents Navigation */
+  .toc-nav {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .toc-nav a {
+    padding: 0.5rem 0.75rem;
+    color: var(--color-text-secondary);
+    text-decoration: none;
+    font-size: 0.85rem;
+    border-left: 2px solid transparent;
+    transition: all 0.2s;
+  }
+
+  .toc-nav a:hover {
+    color: var(--color-text);
+    border-left-color: var(--color-primary);
+  }
+
+  .toc-nav a.active {
+    color: var(--color-primary);
+    border-left-color: var(--color-primary);
+  }
+</style>
+
+<script>
+  // Tab switching
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const tab = btn.dataset.tab;
+      const parent = btn.closest('.tabs');
+      
+      parent.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      parent.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+      
+      btn.classList.add('active');
+      parent.querySelector(`[data-tab="${tab}"].tab-content`).classList.add('active');
+    });
+  });
+
+  // Copy buttons
+  document.querySelectorAll('.copy-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const text = btn.dataset.copy;
+      navigator.clipboard.writeText(text);
+      const original = btn.textContent;
+      btn.textContent = 'Copied!';
+      setTimeout(() => btn.textContent = original, 2000);
+    });
+  });
+
+  // Highlight current TOC section
+  const observerOptions = {
+    rootMargin: '-100px 0px -66%',
+    threshold: 0
+  };
+
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach(entry => {
+      const id = entry.target.id;
+      const link = document.querySelector(`.toc-nav a[href="#${id}"]`);
+      
+      if (entry.isIntersecting) {
+        document.querySelectorAll('.toc-nav a').forEach(a => a.classList.remove('active'));
+        link?.classList.add('active');
+      }
+    });
+  }, observerOptions);
+
+  document.querySelectorAll('h2[id], h3[id]').forEach(heading => {
+    observer.observe(heading);
+  });
+</script>

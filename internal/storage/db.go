@@ -33,7 +33,7 @@ func InitProjectStorage(projectRoot string) (*DB, error) {
 		return nil, fmt.Errorf("failed to initialize database: %w", err)
 	}
 
-	// Create default project files (kanban, config, .gitignore)
+	// Create default project files (config, .gitignore)
 	if err := scaffold.InitProjectFiles(smithDir); err != nil {
 		return nil, err
 	}
@@ -52,6 +52,11 @@ func initDatabase(dbPath string) (*DB, error) {
 	// Configure connection pool
 	sqlDB.SetMaxOpenConns(25) // Allow multiple concurrent agents
 	sqlDB.SetMaxIdleConns(5)
+
+	// Set busy timeout for better concurrency handling
+	if _, err := sqlDB.Exec("PRAGMA busy_timeout=5000"); err != nil {
+		return nil, fmt.Errorf("failed to set busy timeout: %w", err)
+	}
 
 	// Enable WAL mode for better concurrency
 	if _, err := sqlDB.Exec("PRAGMA journal_mode=WAL"); err != nil {

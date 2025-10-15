@@ -10,9 +10,19 @@ type Coordinator interface {
 	EnsureDirectories() error
 	GetTaskStats() (*TaskStats, error)
 	GetAvailableTasks() ([]Task, error)
+	GetTasksByStatus(status string) ([]Task, error)
 	GetActiveLocks() ([]Lock, error)
 	GetMessages() ([]Message, error)
+
+	// Task lifecycle management
+	CreateTask(title, description, role string) (taskID string, err error)
 	ClaimTask(taskID, agent string) error
+	UpdateTaskStatus(taskID, status string) error
+	CompleteTask(taskID, result string) error
+	FailTask(taskID, errorMsg string) error
+	GetTask(taskID string) (*Task, error)
+
+	// File coordination
 	LockFiles(taskID, agent string, files []string) error
 }
 
