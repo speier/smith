@@ -59,10 +59,10 @@ import Layout from '../layouts/Layout.astro';
               <div class="terminal-title">smith</div>
             </div>
             <div class="terminal-content">
-              <div class="terminal-line"><span class="prompt">$</span> smith</div>
+              <div class="terminal-line"><span class="prompt">$</span>smith</div>
               <div class="terminal-line chat-user">💬 You: Add user authentication with JWT</div>
               <div class="terminal-line chat-agent">🏛️ Planning Agent: Breaking down into tasks...</div>
-              <div class="terminal-line chat-agent">� Implementation Agent: Creating auth middleware...</div>
+              <div class="terminal-line chat-agent">🔑 Implementation Agent: Creating auth middleware...</div>
               <div class="terminal-line chat-agent">🦑 Testing Agent: Writing test suite...</div>
               <div class="terminal-line chat-success">✓ Feature complete and tested</div>
             </div>
@@ -104,43 +104,42 @@ import Layout from '../layouts/Layout.astro';
               <div class="code-line"><span class="code-comment"># Chat while agents coordinate</span></div>
               <div class="code-line"><span class="code-string">💬 You: Add user authentication</span></div>
               <div class="code-line"><span class="code-info">🏛️ Planning Agent: Breaking into tasks...</span></div>
-              <div class="code-line"><span class="code-info">� Implementation Agent: Writing code...</span></div>
+              <div class="code-line"><span class="code-info">🔑 Implementation Agent: Writing code...</span></div>
               <div class="code-line"><span class="code-success">✓ Feature complete</span></div>
             </div>
           </div>
         </div>
 
-        <div class="use-case use-case-reverse">
-          <div class="use-case-content">
-            <div class="use-case-label">REAL-TIME</div>
-            <h3>Live coordination display</h3>
-            <p>
-              See exactly what's happening. The sidebar shows active agents, locked files, and task progress
-              in real-time. All agents coordinate through SQLite—preventing conflicts while working in parallel.
-              You stay in the loop without getting in the way.
-            </p>
-            <a href="#install" class="link-arrow">
-              Learn more
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                <path d="M6 3L11 8L6 13" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-              </svg>
-            </a>
-          </div>
-          <div class="use-case-visual">
-            <div class="code-block">
-              <div class="code-line"><span class="code-comment"># Live status updates</span></div>
-              <div class="code-line"><span class="code-info">┌─ Active Agents ─────┐</span></div>
-              <div class="code-line"><span class="code-info">│ ● Planning         │</span></div>
-              <div class="code-line"><span class="code-info">│ ● Implementation   │</span></div>
-              <div class="code-line"><span class="code-info">│ ○ Testing          │</span></div>
-              <div class="code-line"><span class="code-info">└────────────────────┘</span></div>
-              <div class="code-line"></div>
-              <div class="code-line"><span class="code-success">🔒 auth.go (locked by Implementation)</span></div>
-            </div>
+      <div class="use-case use-case-reverse">
+        <div class="use-case-content">
+          <div class="use-case-label">REAL-TIME</div>
+          <h3>See agents coordinate</h3>
+          <p>
+            Watch agents work in parallel while you chat. Each agent announces what it's doing, 
+            and you can see the coordination happening in real-time. File conflicts are prevented 
+            automatically—agents know what's locked and coordinate their work.
+          </p>
+          <a href="#install" class="link-arrow">
+            Learn more
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <path d="M6 3L11 8L6 13" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+          </a>
+        </div>
+        <div class="use-case-visual">
+          <div class="code-block">
+            <div class="code-line"><span class="code-comment"># Agents coordinate through chat</span></div>
+            <div class="code-line"><span class="code-string">💬 You: Add authentication to the API</span></div>
+            <div class="code-line"></div>
+            <div class="code-line"><span class="code-info">🏛️ Planning: Breaking into 3 tasks...</span></div>
+            <div class="code-line"><span class="code-info">🔑 Implementation: Creating auth middleware</span></div>
+            <div class="code-line"><span class="code-info">🔑 Implementation: Acquired lock on auth.go</span></div>
+            <div class="code-line"><span class="code-info">🦑 Testing: Waiting for auth.go...</span></div>
+            <div class="code-line"><span class="code-success">✓ auth.go written (lock released)</span></div>
+            <div class="code-line"><span class="code-info">🦑 Testing: Writing test suite...</span></div>
           </div>
         </div>
-
-        <div class="use-case">
+      </div>        <div class="use-case">
           <div class="use-case-content">
             <div class="use-case-label">ONE-SHOT</div>
             <h3>Execute and exit</h3>
@@ -230,18 +229,6 @@ import Layout from '../layouts/Layout.astro';
               </button>
             </div>
           </div>
-          <div class="install-method">
-            <h3>Go Install</h3>
-            <div class="code-block install-code">
-              <code>go install github.com/speier/smith@latest</code>
-              <button class="copy-btn" data-copy="go install github.com/speier/smith@latest">
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                  <rect x="5" y="5" width="9" height="9" rx="1" stroke="currentColor" stroke-width="1.5"/>
-                  <path d="M3 10V3C3 2.44772 3.44772 2 4 2H10" stroke="currentColor" stroke-width="1.5"/>
-                </svg>
-              </button>
-            </div>
-          </div>
         </div>
         <div class="install-quickstart">
           <h3>Quick Start</h3>
@@ -277,7 +264,7 @@ import Layout from '../layouts/Layout.astro';
       <div class="container">
         <div class="cta-content">
           <h2>Ready to multiply your development velocity?</h2>
-          <p>Join developers who are shipping faster with AI agents that actually understand their code.</p>
+          <p>Join developers who are shipping faster with AI agents that actually understand their code. Stop context-switching between tools—let specialized agents handle planning, implementation, and testing while you focus on what to build next.</p>
           <div class="cta-actions">
             <a href="#install" class="btn btn-primary btn-large">
               <span>Get Started Now</span>
@@ -321,12 +308,14 @@ import Layout from '../layouts/Layout.astro';
               <h4>Community</h4>
               <a href="https://github.com/speier/smith/discussions" target="_blank" rel="noopener">Discussions</a>
               <a href="https://github.com/speier/smith/blob/main/CONTRIBUTING.md" target="_blank" rel="noopener">Contributing</a>
+              <a href="https://github.com/sponsors/speier" target="_blank" rel="noopener">💖 Sponsor</a>
             </div>
           </div>
         </div>
         <div class="footer-bottom">
-          <p>Built with ❤️ for developers</p>
-          <p>© 2025 speier. Open source under <a href="https://github.com/speier/smith/blob/main/LICENSE" target="_blank" rel="noopener">MIT License</a>.</p>
+          <p>Inevitable. Multiplying. Building.</p>
+          <p>© 2025 Kalman Speier</p>
+          <p>Open source under <a href="https://github.com/speier/smith/blob/main/LICENSE" target="_blank" rel="noopener">MIT License</a>.</p>
         </div>
       </div>
     </footer>
@@ -848,10 +837,9 @@ import Layout from '../layouts/Layout.astro';
   }
 
   .install-methods {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-    gap: 2rem;
-    max-width: 900px;
+    display: flex;
+    justify-content: center;
+    max-width: 600px;
     margin: 0 auto 4rem;
   }
 
