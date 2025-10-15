@@ -58,8 +58,8 @@ func createDefaultKanban(path string) error {
 ## Backlog
 <!-- Tasks waiting to be picked up -->
 
-## In Progress
-<!-- Tasks currently being worked on -->
+## WIP
+<!-- Work in progress - tasks currently being worked on -->
 
 ## Review
 <!-- Tasks pending review -->

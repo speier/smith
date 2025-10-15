@@ -33,13 +33,22 @@ func TestSQLiteCoordinator(t *testing.T) {
 	if err != nil {
 		t.Errorf("GetTaskStats failed: %v", err)
 	}
-	if stats.Available != 0 {
-		t.Errorf("expected 0 available tasks, got %d", stats.Available)
+	if stats.Backlog != 0 {
+		t.Errorf("expected 0 backlog tasks, got %d", stats.Backlog)
+	}
+
+	// Add a task to the database first (simulate kanban sync)
+	ctx := context.Background()
+	_, err = coord.db.ExecContext(ctx, `
+		INSERT INTO task_assignments (task_id, agent_id, agent_role, status)
+		VALUES ('task-1', NULL, NULL, 'backlog')
+	`)
+	if err != nil {
+		t.Fatalf("failed to insert test task: %v", err)
 	}
 
 	// Test ClaimTask
 	// First, register an agent
-	ctx := context.Background()
 	if err := coord.registry.Register(ctx, "agent-1", eventbus.RoleImplementation, 12345); err != nil {
 		t.Fatalf("failed to register agent: %v", err)
 	}
@@ -48,13 +57,13 @@ func TestSQLiteCoordinator(t *testing.T) {
 		t.Errorf("ClaimTask failed: %v", err)
 	}
 
-	// Verify task was claimed
+	// Verify task was claimed (should be in WIP)
 	stats, err = coord.GetTaskStats()
 	if err != nil {
 		t.Errorf("GetTaskStats failed: %v", err)
 	}
-	if stats.Available != 1 {
-		t.Errorf("expected 1 available task after claiming, got %d", stats.Available)
+	if stats.WIP != 1 {
+		t.Errorf("expected 1 WIP task after claiming, got %d", stats.WIP)
 	}
 
 	// Test LockFiles
