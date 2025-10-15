@@ -1,27 +1,28 @@
 package config
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
+
+	"gopkg.in/yaml.v3"
 )
 
-// LocalConfig represents project-level configuration in .smith/config.json
+// LocalConfig represents project-level configuration in .smith/config.yaml
 type LocalConfig struct {
-	Provider  string                 `json:"provider"`            // Selected provider (required)
-	Model     string                 `json:"model"`               // Primary model
-	AutoLevel string                 `json:"autoLevel,omitempty"` // Default: "medium"
-	Agents    map[string]AgentConfig `json:"agents"`              // Per-agent configuration
-	Version   int                    `json:"version"`             // Config schema version
+	Provider  string                 `yaml:"provider"`            // Selected provider (required)
+	Model     string                 `yaml:"model"`               // Primary model
+	AutoLevel string                 `yaml:"autoLevel,omitempty"` // Default: "medium"
+	Agents    map[string]AgentConfig `yaml:"agents"`              // Per-agent configuration
+	Version   int                    `yaml:"version"`             // Config schema version
 }
 
 const (
 	localConfigDir  = ".smith"
-	localConfigFile = "config.json"
+	localConfigFile = "config.yaml"
 )
 
-// LoadLocal loads project-level configuration from .smith/config.json
+// LoadLocal loads project-level configuration from .smith/config.yaml
 // Returns nil if no config exists (requires provider selection)
 func LoadLocal(projectPath string) (*LocalConfig, error) {
 	configPath := filepath.Join(projectPath, localConfigDir, localConfigFile)
@@ -37,13 +38,8 @@ func LoadLocal(projectPath string) (*LocalConfig, error) {
 	}
 
 	var cfg LocalConfig
-	if err := json.Unmarshal(data, &cfg); err != nil {
+	if err := yaml.Unmarshal(data, &cfg); err != nil {
 		return nil, fmt.Errorf("parsing local config: %w", err)
-	}
-
-	// Validate required fields
-	if cfg.Provider == "" {
-		return nil, fmt.Errorf("config missing required field: provider")
 	}
 
 	// Set defaults if not specified
@@ -60,7 +56,7 @@ func LoadLocal(projectPath string) (*LocalConfig, error) {
 	return &cfg, nil
 }
 
-// CreateFromPreset creates a new local config from a provider preset
+// CreateFromPreset creates a new local config from a provider (no hardcoded models)
 func CreateFromPreset(providerID string) (*LocalConfig, error) {
 	preset, exists := GetProviderPreset(providerID)
 	if !exists {
@@ -69,14 +65,14 @@ func CreateFromPreset(providerID string) (*LocalConfig, error) {
 
 	return &LocalConfig{
 		Provider:  preset.Provider,
-		Model:     preset.DefaultModel,
+		Model:     "", // User must select model from provider's API
 		AutoLevel: "medium",
-		Agents:    preset.Agents,
+		Agents:    make(map[string]AgentConfig), // Empty until models selected
 		Version:   1,
 	}, nil
 }
 
-// SaveLocal saves project-level configuration to .smith/config.json
+// SaveLocal saves project-level configuration to .smith/config.yaml
 func (c *LocalConfig) SaveLocal(projectPath string) error {
 	configDir := filepath.Join(projectPath, localConfigDir)
 	configPath := filepath.Join(configDir, localConfigFile)
@@ -86,7 +82,7 @@ func (c *LocalConfig) SaveLocal(projectPath string) error {
 		return fmt.Errorf("creating config directory: %w", err)
 	}
 
-	data, err := json.MarshalIndent(c, "", "  ")
+	data, err := yaml.Marshal(c)
 	if err != nil {
 		return fmt.Errorf("marshaling local config: %w", err)
 	}

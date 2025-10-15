@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/speier/smith/internal/config"
@@ -349,34 +350,100 @@ func (c *CopilotProvider) ChatStream(messages []Message, tools []Tool, callback 
 }
 
 func (c *CopilotProvider) GetModels() ([]Model, error) {
-	// GitHub Copilot models (as of 2025)
-	// These are OpenAI models accessible via Copilot
-	return []Model{
-		{
-			ID:          "gpt-4o",
-			Name:        "GPT-4o",
-			Description: "Most capable model, best for complex tasks",
-			ContextSize: 128000,
-		},
-		{
-			ID:          "gpt-4o-mini",
-			Name:        "GPT-4o Mini",
-			Description: "Faster and cheaper, good for most tasks",
-			ContextSize: 128000,
-		},
-		{
-			ID:          "o1-preview",
-			Name:        "O1 Preview",
-			Description: "Advanced reasoning model (preview)",
-			ContextSize: 128000,
-		},
-		{
-			ID:          "o1-mini",
-			Name:        "O1 Mini",
-			Description: "Faster reasoning model",
-			ContextSize: 128000,
-		},
-	}, nil
+	// Ensure we have valid authentication
+	if err := c.EnsureAuth(); err != nil {
+		return nil, fmt.Errorf("authentication required: %w", err)
+	}
+
+	// Fetch models from GitHub Copilot API
+	apiURL := "https://api.githubcopilot.com/models"
+
+	req, err := http.NewRequest("GET", apiURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("creating request: %w", err)
+	}
+
+	req.Header.Set("Authorization", "Bearer "+c.auth.AccessToken)
+	req.Header.Set("User-Agent", "GitHubCopilotChat/0.26.7")
+	req.Header.Set("Editor-Version", "vscode/1.99.3")
+	req.Header.Set("Editor-Plugin-Version", "copilot-chat/0.26.7")
+
+	resp, err := c.client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("fetching models: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("API error (%d): %s", resp.StatusCode, string(body))
+	}
+
+	var result struct {
+		Data []struct {
+			ID      string `json:"id"`
+			Object  string `json:"object"`
+			Created int64  `json:"created"`
+			OwnedBy string `json:"owned_by"`
+		} `json:"data"`
+	}
+
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("decoding response: %w", err)
+	}
+
+	// Convert API response to our Model format with intelligent sorting
+	// Priority: GPT-4 variants first, then GPT-3.5, then others
+	models := make([]Model, 0, len(result.Data))
+
+	// Categorize models
+	var gpt4Models []Model
+	var gpt35Models []Model
+	var otherModels []Model
+
+	for _, m := range result.Data {
+		model := Model{
+			ID:          m.ID,
+			Name:        m.ID, // Use ID as name - clean and provider-agnostic
+			Description: fmt.Sprintf("Available via %s", c.GetName()),
+			ContextSize: 128000, // Default context size
+		}
+
+		// Categorize by model family
+		if strings.Contains(strings.ToLower(m.ID), "gpt-4") {
+			gpt4Models = append(gpt4Models, model)
+		} else if strings.Contains(strings.ToLower(m.ID), "gpt-3.5") {
+			gpt35Models = append(gpt35Models, model)
+		} else {
+			otherModels = append(otherModels, model)
+		}
+	}
+
+	// Sort within each category alphabetically
+	sortModelsByName := func(models []Model) {
+		for i := 0; i < len(models); i++ {
+			for j := i + 1; j < len(models); j++ {
+				if models[i].ID > models[j].ID {
+					models[i], models[j] = models[j], models[i]
+				}
+			}
+		}
+	}
+
+	sortModelsByName(gpt4Models)
+	sortModelsByName(gpt35Models)
+	sortModelsByName(otherModels)
+
+	// Combine: GPT-4 first, then 3.5, then others
+	models = append(models, gpt4Models...)
+	models = append(models, gpt35Models...)
+	models = append(models, otherModels...)
+
+	if len(models) == 0 {
+		return nil, fmt.Errorf("no models available")
+	}
+
+	return models, nil
 }
 
 func (c *CopilotProvider) GetName() string {

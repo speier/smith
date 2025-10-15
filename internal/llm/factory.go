@@ -44,6 +44,11 @@ func NewProvider() (Provider, error) {
 
 // NewProviderByID creates a provider by ID
 func NewProviderByID(providerID string) (Provider, error) {
+	// Handle empty provider - user needs to configure
+	if providerID == "" {
+		return nil, fmt.Errorf("no provider configured - please run /settings to select a provider and model")
+	}
+
 	switch providerID {
 	case "copilot":
 		provider := NewCopilotProvider()

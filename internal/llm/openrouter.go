@@ -183,46 +183,114 @@ func (o *OpenRouterProvider) ChatStream(messages []Message, tools []Tool, callba
 }
 
 func (o *OpenRouterProvider) GetModels() ([]Model, error) {
-	// Popular models on OpenRouter
-	// TODO: Could fetch this dynamically from https://openrouter.ai/api/v1/models
-	return []Model{
-		{
-			ID:          "anthropic/claude-3.5-sonnet",
-			Name:        "Claude 3.5 Sonnet",
-			Description: "Anthropic's most capable model",
-			ContextSize: 200000,
-		},
-		{
-			ID:          "anthropic/claude-3-opus",
-			Name:        "Claude 3 Opus",
-			Description: "Powerful model for complex tasks",
-			ContextSize: 200000,
-		},
-		{
-			ID:          "anthropic/claude-3-haiku",
-			Name:        "Claude 3 Haiku",
-			Description: "Fast and efficient",
-			ContextSize: 200000,
-		},
-		{
-			ID:          "openai/gpt-4-turbo",
-			Name:        "GPT-4 Turbo",
-			Description: "OpenAI's latest GPT-4",
-			ContextSize: 128000,
-		},
-		{
-			ID:          "google/gemini-pro-1.5",
-			Name:        "Gemini Pro 1.5",
-			Description: "Google's advanced model",
-			ContextSize: 1000000,
-		},
-		{
-			ID:          "meta-llama/llama-3.1-405b-instruct",
-			Name:        "Llama 3.1 405B",
-			Description: "Meta's largest open model",
-			ContextSize: 128000,
-		},
-	}, nil
+	// Check authentication first
+	if o.apiKey == "" {
+		return nil, fmt.Errorf("not authenticated - set OPENROUTER_API_KEY environment variable")
+	}
+
+	// Fetch models from OpenRouter API
+	apiURL := "https://openrouter.ai/api/v1/models"
+
+	req, err := http.NewRequest("GET", apiURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("creating request: %w", err)
+	}
+
+	req.Header.Set("Authorization", "Bearer "+o.apiKey)
+	req.Header.Set("HTTP-Referer", "https://github.com/speier/smith")
+	req.Header.Set("X-Title", "Smith Agent System")
+
+	resp, err := o.client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("fetching models: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("API error (%d): %s", resp.StatusCode, string(body))
+	}
+
+	var result struct {
+		Data []struct {
+			ID          string `json:"id"`
+			Name        string `json:"name"`
+			Description string `json:"description"`
+			Pricing     struct {
+				Prompt     string `json:"prompt"`
+				Completion string `json:"completion"`
+			} `json:"pricing"`
+			ContextLength int `json:"context_length"`
+		} `json:"data"`
+	}
+
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("decoding response: %w", err)
+	}
+
+	// Convert to our Model format with intelligent sorting
+	// Priority: Claude 3.5, GPT-4, Claude 3, GPT-3.5, then others
+	models := make([]Model, 0, len(result.Data))
+
+	// Categorize models by family/quality
+	var claude35Models []Model
+	var gpt4Models []Model
+	var claude3Models []Model
+	var gpt35Models []Model
+	var otherModels []Model
+
+	for _, m := range result.Data {
+		model := Model{
+			ID:          m.ID,
+			Name:        m.Name,
+			Description: m.Description,
+			ContextSize: m.ContextLength,
+		}
+
+		idLower := strings.ToLower(m.ID)
+		// Categorize by model family (most capable first)
+		if strings.Contains(idLower, "claude-3.5") || strings.Contains(idLower, "claude-3-5") {
+			claude35Models = append(claude35Models, model)
+		} else if strings.Contains(idLower, "gpt-4") {
+			gpt4Models = append(gpt4Models, model)
+		} else if strings.Contains(idLower, "claude-3") {
+			claude3Models = append(claude3Models, model)
+		} else if strings.Contains(idLower, "gpt-3.5") {
+			gpt35Models = append(gpt35Models, model)
+		} else {
+			otherModels = append(otherModels, model)
+		}
+	}
+
+	// Sort within each category alphabetically by ID
+	sortModelsByID := func(models []Model) {
+		for i := 0; i < len(models); i++ {
+			for j := i + 1; j < len(models); j++ {
+				if models[i].ID > models[j].ID {
+					models[i], models[j] = models[j], models[i]
+				}
+			}
+		}
+	}
+
+	sortModelsByID(claude35Models)
+	sortModelsByID(gpt4Models)
+	sortModelsByID(claude3Models)
+	sortModelsByID(gpt35Models)
+	sortModelsByID(otherModels)
+
+	// Combine: Best models first
+	models = append(models, claude35Models...)
+	models = append(models, gpt4Models...)
+	models = append(models, claude3Models...)
+	models = append(models, gpt35Models...)
+	models = append(models, otherModels...)
+
+	if len(models) == 0 {
+		return nil, fmt.Errorf("no models available")
+	}
+
+	return models, nil
 }
 
 func (o *OpenRouterProvider) GetName() string {

@@ -25,7 +25,7 @@ const { title, description = "Multi-agent AI development system" } = Astro.props
 <style is:global>
   :root {
     --color-bg: #0a0a0a;
-    --color-surface: #1a1a1a;
+    --color-surface: #141414;
     --color-primary: #6366f1;
     --color-primary-light: #818cf8;
     --color-text: #f5f5f5;
@@ -46,6 +46,8 @@ const { title, description = "Multi-agent AI development system" } = Astro.props
     background: var(--color-bg);
     color: var(--color-text);
     scroll-behavior: smooth;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 
   body {
@@ -55,5 +57,10 @@ const { title, description = "Multi-agent AI development system" } = Astro.props
 
   code {
     font-family: var(--font-mono);
+  }
+
+  ::selection {
+    background: rgba(99, 102, 241, 0.3);
+    color: var(--color-text);
   }
 </style>

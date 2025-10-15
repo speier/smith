@@ -2,9 +2,8 @@ package repl
 
 import (
 	"fmt"
-	"os"
 	"os/exec"
-	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 
@@ -21,6 +20,9 @@ import (
 // delayedQuitMsg is sent after showing the goodbye message
 type delayedQuitMsg struct{}
 
+// tickMsg is sent periodically to update animations
+type tickMsg struct{}
+
 // streamChunkMsg is sent when a chunk of streaming response arrives
 type streamChunkMsg struct {
 	chunk string
@@ -31,6 +33,34 @@ type streamChunkMsg struct {
 type errorMsg struct {
 	title   string
 	message string
+}
+
+// deviceCodeMsg is sent when device code authorization starts
+type deviceCodeMsg struct {
+	verificationURI string
+	userCode        string
+	deviceCode      string
+	interval        int
+	expiresIn       int
+}
+
+// authCompleteMsg is sent when authentication completes
+type authCompleteMsg struct {
+	success bool
+	error   string
+}
+
+// pollTokenMsg is sent to trigger the next poll
+type pollTokenMsg struct {
+	deviceCode string
+	interval   int
+	deadline   time.Time
+}
+
+// modelsFetchedMsg is sent when models are fetched from API
+type modelsFetchedMsg struct {
+	models []llm.Model
+	err    error
 }
 
 // Message represents a chat message with metadata
@@ -105,12 +135,8 @@ type Command struct {
 // Available commands
 var availableCommands = []Command{
 	{Name: "/status", Alias: "/s", Description: "Show task counts and progress"},
-	{Name: "/backlog", Alias: "/b", Description: "List all tasks"},
-	{Name: "/inbox", Alias: "/i", Description: "Check agent questions/messages"},
-	{Name: "/agents", Alias: "/a", Description: "Show active agents"},
-	{Name: "/settings", Alias: "", Description: "Show settings"},
-	{Name: "/copy", Alias: "", Description: "Copy last message to buffer"},
-	{Name: "/edit-global", Alias: "", Description: "Edit global configuration in editor"},
+	{Name: "/settings", Alias: "", Description: "Change model and auto-level"},
+	{Name: "/copy", Alias: "", Description: "Copy last message to clipboard"},
 	{Name: "/clear", Alias: "/c", Description: "Clear conversation"},
 	{Name: "/help", Alias: "/h", Description: "Show help"},
 	{Name: "/quit", Alias: "/q", Description: "Exit Smith"},
@@ -129,6 +155,7 @@ type BubbleModel struct {
 	quitting           bool
 	streamingResponse  string // Current streaming response being built
 	isStreaming        bool   // Whether we're currently streaming a response
+	spinnerFrame       int    // Frame counter for loading spinner
 	showCommandMenu    bool
 	commandMenuIndex   int
 	filteredCommands   []Command
@@ -138,8 +165,17 @@ type BubbleModel struct {
 	providerMenuIndex  int
 	showModelMenu      bool
 	modelMenuIndex     int
-	historyScroll      int  // Current scroll position in message history
-	needsProviderSetup bool // Whether provider needs to be selected on first run
+	modelMenuScroll    int         // Scroll offset for model menu paging
+	modelFilter        string      // Type-to-search filter for models
+	fetchingModels     bool        // Whether we're currently fetching models
+	cachedModels       []llm.Model // Cached models list
+	historyScroll      int         // Current scroll position in message history
+	needsProviderSetup bool        // Whether provider needs to be selected on first run
+	showHelp           bool        // Whether help panel is visible
+	showAuthPanel      bool        // Whether auth panel is visible
+	authDeviceCode     string      // Device code for auth
+	authUserCode       string      // User code for auth
+	authVerifyURI      string      // Verification URI for auth
 }
 
 // keyMap defines our key bindings
@@ -209,11 +245,11 @@ func NewBubbleModel(projectPath string, initialPrompt string) (*BubbleModel, err
 		return nil, fmt.Errorf("loading local config: %w", err)
 	}
 
-	// Track if we need provider setup (will show in settings)
-	needsProviderSetup := localCfg == nil
+	// Track if we need provider setup - when no config OR when provider/model are empty
+	needsProviderSetup := localCfg == nil || localCfg.Provider == "" || localCfg.Model == ""
 
-	// Use default provider if not yet configured
-	providerID := "copilot"
+	// Use empty provider if not yet configured (user must select in settings)
+	providerID := ""
 	autoLevel := safety.AutoLevelMedium
 
 	if localCfg != nil {
@@ -223,10 +259,18 @@ func NewBubbleModel(projectPath string, initialPrompt string) (*BubbleModel, err
 		}
 	}
 
-	// Create LLM provider based on config
-	provider, err := llm.NewProviderByID(providerID)
-	if err != nil {
-		return nil, fmt.Errorf("creating provider: %w", err)
+	// Only create provider if configured
+	var provider llm.Provider
+	if providerID != "" {
+		var provErr error
+		provider, provErr = llm.NewProviderByID(providerID)
+		if provErr != nil {
+			return nil, fmt.Errorf("creating provider: %w", provErr)
+		}
+	} else {
+		// No provider configured - use copilot as fallback to avoid nil
+		// User will be prompted to configure via settings
+		provider = llm.NewCopilotProvider()
 	}
 
 	eng, err := engine.New(engine.Config{
@@ -262,6 +306,15 @@ func NewBubbleModel(projectPath string, initialPrompt string) (*BubbleModel, err
 		Timestamp: time.Now(),
 	})
 
+	// If provider setup needed, show setup hint (don't auto-open settings)
+	if needsProviderSetup {
+		messages = append(messages, Message{
+			Content:   "⚙️ No configuration found. Please select your LLM provider and model:\n   → Type /settings to choose a provider and model",
+			Type:      "system",
+			Timestamp: time.Now(),
+		})
+	}
+
 	// If initial prompt provided, add it
 	if initialPrompt != "" {
 		ti.SetValue(initialPrompt)
@@ -274,9 +327,27 @@ func NewBubbleModel(projectPath string, initialPrompt string) (*BubbleModel, err
 		autoLevel:          autoLevel,
 		projectPath:        projectPath,
 		needsProviderSetup: needsProviderSetup,
-		width:              80, // Default width until we get WindowSizeMsg
-		height:             24, // Default height
+		showSettings:       false, // Don't auto-open
+		width:              80,    // Default width until we get WindowSizeMsg
+		height:             24,    // Default height
 	}, nil
+}
+
+// filterModels filters models by name or ID based on the filter string
+func (m BubbleModel) filterModels(models []llm.Model, filter string) []llm.Model {
+	if filter == "" || models == nil {
+		return models
+	}
+
+	filter = strings.ToLower(filter)
+	var filtered []llm.Model
+	for _, model := range models {
+		if strings.Contains(strings.ToLower(model.Name), filter) ||
+			strings.Contains(strings.ToLower(model.ID), filter) {
+			filtered = append(filtered, model)
+		}
+	}
+	return filtered
 }
 
 func (m BubbleModel) Init() tea.Cmd {
@@ -290,11 +361,26 @@ func delayedQuit() tea.Cmd {
 	})
 }
 
+// tick returns a command that sends periodic tick messages for animations
+func tick() tea.Cmd {
+	return tea.Tick(time.Millisecond*100, func(t time.Time) tea.Msg {
+		return tickMsg{}
+	})
+}
+
 func (m BubbleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmds []tea.Cmd
 	var cmd tea.Cmd
 
 	switch msg := msg.(type) {
+	case tickMsg:
+		// Update spinner animation if streaming
+		if m.isStreaming {
+			m.spinnerFrame++
+			return m, tick()
+		}
+		return m, nil
+
 	case streamChunkMsg:
 		if !m.isStreaming {
 			return m, nil
@@ -305,10 +391,142 @@ func (m BubbleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.done {
 			// Streaming complete
 			m.isStreaming = false
-			m.messages = append(m.messages, Message{Content: aiStyle.Render("🤖 AI: ") + m.streamingResponse, Type: "ai", Timestamp: time.Now()})
+			m.messages = append(m.messages, Message{Content: aiStyle.Render("🕶️ Smith: ") + m.streamingResponse, Type: "ai", Timestamp: time.Now()})
 			m.streamingResponse = ""
 		}
 
+		return m, nil
+
+	case deviceCodeMsg:
+		// Store auth info and show auth panel
+		m.authDeviceCode = msg.deviceCode
+		m.authUserCode = msg.userCode
+		m.authVerifyURI = msg.verificationURI
+		m.showAuthPanel = true
+
+		// Close provider menu now that auth panel is showing
+		m.showProviderMenu = false
+		m.providerMenuIndex = 0
+
+		// Copy auth code to clipboard
+		go func() {
+			var cmd *exec.Cmd
+			switch runtime.GOOS {
+			case "darwin":
+				cmd = exec.Command("pbcopy")
+			case "linux":
+				cmd = exec.Command("xclip", "-selection", "clipboard")
+			case "windows":
+				cmd = exec.Command("clip")
+			}
+			if cmd != nil {
+				stdin, err := cmd.StdinPipe()
+				if err == nil {
+					cmd.Start()
+					stdin.Write([]byte(msg.userCode))
+					stdin.Close()
+					cmd.Wait()
+				}
+			}
+		}()
+
+		// Open browser automatically
+		go func() {
+			// Try to open browser on macOS/Linux/Windows
+			var cmd *exec.Cmd
+			switch runtime.GOOS {
+			case "darwin":
+				cmd = exec.Command("open", msg.verificationURI)
+			case "linux":
+				cmd = exec.Command("xdg-open", msg.verificationURI)
+			case "windows":
+				cmd = exec.Command("rundll32", "url.dll,FileProtocolHandler", msg.verificationURI)
+			}
+			if cmd != nil {
+				cmd.Run()
+			}
+		}()
+
+		// Calculate deadline for timeout
+		timeout := time.Duration(msg.expiresIn) * time.Second
+		deadline := time.Now().Add(timeout)
+
+		// Start polling loop with first poll after interval
+		return m, tea.Tick(time.Duration(msg.interval)*time.Second, func(t time.Time) tea.Msg {
+			return pollTokenMsg{
+				deviceCode: msg.deviceCode,
+				interval:   msg.interval,
+				deadline:   deadline,
+			}
+		})
+
+	case pollTokenMsg:
+		// Check if we've timed out
+		if time.Now().After(msg.deadline) {
+			m.showAuthPanel = false
+			m.messages = append(m.messages, Message{Content: "❌ Authentication timed out", Type: "error", Timestamp: time.Now()})
+			return m, nil
+		}
+
+		// Poll for token
+		return m, func() tea.Msg {
+			provider := llm.NewCopilotProvider()
+			token, err := provider.PollForToken(msg.deviceCode)
+			if err != nil {
+				return authCompleteMsg{
+					success: false,
+					error:   fmt.Sprintf("polling error: %v", err),
+				}
+			}
+
+			if token == "pending" {
+				// Still waiting, poll again after interval
+				return tea.Tick(time.Duration(msg.interval)*time.Second, func(t time.Time) tea.Msg {
+					return pollTokenMsg{
+						deviceCode: msg.deviceCode,
+						interval:   msg.interval,
+						deadline:   msg.deadline,
+					}
+				})()
+			}
+
+			// Success! Save the token
+			if err := provider.SetAuth(token); err != nil {
+				return authCompleteMsg{
+					success: false,
+					error:   fmt.Sprintf("failed to save auth: %v", err),
+				}
+			}
+
+			return authCompleteMsg{success: true}
+		}
+
+	case authCompleteMsg:
+		// Close auth panel
+		m.showAuthPanel = false
+
+		if msg.success {
+			m.messages = append(m.messages, Message{Content: "✅ Successfully authenticated with GitHub Copilot!", Type: "system", Timestamp: time.Now()})
+
+			// Auto-open model menu and start fetching models
+			m.showModelMenu = true
+			m.modelMenuIndex = 0
+			m.fetchingModels = true
+			return m, m.fetchModels()
+		} else {
+			m.messages = append(m.messages, Message{Content: fmt.Sprintf("❌ Authentication failed: %s", msg.error), Type: "error", Timestamp: time.Now()})
+		}
+		return m, nil
+
+	case modelsFetchedMsg:
+		// Models fetched
+		m.fetchingModels = false
+		if msg.err != nil {
+			// Keep error in cache to show in UI
+			m.cachedModels = nil
+		} else {
+			m.cachedModels = msg.models
+		}
 		return m, nil
 
 	case delayedQuitMsg:
@@ -329,6 +547,14 @@ func (m BubbleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		// ESC closes any open panel/menu
 		if msg.Type == tea.KeyEsc {
+			if m.showAuthPanel {
+				m.showAuthPanel = false
+				return m, nil
+			}
+			if m.showHelp {
+				m.showHelp = false
+				return m, nil
+			}
 			if m.showModelMenu {
 				m.showModelMenu = false
 				m.modelMenuIndex = 0
@@ -342,7 +568,7 @@ func (m BubbleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.showSettings {
 				m.showSettings = false
 				m.settingsIndex = 0
-				return m, nil
+				return m, textarea.Blink
 			}
 			if m.showCommandMenu {
 				m.showCommandMenu = false
@@ -351,6 +577,12 @@ func (m BubbleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 			}
 			// If nothing is open, ESC does nothing
+			return m, nil
+		}
+
+		// Toggle help with ?
+		if msg.String() == "?" && !m.showSettings && !m.showProviderMenu && !m.showModelMenu {
+			m.showHelp = !m.showHelp
 			return m, nil
 		}
 
@@ -376,9 +608,17 @@ func (m BubbleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					cfg, _ := config.Load()
 					cfg.Provider = selectedProvider.ID
 					cfg.Save()
-					m.messages = append(m.messages, Message{Content: fmt.Sprintf("✓ Provider changed to %s", selectedProvider.Name), Type: "system", Timestamp: time.Now()})
+
+					// If provider requires auth, start auth flow and keep settings visible until auth starts
+					if selectedProvider.RequiresAuth && selectedProvider.ID == "copilot" {
+						// Don't close provider menu yet - auth panel will take over
+						return m, m.startCopilotAuth()
+					}
+
+					// Close menu and show provider changed message
 					m.showProviderMenu = false
 					m.providerMenuIndex = 0
+					m.messages = append(m.messages, Message{Content: fmt.Sprintf("✓ Provider changed to %s", selectedProvider.Name), Type: "system", Timestamp: time.Now()})
 				}
 				return m, nil
 			case "q":
@@ -392,46 +632,99 @@ func (m BubbleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		// Handle model menu
 		if m.showModelMenu {
+			// Use cached models if available
+			allModels := m.cachedModels
+			if allModels == nil {
+				// Try to get from provider
+				cfg, _ := config.Load()
+				provider, err := llm.NewProviderByID(cfg.Provider)
+				if err == nil {
+					allModels, _ = provider.GetModels()
+				}
+			}
+
+			// Apply filter
+			models := m.filterModels(allModels, m.modelFilter)
+
+			const pageSize = 10 // Fixed page size
+
 			switch msg.String() {
+			case "backspace":
+				// Remove last character from filter
+				if len(m.modelFilter) > 0 {
+					m.modelFilter = m.modelFilter[:len(m.modelFilter)-1]
+					m.modelMenuIndex = 0
+					m.modelMenuScroll = 0
+				}
+				return m, nil
 			case "up", "k":
-				if m.modelMenuIndex > 0 {
-					m.modelMenuIndex--
+				if len(models) > 0 {
+					if m.modelMenuIndex > 0 {
+						m.modelMenuIndex--
+					} else {
+						// Cycle to end
+						m.modelMenuIndex = len(models) - 1
+					}
+					// Adjust scroll to show current item
+					m.modelMenuScroll = (m.modelMenuIndex / pageSize) * pageSize
 				}
 				return m, nil
 			case "down", "j":
-				// Get models for current provider
-				cfg, _ := config.Load()
-				provider, err := llm.NewProviderByID(cfg.Provider)
-				if err == nil {
-					models, err := provider.GetModels()
-					if err == nil && m.modelMenuIndex < len(models)-1 {
+				if len(models) > 0 {
+					if m.modelMenuIndex < len(models)-1 {
 						m.modelMenuIndex++
+					} else {
+						// Cycle to beginning
+						m.modelMenuIndex = 0
 					}
+					// Adjust scroll to show current item
+					m.modelMenuScroll = (m.modelMenuIndex / pageSize) * pageSize
 				}
 				return m, nil
 			case "enter":
-				// Select model
-				cfg, _ := config.Load()
-				provider, err := llm.NewProviderByID(cfg.Provider)
-				if err == nil {
-					models, err := provider.GetModels()
-					if err == nil && m.modelMenuIndex < len(models) {
-						selectedModel := models[m.modelMenuIndex]
-						cfg.Model = selectedModel.ID
-						cfg.Save()
-						m.messages = append(m.messages, Message{Content: fmt.Sprintf("✓ Model changed to %s", selectedModel.Name), Type: "system", Timestamp: time.Now()})
-						m.showModelMenu = false
+				// Select model and save to local project config
+				if len(models) > 0 && m.modelMenuIndex < len(models) {
+					localCfg, _ := config.LoadLocal(m.projectPath)
+					if localCfg == nil {
+						// Create minimal config
+						cfg, _ := config.Load()
+						localCfg = &config.LocalConfig{
+							Provider:  cfg.Provider,
+							Model:     "",
+							AutoLevel: "medium",
+							Version:   1,
+						}
+					}
+					selectedModel := models[m.modelMenuIndex]
+					localCfg.Model = selectedModel.ID
+					localCfg.SaveLocal(m.projectPath)
+					m.messages = append(m.messages, Message{Content: fmt.Sprintf("✓ Model changed to %s", selectedModel.Name), Type: "system", Timestamp: time.Now()})
+					m.showModelMenu = false
+					m.modelMenuIndex = 0
+					m.modelMenuScroll = 0
+					m.modelFilter = ""
+				}
+				return m, nil
+			case "q", "esc":
+				// Close menu
+				m.showModelMenu = false
+				m.modelMenuIndex = 0
+				m.modelMenuScroll = 0
+				m.modelFilter = ""
+				return m, nil
+			default:
+				// Type to filter - only single printable characters
+				if len(msg.String()) == 1 {
+					char := msg.String()
+					// Check if it's a printable character (not a control char)
+					if char >= " " && char <= "~" {
+						m.modelFilter += strings.ToLower(char)
 						m.modelMenuIndex = 0
+						m.modelMenuScroll = 0
 					}
 				}
 				return m, nil
-			case "q":
-				// q also closes menu
-				m.showModelMenu = false
-				m.modelMenuIndex = 0
-				return m, nil
 			}
-			return m, nil
 		}
 
 		// Handle settings panel navigation
@@ -456,13 +749,13 @@ func (m BubbleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				case 1: // Model (global)
 					m.showModelMenu = true
 					m.modelMenuIndex = 0
+					m.fetchingModels = true
+					return m, m.fetchModels()
 				case 2: // Reasoning (local)
 					m.cycleAutoLevel()
-				case 4: // Edit global config
-					m.editGlobalConfig()
-				case 5: // Edit safety rules
-					// TODO: Open editor
-				case 6: // Open config directory
+				case 4: // Edit safety rules
+					// TODO: Open safety rules editor
+				case 5: // Open config directory
 					// TODO: Open directory
 				}
 				return m, nil
@@ -556,13 +849,26 @@ func (m BubbleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 			}
 
+			// Check if model is configured before sending
+			localCfg, _ := config.LoadLocal(m.projectPath)
+			if localCfg == nil || localCfg.Model == "" {
+				m.messages = append(m.messages, Message{
+					Content:   "🤖 I'd love to help, but I need a brain first!\n   → Type /settings to pick a model\n   → Then we can chat about building amazing things ✨",
+					Type:      "error",
+					Timestamp: time.Now(),
+				})
+				m.textarea.Reset()
+				return m, nil
+			}
+
 			// Add user message to display
 			m.messages = append(m.messages, Message{Content: userMsg, Type: "user", Timestamp: time.Now()})
 
-			// Start streaming response
+			// Start streaming response with loading indicator
 			m.isStreaming = true
 			m.streamingResponse = ""
-			m.messages = append(m.messages, Message{Content: "", Type: "ai", Timestamp: time.Now()})
+			m.spinnerFrame = 0
+			m.messages = append(m.messages, Message{Content: "⏳ Thinking...", Type: "ai", Timestamp: time.Now()})
 
 			// Send to engine with streaming
 			go func() {
@@ -608,9 +914,9 @@ func (m BubbleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}()
 
-			// Clear textarea
+			// Clear textarea and start tick animation
 			m.textarea.Reset()
-			return m, nil
+			return m, tick()
 		}
 
 	case tea.WindowSizeMsg:
@@ -667,7 +973,7 @@ func (m BubbleModel) View() string {
 			Width(m.width).
 			Height(m.height).
 			Align(lipgloss.Center, lipgloss.Center).
-			Render("👋 Goodbye, Mr. Anderson...")
+			Render("💊 Goodbye, Mr. Anderson...")
 		return goodbye
 	}
 
@@ -689,6 +995,16 @@ func (m BubbleModel) View() string {
 		mainArea,
 		sidebar,
 	)
+
+	// Overlay auth panel if active
+	if m.showAuthPanel {
+		return m.renderAuthPanel(base)
+	}
+
+	// Overlay help panel if active
+	if m.showHelp {
+		return m.renderHelpPanel(base)
+	}
 
 	// Overlay settings panel if active
 	if m.showSettings {
@@ -712,7 +1028,15 @@ func (m BubbleModel) renderSidebar() string {
 
 	// Model status
 	sections = append(sections, "")
-	modelInfo := sidebarItemStyle.Render("◇ Claude Sonnet 4")
+
+	// Get current model from local config
+	modelName := "not configured"
+	localCfg, _ := config.LoadLocal(m.projectPath)
+	if localCfg != nil && localCfg.Model != "" {
+		modelName = localCfg.Model
+	}
+
+	modelInfo := sidebarItemStyle.Render(fmt.Sprintf("◇ %s", modelName))
 	thinkingStatus := sidebarIdleStyle.Render("  Thinking Off")
 	if m.isStreaming {
 		thinkingStatus = sidebarActiveStyle.Render("  Thinking...")
@@ -784,8 +1108,13 @@ func (m BubbleModel) renderMainArea(width int) string {
 		commandMenu = m.renderCommandMenu(width)
 	}
 
-	// Bottom help line
-	helpText := helpStyle.Render("esc cancel · tab focus · ctrl+l clear · shift+tab cycle · ctrl+c quit")
+	// Bottom help line - toggle with ?
+	var helpText string
+	if m.showHelp {
+		helpText = helpStyle.Render("? to hide help")
+	} else {
+		helpText = helpStyle.Render("? for help")
+	}
 
 	components := []string{history, ""}
 
@@ -828,6 +1157,51 @@ func (m *BubbleModel) cycleAutoLevel() {
 	_ = localCfg.SaveLocal(m.projectPath)
 
 	// No notification needed - visible in status bar
+}
+
+func (m *BubbleModel) fetchModels() tea.Cmd {
+	return func() tea.Msg {
+		cfg, err := config.Load()
+		if err != nil {
+			return modelsFetchedMsg{err: fmt.Errorf("loading config: %w", err)}
+		}
+
+		provider, err := llm.NewProviderByID(cfg.Provider)
+		if err != nil {
+			return modelsFetchedMsg{err: fmt.Errorf("creating provider: %w", err)}
+		}
+
+		models, err := provider.GetModels()
+		if err != nil {
+			return modelsFetchedMsg{err: err}
+		}
+
+		return modelsFetchedMsg{models: models}
+	}
+}
+
+func (m *BubbleModel) startCopilotAuth() tea.Cmd {
+	return func() tea.Msg {
+		provider := llm.NewCopilotProvider()
+
+		// Start device flow
+		deviceCode, err := provider.Authorize()
+		if err != nil {
+			return errorMsg{
+				title:   "Auth Error",
+				message: fmt.Sprintf("Failed to start authorization: %v", err),
+			}
+		}
+
+		// Return device code info to display to user
+		return deviceCodeMsg{
+			verificationURI: deviceCode.VerificationURI,
+			userCode:        deviceCode.UserCode,
+			deviceCode:      deviceCode.DeviceCode,
+			interval:        deviceCode.Interval,
+			expiresIn:       deviceCode.ExpiresIn,
+		}
+	}
 }
 
 func (m *BubbleModel) getAutoLevelDisplay() string {
@@ -936,8 +1310,6 @@ func (m *BubbleModel) handleSlashCommand(cmd string) tea.Cmd {
 		m.messages = append(m.messages, Message{Content: status, Type: "system", Timestamp: time.Now()})
 	case "/copy":
 		m.copyLastMessage()
-	case "/edit-global":
-		m.editGlobalConfig()
 	case "/settings":
 		m.showSettings = true
 		m.settingsIndex = 0
@@ -990,7 +1362,7 @@ func (m *BubbleModel) renderHistory(maxHeight int, width int) string {
 
 	visible := m.messages[start:end]
 
-	// Format messages with timestamps and styling
+	// Format messages with styling and add spacing between messages
 	var formatted []string
 	for _, msg := range visible {
 		formattedMsg := m.formatMessage(msg, width)
@@ -1003,12 +1375,12 @@ func (m *BubbleModel) renderHistory(maxHeight int, width int) string {
 		centered := lipgloss.PlaceHorizontal(width, lipgloss.Center, formatted[0])
 
 		if len(formatted) > 1 {
-			return centered + "\n" + strings.Join(formatted[1:], "\n")
+			return centered + "\n\n" + strings.Join(formatted[1:], "\n\n")
 		}
 		return centered
 	}
 
-	return strings.Join(formatted, "\n")
+	return strings.Join(formatted, "\n\n")
 }
 
 func renderWelcome() string {
@@ -1052,12 +1424,8 @@ func renderHelp() string {
 📚 Commands:
 
   /status   /s  - Show task counts and progress
-  /backlog  /b  - List all tasks
-  /inbox    /i  - Check agent questions/messages
-  /agents   /a  - Show active agents
-  /settings     - Show settings
-  /copy         - Copy last message to buffer
-  /edit-global  - Edit global configuration in editor
+  /settings     - Change model and auto-level
+  /copy         - Copy last message to clipboard
   /clear    /c  - Clear conversation
   /help     /h  - Show this help
   /quit     /q  - Exit Smith
@@ -1076,7 +1444,6 @@ func renderHelp() string {
   ESC             - Cancel/close menus
 
 💡 Just chat naturally - no commands needed to build features!
-More agents, Mr. Anderson... always more agents.
 `
 	return helpStyle.Render(help)
 }
@@ -1114,7 +1481,11 @@ func (m *BubbleModel) renderSettings() string {
 
 	// Model & Reasoning section
 	settings.WriteString(sectionStyle.Render("Model & Reasoning") + "\n")
-	settings.WriteString(labelStyle.Render("> Model: ") + valueStyle.Render(cfg.Model) + "\n")
+	modelDisplay := cfg.Model
+	if modelDisplay == "" {
+		modelDisplay = "(not configured)"
+	}
+	settings.WriteString(labelStyle.Render("> Model: ") + valueStyle.Render(modelDisplay) + "\n")
 	settings.WriteString(labelStyle.Render("  Reasoning level: ") + m.autoLevel + "\n\n")
 
 	// Preferences section
@@ -1131,6 +1502,111 @@ func (m *BubbleModel) renderSettings() string {
 	return settings.String()
 }
 
+func (m *BubbleModel) renderAuthPanel(base string) string {
+	titleStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("10")).
+		Bold(true)
+
+	labelStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("252"))
+
+	codeStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("208")).
+		Bold(true)
+
+	var content strings.Builder
+	content.WriteString(titleStyle.Render("🔐 GitHub Copilot Authentication") + "\n\n")
+
+	content.WriteString(labelStyle.Render("Please visit:") + "\n")
+	content.WriteString(codeStyle.Render(m.authVerifyURI) + "\n\n")
+
+	content.WriteString(labelStyle.Render("Enter code (copied to clipboard):") + "\n")
+	content.WriteString(codeStyle.Render(m.authUserCode) + "\n\n")
+
+	content.WriteString(labelStyle.Render("⏳ Waiting for authorization...") + "\n\n")
+
+	content.WriteString(helpStyle.Render("Browser opened • Code copied to clipboard\nPress Esc to cancel"))
+
+	// Create panel
+	panel := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(lipgloss.Color("10")).
+		Padding(1, 2).
+		Width(60).
+		Render(content.String())
+
+	// Overlay on center of screen
+	return lipgloss.Place(
+		m.width,
+		m.height,
+		lipgloss.Center,
+		lipgloss.Center,
+		panel,
+		lipgloss.WithWhitespaceChars(" "),
+		lipgloss.WithWhitespaceForeground(lipgloss.Color("0")),
+	)
+}
+
+func (m *BubbleModel) renderHelpPanel(base string) string {
+	titleStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("10")).
+		Bold(true)
+
+	sectionStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("15")).
+		Bold(true)
+
+	keyStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("208")).
+		Bold(true)
+
+	descStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("252"))
+
+	var content strings.Builder
+	content.WriteString(titleStyle.Render("Keyboard Shortcuts & Commands") + "\n\n")
+
+	// Basics section
+	content.WriteString(sectionStyle.Render("Basics") + "\n")
+	content.WriteString(keyStyle.Render("  Enter          ") + descStyle.Render("Send message") + "\n")
+	content.WriteString(keyStyle.Render("  Ctrl + C       ") + descStyle.Render("Quit") + "\n")
+	content.WriteString(keyStyle.Render("  Ctrl + L       ") + descStyle.Render("Clear conversation") + "\n")
+	content.WriteString(keyStyle.Render("  Shift + Tab    ") + descStyle.Render("Cycle auto-level") + "\n")
+	content.WriteString(keyStyle.Render("  Esc            ") + descStyle.Render("Cancel/close menus") + "\n")
+	content.WriteString(keyStyle.Render("  ?              ") + descStyle.Render("Toggle this help") + "\n\n")
+
+	// Commands section
+	content.WriteString(sectionStyle.Render("Commands") + "\n")
+	for _, cmd := range availableCommands {
+		cmdText := cmd.Name
+		if cmd.Alias != "" {
+			cmdText += ", " + cmd.Alias
+		}
+		content.WriteString(keyStyle.Render(fmt.Sprintf("  %-15s", cmdText)) + descStyle.Render(cmd.Description) + "\n")
+	}
+
+	content.WriteString("\n" + helpStyle.Render("Press ? or Esc to close"))
+
+	// Create panel
+	panel := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(lipgloss.Color("10")).
+		Padding(1, 2).
+		Width(70).
+		Render(content.String())
+
+	// Overlay on center of screen
+	return lipgloss.Place(
+		m.width,
+		m.height,
+		lipgloss.Center,
+		lipgloss.Center,
+		panel,
+		lipgloss.WithWhitespaceChars(" "),
+		lipgloss.WithWhitespaceForeground(lipgloss.Color("0")),
+	)
+}
+
 func (m *BubbleModel) renderSettingsPanel(base string) string {
 	// Show provider menu if active
 	if m.showProviderMenu {
@@ -1142,11 +1618,12 @@ func (m *BubbleModel) renderSettingsPanel(base string) string {
 		return m.renderModelMenu(base)
 	}
 
-	// Get current configs
-	cfg, err := config.Load()
+	// Get merged config (global + local)
+	merged, err := config.LoadWithMerge(m.projectPath)
 	if err != nil {
 		return base
 	}
+	cfg := &merged.Config
 
 	titleStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("10")).
@@ -1164,19 +1641,22 @@ func (m *BubbleModel) renderSettingsPanel(base string) string {
 		Background(lipgloss.Color("236")).
 		Bold(true)
 
-	globalStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("11")) // Yellow for global
+	// Add placeholders for empty values
+	providerDisplay := cfg.Provider
+	if providerDisplay == "" {
+		providerDisplay = "(not configured)"
+	}
+	modelDisplay := cfg.Model
+	if modelDisplay == "" {
+		modelDisplay = "(not configured)"
+	}
 
-	localStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("14")) // Cyan for local
-
-	// Settings items - now showing global vs local
+	// Settings items - clean display without (global)/(local) labels
 	items := []string{
-		"Provider: " + cfg.Provider + " (global)",
-		"Model: " + cfg.Model + " (global)",
-		"Reasoning: " + m.autoLevel + " (local)",
+		"Provider: " + providerDisplay,
+		"Model: " + modelDisplay,
+		"Reasoning: " + m.autoLevel,
 		"",
-		"[Edit global config in editor]",
 		"[Edit safety rules]",
 		"[Open config directory]",
 	}
@@ -1186,21 +1666,11 @@ func (m *BubbleModel) renderSettingsPanel(base string) string {
 
 	content.WriteString(sectionStyle.Render("Configuration") + "\n")
 	for i := 0; i < 3; i++ {
-		var displayText string
 		if i == m.settingsIndex {
-			if strings.Contains(items[i], "(global)") {
-				displayText = selectedStyle.Render("> " + items[i])
-			} else {
-				displayText = selectedStyle.Render("> " + items[i])
-			}
+			content.WriteString(selectedStyle.Render("> "+items[i]) + "\n")
 		} else {
-			if strings.Contains(items[i], "(global)") {
-				displayText = globalStyle.Render("  " + items[i])
-			} else {
-				displayText = localStyle.Render("  " + items[i])
-			}
+			content.WriteString(itemStyle.Render("  "+items[i]) + "\n")
 		}
-		content.WriteString(displayText + "\n")
 	}
 
 	content.WriteString("\n" + sectionStyle.Render("Actions") + "\n")
@@ -1304,32 +1774,112 @@ func (m *BubbleModel) renderModelMenu(base string) string {
 		Foreground(lipgloss.Color("240")).
 		Italic(true)
 
-	cfg, _ := config.Load()
-	provider, err := llm.NewProviderByID(cfg.Provider)
-	if err != nil {
-		return base
+	// Show loading indicator if fetching
+	if m.fetchingModels {
+		loadingContent := lipgloss.NewStyle().
+			Foreground(lipgloss.Color("11")).
+			Render("⏳ Fetching models...")
+
+		panel := lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(lipgloss.Color("11")).
+			Padding(1, 2).
+			Width(70).
+			Render(titleStyle.Render("Select Model") + "\n\n" + loadingContent)
+
+		return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, panel)
 	}
 
-	models, err := provider.GetModels()
-	if err != nil {
-		return base
+	// Use cached models and apply filter
+	allModels := m.cachedModels
+	if allModels == nil {
+		// Show error if we don't have cached models
+		errorContent := lipgloss.NewStyle().
+			Foreground(lipgloss.Color("1")).
+			Render("No models available. Please try again.")
+
+		panel := lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(lipgloss.Color("1")).
+			Padding(1, 2).
+			Width(70).
+			Render(titleStyle.Render("Select Model") + "\n\n" + errorContent + "\n\n" + helpStyle.Render("esc to close"))
+
+		return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, panel)
 	}
+
+	// Apply filter
+	models := m.filterModels(allModels, m.modelFilter)
+
+	cfg, _ := config.Load()
+	provider, _ := llm.NewProviderByID(cfg.Provider)
 
 	var content strings.Builder
 	content.WriteString(titleStyle.Render("Select Model") + "\n")
-	content.WriteString(descStyle.Render("Provider: "+provider.GetName()) + "\n\n")
+	content.WriteString(descStyle.Render("Provider: "+provider.GetName()) + "\n")
 
-	for i, model := range models {
+	// Show filter if active
+	if m.modelFilter != "" {
+		filterStyle := lipgloss.NewStyle().
+			Foreground(lipgloss.Color("11")).
+			Bold(true)
+		content.WriteString(filterStyle.Render("Filter: "+m.modelFilter) + "\n")
+	}
+
+	// Check if no matches
+	if len(models) == 0 {
+		noMatchStyle := lipgloss.NewStyle().
+			Foreground(lipgloss.Color("1")).
+			Italic(true)
+		content.WriteString("\n" + noMatchStyle.Render("No matching models") + "\n\n")
+		content.WriteString(helpStyle.Render("backspace to clear filter · esc cancel"))
+
+		panel := lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(lipgloss.Color("11")).
+			Padding(1, 2).
+			Width(70).
+			Render(content.String())
+
+		return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, panel)
+	}
+
+	// Fixed page size
+	const pageSize = 10
+	totalModels := len(models)
+	currentPage := (m.modelMenuIndex / pageSize) + 1
+	totalPages := (totalModels + pageSize - 1) / pageSize
+
+	// Show page indicator
+	content.WriteString(descStyle.Render(fmt.Sprintf("Page %d/%d (%d models total)", currentPage, totalPages, totalModels)) + "\n\n")
+
+	startIdx := m.modelMenuScroll
+	endIdx := startIdx + pageSize
+	if endIdx > totalModels {
+		endIdx = totalModels
+	}
+
+	// Render visible models (max 10 per page)
+	for i := startIdx; i < endIdx; i++ {
+		model := models[i]
 		if i == m.modelMenuIndex {
 			content.WriteString(selectedStyle.Render("> "+model.Name) + "\n")
-			content.WriteString(descStyle.Render("  "+model.Description) + "\n\n")
+			if model.Description != "" {
+				content.WriteString(descStyle.Render("  "+model.Description) + "\n")
+			}
 		} else {
 			content.WriteString(itemStyle.Render("  "+model.Name) + "\n")
-			content.WriteString(descStyle.Render("  "+model.Description) + "\n\n")
 		}
 	}
 
-	content.WriteString(helpStyle.Render("↑/↓ navigate · enter select · esc cancel"))
+	helpText := "↑/↓ navigate (cycles) · enter select · "
+	if m.modelFilter != "" {
+		helpText += "backspace clear filter · "
+	} else {
+		helpText += "type to filter · "
+	}
+	helpText += "esc cancel"
+	content.WriteString("\n" + helpStyle.Render(helpText))
 
 	panel := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
@@ -1349,28 +1899,26 @@ func (m *BubbleModel) renderModelMenu(base string) string {
 	)
 }
 
-// formatMessage formats a message with timestamp and appropriate styling
+// formatMessage formats a message with appropriate styling
 func (m *BubbleModel) formatMessage(msg Message, width int) string {
-	// Format timestamp
-	timeStr := msg.Timestamp.Format("15:04:05")
-
-	// Create timestamp style
-	timeStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("240")).
-		Italic(true)
-
 	// Format based on message type
 	switch msg.Type {
 	case "user":
-		return promptStyle.Render("💬 You: ") + msg.Content + " " + timeStyle.Render("["+timeStr+"]")
+		return promptStyle.Render("💬 You: ") + msg.Content
 	case "ai":
-		return aiStyle.Render("🤖 AI: ") + msg.Content + " " + timeStyle.Render("["+timeStr+"]")
+		// Show animated spinner if this is the loading message during streaming
+		if m.isStreaming && msg.Content == "⏳ Thinking..." {
+			spinners := []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
+			spinner := spinners[m.spinnerFrame%len(spinners)]
+			return aiStyle.Render("🕶️ Smith: ") + spinner + " Thinking..."
+		}
+		return aiStyle.Render("🕶️ Smith: ") + msg.Content
 	case "system":
-		return msg.Content // System messages (like welcome) don't need timestamp
+		return msg.Content
 	case "error":
-		return errorStyle.Render("❌ "+msg.Content) + " " + timeStyle.Render("["+timeStr+"]")
+		return errorStyle.Render(msg.Content) // No extra icon, error style is enough
 	default:
-		return msg.Content + " " + timeStyle.Render("["+timeStr+"]")
+		return msg.Content
 	}
 }
 
@@ -1394,33 +1942,4 @@ func (m *BubbleModel) copyLastMessage() {
 			return
 		}
 	}
-}
-
-// editGlobalConfig opens the global config file in the user's editor
-func (m *BubbleModel) editGlobalConfig() {
-	configDir, err := config.GetConfigDir()
-	if err != nil {
-		m.messages = append(m.messages, Message{Content: fmt.Sprintf("Error getting config directory: %v", err), Type: "error", Timestamp: time.Now()})
-		return
-	}
-
-	configPath := filepath.Join(configDir, "config.json")
-
-	// Try to open in editor
-	editor := os.Getenv("EDITOR")
-	if editor == "" {
-		editor = "nano" // fallback
-	}
-
-	cmd := exec.Command(editor, configPath)
-	cmd.Stdin = os.Stdin
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-
-	if err := cmd.Run(); err != nil {
-		m.messages = append(m.messages, Message{Content: fmt.Sprintf("Error opening editor: %v", err), Type: "error", Timestamp: time.Now()})
-		return
-	}
-
-	m.messages = append(m.messages, Message{Content: "Global config edited. Restart Smith to apply changes.", Type: "system", Timestamp: time.Now()})
 }

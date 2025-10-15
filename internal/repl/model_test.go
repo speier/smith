@@ -1,6 +1,8 @@
 package repl
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -152,7 +154,30 @@ func TestRenderHistory(t *testing.T) {
 }
 
 func TestView(t *testing.T) {
-	model, err := NewBubbleModel("/test/path", "")
+	// Create temp dir with minimal config so settings don't auto-open
+	tmpDir, err := os.MkdirTemp("", "smith-view-test-*")
+	if err != nil {
+		t.Fatalf("failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	// Create minimal local config
+	smithDir := filepath.Join(tmpDir, ".smith")
+	if err := os.MkdirAll(smithDir, 0755); err != nil {
+		t.Fatalf("failed to create .smith dir: %v", err)
+	}
+
+	configPath := filepath.Join(smithDir, "config.yaml")
+	configContent := `provider: copilot
+model: gpt-4o
+autoLevel: medium
+version: 1
+`
+	if err := os.WriteFile(configPath, []byte(configContent), 0644); err != nil {
+		t.Fatalf("failed to write config: %v", err)
+	}
+
+	model, err := NewBubbleModel(tmpDir, "")
 	if err != nil {
 		t.Fatalf("NewBubbleModel failed: %v", err)
 	}
@@ -162,9 +187,9 @@ func TestView(t *testing.T) {
 		t.Error("Expected non-empty view output")
 	}
 
-	// Should contain project path
-	if !contains(view, "/test/path") {
-		t.Error("Expected view to show project path")
+	// Should show SMITH branding
+	if !contains(view, "SMITH") {
+		t.Error("Expected view to show SMITH branding")
 	}
 }
 

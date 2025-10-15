@@ -4,7 +4,25 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+
+	"gopkg.in/yaml.v3"
 )
+
+// DefaultConfig represents the default project configuration structure
+type DefaultConfig struct {
+	Provider  string                    `yaml:"provider"`
+	Model     string                    `yaml:"model"`
+	AutoLevel string                    `yaml:"autoLevel"`
+	Agents    map[string]AgentConfigDef `yaml:"agents,omitempty"`
+	Version   int                       `yaml:"version"`
+}
+
+// AgentConfigDef represents per-agent configuration in scaffold
+type AgentConfigDef struct {
+	Model     string `yaml:"model,omitempty"`
+	AutoLevel string `yaml:"autoLevel,omitempty"`
+	Reasoning string `yaml:"reasoning,omitempty"`
+}
 
 // InitProjectFiles creates the default files for a Smith project
 func InitProjectFiles(smithDir string) error {
@@ -59,32 +77,62 @@ func createDefaultConfig(path string) error {
 		return nil
 	}
 
-	content := `# Smith Configuration
-# This file is gitignored - each developer has their own settings
+	// Create config struct
+	cfg := DefaultConfig{
+		Provider:  "",
+		Model:     "",
+		AutoLevel: "medium",
+		Version:   1,
+		// Agents map is optional, omitted by default
+	}
 
-# LLM Provider settings
-llm:
-  provider: copilot  # copilot, openrouter
-  model: gpt-4o      # Model to use
-  
-  # OpenRouter settings (if using openrouter)
-  # openrouter:
-  #   api_key: your-api-key-here
-  #   model: anthropic/claude-3.5-sonnet
+	// Marshal to YAML with comments
+	data, err := yaml.Marshal(&cfg)
+	if err != nil {
+		return fmt.Errorf("marshaling default config: %w", err)
+	}
 
-# Agent settings
-agents:
-  max_concurrent: 10  # Maximum number of concurrent agents
-  heartbeat_interval: 10s  # How often agents send heartbeats
-  timeout: 5m  # Agent timeout (considered dead if no heartbeat)
+	// Add header comment
+	header := `# Smith Project Configuration (.smith/config.yaml)
+# This file is gitignored - each developer/project has their own settings
 
-# Safety settings
-safety:
-  level: auto  # auto, safe, yolo
-  require_approval: false  # Require human approval for certain actions
+# LLM Provider (required)
+# Run '/settings' in the TUI to configure provider and model
+
 `
 
-	return os.WriteFile(path, []byte(content), 0644)
+	footer := `
+# Per-agent overrides (optional)
+# Uncomment and configure after selecting a provider and model:
+#
+# agents:
+#   planning:
+#     model: ""
+#     autoLevel: high
+#     reasoning: high
+#   implementation:
+#     model: ""
+#     autoLevel: medium
+#     reasoning: medium
+#   testing:
+#     model: ""
+#     autoLevel: low
+#     reasoning: low
+#   review:
+#     model: ""
+#     autoLevel: high
+#     reasoning: high
+`
+
+	fullContent := header + string(data) + footer
+
+	return os.WriteFile(path, []byte(fullContent), 0644)
+}
+
+// GitignoreContent represents the .gitignore structure
+type GitignoreContent struct {
+	DBFiles    []string `yaml:"-"` // Not in YAML, just for documentation
+	ConfigFile string   `yaml:"-"`
 }
 
 // createGitignore creates a .gitignore file for the .smith directory
@@ -93,16 +141,23 @@ func createGitignore(path string) error {
 		return nil
 	}
 
-	content := `# Gitignore for .smith directory
+	// Define what should be ignored
+	ignoreItems := []string{
+		"# Gitignore for .smith directory",
+		"",
+		"# Local agent runtime state (not committed)",
+		"smith.db",
+		"smith.db-shm",
+		"smith.db-wal",
+		"",
+		"# User-specific config with API keys",
+		"config.yaml",
+	}
 
-# Local agent runtime state (not committed)
-smith.db
-smith.db-shm
-smith.db-wal
-
-# User-specific config with API keys
-config.yaml
-`
+	content := ""
+	for _, line := range ignoreItems {
+		content += line + "\n"
+	}
 
 	return os.WriteFile(path, []byte(content), 0644)
 }

@@ -2,6 +2,9 @@ package engine
 
 import (
 	"fmt"
+	"os"
+	"os/exec"
+	"path/filepath"
 	"strings"
 
 	"github.com/speier/smith/internal/coordinator"
@@ -62,6 +65,121 @@ func New(cfg Config) (*Engine, error) {
 	}, nil
 }
 
+// getSystemPrompt returns the system prompt with tool usage instructions
+func (e *Engine) getSystemPrompt() string {
+	return `You are Smith, an AI-powered development assistant.
+
+You can help developers by:
+- Creating and editing files (write_file, read_file, edit_file)
+- Running commands (run_command)
+- Exploring the project structure (list_files)
+
+**File Operations Best Practices:**
+1. Always read_file before editing to understand current content
+2. For multi-file projects, create all necessary files
+3. After making changes, use run_command to test (build, run tests, etc.)
+
+**Workflow Example:**
+User: "Create a hello world Go program"
+1. Use write_file to create main.go with the code
+2. Use run_command to build: "go build ."
+3. Use run_command to run: "./main" or "go run main.go"
+
+Be conversational and helpful. Confirm what you're doing before executing commands.
+Keep responses concise but friendly.`
+}
+
+// getTools returns the available tools for the LLM
+func (e *Engine) getTools() []llm.Tool {
+	return []llm.Tool{
+		{
+			Name:        "write_file",
+			Description: "Create or overwrite a file with the specified content",
+			Parameters: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"file_path": map[string]interface{}{
+						"type":        "string",
+						"description": "Path to the file relative to project root",
+					},
+					"content": map[string]interface{}{
+						"type":        "string",
+						"description": "Complete content to write to the file",
+					},
+				},
+				"required": []string{"file_path", "content"},
+			},
+		},
+		{
+			Name:        "read_file",
+			Description: "Read the contents of a file",
+			Parameters: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"file_path": map[string]interface{}{
+						"type":        "string",
+						"description": "Path to the file relative to project root",
+					},
+				},
+				"required": []string{"file_path"},
+			},
+		},
+		{
+			Name:        "edit_file",
+			Description: "Edit a file by replacing old_content with new_content",
+			Parameters: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"file_path": map[string]interface{}{
+						"type":        "string",
+						"description": "Path to the file relative to project root",
+					},
+					"old_content": map[string]interface{}{
+						"type":        "string",
+						"description": "Exact text to replace (must match exactly)",
+					},
+					"new_content": map[string]interface{}{
+						"type":        "string",
+						"description": "New text to replace old_content with",
+					},
+				},
+				"required": []string{"file_path", "old_content", "new_content"},
+			},
+		},
+		{
+			Name:        "list_files",
+			Description: "List files and directories in a path",
+			Parameters: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"directory": map[string]interface{}{
+						"type":        "string",
+						"description": "Directory path relative to project root (default: .)",
+					},
+				},
+			},
+		},
+		{
+			Name:        "run_command",
+			Description: "Execute a shell command in the project directory",
+			Parameters: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"command": map[string]interface{}{
+						"type":        "string",
+						"description": "Shell command to execute",
+					},
+					"working_dir": map[string]interface{}{
+						"type":        "string",
+						"description": "Working directory relative to project root (default: .)",
+					},
+				},
+				"required": []string{"command"},
+			},
+		},
+	}
+}
+
 // Chat sends a message and gets a response
 // This is the main interface for any frontend
 func (e *Engine) Chat(userMessage string) (string, error) {
@@ -91,20 +209,49 @@ func (e *Engine) ChatStream(userMessage string, callback func(string) error) err
 		Content: userMessage,
 	})
 
-	// Convert conversation history to LLM messages
-	messages := make([]llm.Message, len(e.conversationHistory))
-	for i, msg := range e.conversationHistory {
-		messages[i] = llm.Message{
+	// Convert conversation history to LLM messages with system prompt
+	messages := []llm.Message{
+		{
+			Role:    "system",
+			Content: e.getSystemPrompt(),
+		},
+	}
+	for _, msg := range e.conversationHistory {
+		messages = append(messages, llm.Message{
 			Role:    msg.Role,
 			Content: msg.Content,
-		}
+		})
 	}
+
+	// Get tools
+	tools := e.getTools()
 
 	// Stream the response
 	var fullResponse strings.Builder
-	err := e.llm.ChatStream(messages, nil, func(response *llm.Response) error {
-		fullResponse.WriteString(response.Content)
-		return callback(response.Content)
+	err := e.llm.ChatStream(messages, tools, func(response *llm.Response) error {
+		// Handle tool calls
+		if len(response.ToolCalls) > 0 {
+			for _, toolCall := range response.ToolCalls {
+				result, err := e.executeToolCall(toolCall)
+				if err != nil {
+					return fmt.Errorf("tool execution failed: %w", err)
+				}
+				// Send tool result back to callback
+				toolMsg := fmt.Sprintf("\n[%s: %s]\n", toolCall.Name, result)
+				if err := callback(toolMsg); err != nil {
+					return err
+				}
+				fullResponse.WriteString(result)
+			}
+		}
+
+		// Stream regular content
+		if response.Content != "" {
+			fullResponse.WriteString(response.Content)
+			return callback(response.Content)
+		}
+
+		return nil
 	})
 
 	if err != nil {
@@ -147,12 +294,186 @@ func (e *Engine) GetStatus() string {
 `, stats.Available, stats.InProgress, stats.Blocked, stats.Done)
 }
 
+// handleWriteFile handles the write_file tool call
+func (e *Engine) handleWriteFile(input map[string]interface{}) (string, error) {
+	filePath, ok := input["file_path"].(string)
+	if !ok {
+		return "", fmt.Errorf("file_path is required")
+	}
+
+	content, ok := input["content"].(string)
+	if !ok {
+		return "", fmt.Errorf("content is required")
+	}
+
+	// Build full path (relative to project root)
+	fullPath := filepath.Join(e.projectPath, filePath)
+
+	// TODO: Add safety checks based on auto-level
+	// For MVP, just create the file
+
+	// Ensure parent directory exists
+	dir := filepath.Dir(fullPath)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return "", fmt.Errorf("failed to create directory: %w", err)
+	}
+
+	// Write file
+	if err := os.WriteFile(fullPath, []byte(content), 0644); err != nil {
+		return "", fmt.Errorf("failed to write file: %w", err)
+	}
+
+	return fmt.Sprintf("✅ Created: %s", filePath), nil
+}
+
+// handleReadFile handles the read_file tool call
+func (e *Engine) handleReadFile(input map[string]interface{}) (string, error) {
+	filePath, ok := input["file_path"].(string)
+	if !ok {
+		return "", fmt.Errorf("file_path is required")
+	}
+
+	// Build full path (relative to project root)
+	fullPath := filepath.Join(e.projectPath, filePath)
+
+	// Read file
+	content, err := os.ReadFile(fullPath)
+	if err != nil {
+		return "", fmt.Errorf("failed to read file: %w", err)
+	}
+
+	return string(content), nil
+}
+
+// handleEditFile handles the edit_file tool call
+func (e *Engine) handleEditFile(input map[string]interface{}) (string, error) {
+	filePath, ok := input["file_path"].(string)
+	if !ok {
+		return "", fmt.Errorf("file_path is required")
+	}
+
+	oldContent, ok := input["old_content"].(string)
+	if !ok {
+		return "", fmt.Errorf("old_content is required")
+	}
+
+	newContent, ok := input["new_content"].(string)
+	if !ok {
+		return "", fmt.Errorf("new_content is required")
+	}
+
+	// Build full path (relative to project root)
+	fullPath := filepath.Join(e.projectPath, filePath)
+
+	// Read current file content
+	currentContent, err := os.ReadFile(fullPath)
+	if err != nil {
+		return "", fmt.Errorf("failed to read file: %w", err)
+	}
+
+	// Replace old content with new content
+	updatedContent := strings.Replace(string(currentContent), oldContent, newContent, 1)
+
+	// Check if replacement was made
+	if updatedContent == string(currentContent) {
+		return "", fmt.Errorf("old_content not found in file")
+	}
+
+	// Write updated content
+	if err := os.WriteFile(fullPath, []byte(updatedContent), 0644); err != nil {
+		return "", fmt.Errorf("failed to write file: %w", err)
+	}
+
+	return fmt.Sprintf("✅ Edited: %s", filePath), nil
+}
+
+// handleListFiles handles the list_files tool call
+func (e *Engine) handleListFiles(input map[string]interface{}) (string, error) {
+	dirPath, _ := input["directory"].(string)
+	if dirPath == "" {
+		dirPath = "."
+	}
+
+	// Build full path (relative to project root)
+	fullPath := filepath.Join(e.projectPath, dirPath)
+
+	// Read directory
+	entries, err := os.ReadDir(fullPath)
+	if err != nil {
+		return "", fmt.Errorf("failed to read directory: %w", err)
+	}
+
+	var result strings.Builder
+	result.WriteString(fmt.Sprintf("📁 %s:\n", dirPath))
+	for _, entry := range entries {
+		if entry.IsDir() {
+			result.WriteString(fmt.Sprintf("  📂 %s/\n", entry.Name()))
+		} else {
+			result.WriteString(fmt.Sprintf("  📄 %s\n", entry.Name()))
+		}
+	}
+
+	return result.String(), nil
+}
+
+// handleRunCommand handles the run_command tool call
+func (e *Engine) handleRunCommand(input map[string]interface{}) (string, error) {
+	command, ok := input["command"].(string)
+	if !ok {
+		return "", fmt.Errorf("command is required")
+	}
+
+	workingDir, _ := input["working_dir"].(string)
+	if workingDir == "" {
+		workingDir = e.projectPath
+	} else {
+		workingDir = filepath.Join(e.projectPath, workingDir)
+	}
+
+	// TODO: Add safety checks - require confirmation for certain commands
+	// For MVP, execute directly
+
+	// Use sh -c to execute command (works on Unix-like systems)
+	cmd := exec.Command("sh", "-c", command)
+	cmd.Dir = workingDir
+
+	output, err := cmd.CombinedOutput()
+	exitCode := 0
+	if err != nil {
+		if exitError, ok := err.(*exec.ExitError); ok {
+			exitCode = exitError.ExitCode()
+		} else {
+			return "", fmt.Errorf("failed to execute command: %w", err)
+		}
+	}
+
+	return fmt.Sprintf("Exit code: %d\n%s", exitCode, string(output)), nil
+}
+
 type Status struct {
 	TodoCount       int
 	InProgressCount int
 	ReviewCount     int
 	DoneCount       int
 	BlockedCount    int
+}
+
+// executeToolCall executes a tool call and returns the result
+func (e *Engine) executeToolCall(toolCall llm.ToolCall) (string, error) {
+	switch toolCall.Name {
+	case "write_file":
+		return e.handleWriteFile(toolCall.Input)
+	case "read_file":
+		return e.handleReadFile(toolCall.Input)
+	case "edit_file":
+		return e.handleEditFile(toolCall.Input)
+	case "list_files":
+		return e.handleListFiles(toolCall.Input)
+	case "run_command":
+		return e.handleRunCommand(toolCall.Input)
+	default:
+		return "", fmt.Errorf("unknown tool: %s", toolCall.Name)
+	}
 }
 
 // GetBacklog returns all tasks across all states

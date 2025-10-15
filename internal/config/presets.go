@@ -1,10 +1,8 @@
 package config
 
-// ProviderPreset defines the default configuration for a provider
+// ProviderPreset defines metadata for a provider (no hardcoded models)
 type ProviderPreset struct {
 	Provider     string
-	DefaultModel string
-	Agents       map[string]AgentConfig
 	Capabilities ProviderCapabilities
 }
 
@@ -12,106 +10,33 @@ type ProviderPreset struct {
 type ProviderCapabilities struct {
 	SupportsReasoning bool
 	MaxContextTokens  int
-	HasMiniVariant    bool
 	SupportsStreaming bool
 }
 
-// GetProviderPresets returns all available provider presets
+// GetProviderPresets returns all available provider metadata
 func GetProviderPresets() map[string]ProviderPreset {
 	return map[string]ProviderPreset{
 		"copilot": {
-			Provider:     "copilot",
-			DefaultModel: "gpt-4o",
-			Agents: map[string]AgentConfig{
-				"planning": {
-					Model:     "gpt-4o",
-					AutoLevel: "high",
-					Reasoning: "high",
-				},
-				"implementation": {
-					Model:     "gpt-4o",
-					AutoLevel: "medium",
-					Reasoning: "medium",
-				},
-				"testing": {
-					Model:     "gpt-4o-mini",
-					AutoLevel: "low",
-					Reasoning: "low",
-				},
-				"review": {
-					Model:     "gpt-4o",
-					AutoLevel: "high",
-					Reasoning: "high",
-				},
-			},
+			Provider: "copilot",
 			Capabilities: ProviderCapabilities{
 				SupportsReasoning: true,
 				MaxContextTokens:  128000,
-				HasMiniVariant:    true,
 				SupportsStreaming: true,
 			},
 		},
 		"openrouter": {
-			Provider:     "openrouter",
-			DefaultModel: "anthropic/claude-3.5-sonnet",
-			Agents: map[string]AgentConfig{
-				"planning": {
-					Model:     "anthropic/claude-3.5-sonnet",
-					AutoLevel: "high",
-					Reasoning: "high",
-				},
-				"implementation": {
-					Model:     "openai/gpt-4o",
-					AutoLevel: "medium",
-					Reasoning: "medium",
-				},
-				"testing": {
-					Model:     "openai/gpt-4o-mini",
-					AutoLevel: "low",
-					Reasoning: "low",
-				},
-				"review": {
-					Model:     "anthropic/claude-3.5-sonnet",
-					AutoLevel: "high",
-					Reasoning: "high",
-				},
-			},
+			Provider: "openrouter",
 			Capabilities: ProviderCapabilities{
 				SupportsReasoning: true,
 				MaxContextTokens:  200000,
-				HasMiniVariant:    true,
 				SupportsStreaming: true,
 			},
 		},
 		"openai": {
-			Provider:     "openai",
-			DefaultModel: "gpt-4o",
-			Agents: map[string]AgentConfig{
-				"planning": {
-					Model:     "gpt-4o",
-					AutoLevel: "high",
-					Reasoning: "high",
-				},
-				"implementation": {
-					Model:     "gpt-4o",
-					AutoLevel: "medium",
-					Reasoning: "medium",
-				},
-				"testing": {
-					Model:     "gpt-4o-mini",
-					AutoLevel: "low",
-					Reasoning: "low",
-				},
-				"review": {
-					Model:     "gpt-4o",
-					AutoLevel: "high",
-					Reasoning: "high",
-				},
-			},
+			Provider: "openai",
 			Capabilities: ProviderCapabilities{
 				SupportsReasoning: true,
 				MaxContextTokens:  128000,
-				HasMiniVariant:    true,
 				SupportsStreaming: true,
 			},
 		},

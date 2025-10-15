@@ -4,67 +4,204 @@ import Layout from '../layouts/Layout.astro';
 
 <Layout title="Smith - Multi-Agent AI Development">
   <main>
+    <!-- Navigation -->
+    <nav class="nav">
+      <div class="container">
+        <div class="nav-content">
+          <div class="nav-logo">
+            <span class="logo-icon">🕶️</span>
+            <span class="logo-text">Smith</span>
+          </div>
+          <div class="nav-links">
+            <a href="#features">Features</a>
+            <a href="#use-cases">Use Cases</a>
+            <a href="#install">Install</a>
+            <a href="https://github.com/speier/smith" target="_blank" rel="noopener">GitHub</a>
+          </div>
+        </div>
+      </div>
+    </nav>
+
     <!-- Hero Section -->
     <section class="hero">
       <div class="container">
         <div class="hero-content">
+          <div class="hero-badge">
+            <span class="badge-dot"></span>
+            Multi-Agent Development System
+          </div>
           <h1 class="hero-title">
-            <span class="gradient-text">Smith</span>
+            AI that <span class="gradient-text">multiplies</span><br/>
+            to build your software
           </h1>
-          <p class="hero-subtitle">
-            Multi-agent AI development system
-          </p>
           <p class="hero-description">
-            Orchestrate specialized AI agents to plan, implement, test, and review your code.
-            One command. One chat. Multiple agents working together.
+            One chat. Multiple specialized agents working in parallel.
+            Smith orchestrates planning, implementation, testing, and review—all from your terminal.
           </p>
           <div class="hero-actions">
             <a href="#install" class="btn btn-primary">
-              Get Started
+              <span>Get Started</span>
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <path d="M6 3L11 8L6 13" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+              </svg>
             </a>
             <a href="https://github.com/speier/smith" class="btn btn-secondary" target="_blank" rel="noopener">
               View on GitHub
             </a>
           </div>
+          <div class="hero-terminal">
+            <div class="terminal-header">
+              <div class="terminal-dots">
+                <span></span>
+                <span></span>
+                <span></span>
+              </div>
+              <div class="terminal-title">smith</div>
+            </div>
+            <div class="terminal-content">
+              <div class="terminal-line"><span class="prompt">$</span> smith</div>
+              <div class="terminal-line chat-user">💬 You: Add user authentication with JWT</div>
+              <div class="terminal-line chat-agent">🤖 Planning Agent: Breaking down into tasks...</div>
+              <div class="terminal-line chat-agent">🤖 Implementation Agent: Creating auth middleware...</div>
+              <div class="terminal-line chat-agent">🤖 Testing Agent: Writing test suite...</div>
+              <div class="terminal-line chat-success">✓ Feature complete and tested</div>
+            </div>
+          </div>
         </div>
       </div>
       <div class="hero-gradient"></div>
+      <div class="hero-grid"></div>
+    </section>
+
+    <!-- Use Cases Section -->
+    <section id="use-cases" class="use-cases">
+      <div class="container">
+        <h2 class="section-title">Smith meets you where you work</h2>
+        <p class="section-subtitle">One system. Multiple interfaces. Your choice.</p>
+        
+        <div class="use-case">
+          <div class="use-case-content">
+            <div class="use-case-label">INTERACTIVE</div>
+            <h3>Smith in your terminal</h3>
+            <p>
+              Launch an interactive chat session directly from your terminal. Natural conversation with AI agents
+              that understand your codebase, execute tasks in parallel, and keep you in control with configurable
+              safety levels.
+            </p>
+            <a href="#install" class="link-arrow">
+              Get started
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <path d="M6 3L11 8L6 13" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+              </svg>
+            </a>
+          </div>
+          <div class="use-case-visual">
+            <div class="code-block">
+              <div class="code-line"><span class="code-comment"># Start interactive session</span></div>
+              <div class="code-line"><span class="code-keyword">$</span> cd my-project</div>
+              <div class="code-line"><span class="code-keyword">$</span> smith</div>
+              <div class="code-line"></div>
+              <div class="code-line"><span class="code-comment"># Chat naturally</span></div>
+              <div class="code-line"><span class="code-string">💬 You: Refactor the auth module</span></div>
+              <div class="code-line"><span class="code-success">🤖 Smith: I'll help with that...</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="use-case use-case-reverse">
+          <div class="use-case-content">
+            <div class="use-case-label">AUTONOMOUS</div>
+            <h3>Smith on autopilot</h3>
+            <p>
+              Let Smith watch your project and autonomously handle tasks from your issue tracker, pull request
+              reviews, or task queue. Agents work in the background, coordinating file locks and parallel
+              execution without your intervention.
+            </p>
+            <a href="#install" class="link-arrow">
+              Learn more
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <path d="M6 3L11 8L6 13" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+              </svg>
+            </a>
+          </div>
+          <div class="use-case-visual">
+            <div class="code-block">
+              <div class="code-line"><span class="code-comment"># Watch mode</span></div>
+              <div class="code-line"><span class="code-keyword">$</span> smith watch</div>
+              <div class="code-line"></div>
+              <div class="code-line"><span class="code-success">👁️  Watching for tasks...</span></div>
+              <div class="code-line"><span class="code-info">📋 Found: Issue #42 - Add caching</span></div>
+              <div class="code-line"><span class="code-info">🤖 Planning Agent: Creating plan...</span></div>
+              <div class="code-line"><span class="code-info">🤖 Implementation Agent: Working...</span></div>
+              <div class="code-line"><span class="code-success">✓ PR created and ready for review</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="use-case">
+          <div class="use-case-content">
+            <div class="use-case-label">ONE-SHOT</div>
+            <h3>Smith on demand</h3>
+            <p>
+              Execute specific tasks with a single command. Perfect for CI/CD pipelines, automated refactoring,
+              code generation, or any scenario where you need agents to complete a defined task without interaction.
+            </p>
+            <a href="#install" class="link-arrow">
+              See examples
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <path d="M6 3L11 8L6 13" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+              </svg>
+            </a>
+          </div>
+          <div class="use-case-visual">
+            <div class="code-block">
+              <div class="code-line"><span class="code-comment"># Execute and exit</span></div>
+              <div class="code-line"><span class="code-keyword">$</span> smith exec "migrate to Go 1.22"</div>
+              <div class="code-line"></div>
+              <div class="code-line"><span class="code-info">🤖 Analyzing codebase...</span></div>
+              <div class="code-line"><span class="code-info">🤖 Updating go.mod...</span></div>
+              <div class="code-line"><span class="code-info">🤖 Updating syntax...</span></div>
+              <div class="code-line"><span class="code-success">✓ Migration complete</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
     </section>
 
     <!-- Features Section -->
-    <section class="features">
+    <section id="features" class="features">
       <div class="container">
-        <h2 class="section-title">Why Smith?</h2>
+        <h2 class="section-title">Built for developers who demand control</h2>
         <div class="features-grid">
           <div class="feature-card">
             <div class="feature-icon">🤖</div>
-            <h3>Multi-Agent System</h3>
-            <p>Specialized agents for planning, implementation, testing, and code review work together seamlessly.</p>
+            <h3>Multi-Agent Architecture</h3>
+            <p>Specialized agents for planning, implementation, testing, and code review work together seamlessly. Each agent is an expert in its domain.</p>
           </div>
           <div class="feature-card">
-            <div class="feature-icon">🎯</div>
+            <div class="feature-icon">🔒</div>
             <h3>Safety First</h3>
-            <p>Configurable auto-levels (off, low, medium, high) ensure AI actions match your comfort level.</p>
+            <p>Configurable auto-levels (off, low, medium, high) ensure AI actions match your comfort level. You decide how autonomous agents can be.</p>
           </div>
           <div class="feature-card">
             <div class="feature-icon">⚡</div>
-            <h3>Provider Choice</h3>
-            <p>Works with GitHub Copilot, OpenRouter, and OpenAI. Use your preferred provider and models.</p>
+            <h3>Provider Agnostic</h3>
+            <p>Works with GitHub Copilot, OpenRouter, and OpenAI. Use your preferred provider and models. No vendor lock-in.</p>
           </div>
           <div class="feature-card">
-            <div class="feature-icon">🎨</div>
-            <h3>Beautiful TUI</h3>
-            <p>Modern terminal interface with streaming responses, real-time updates, and intuitive slash commands.</p>
+            <div class="feature-icon">🎯</div>
+            <h3>Conflict-Free Execution</h3>
+            <p>Advanced file locking system prevents agents from stepping on each other. Multiple agents can work in parallel safely.</p>
           </div>
           <div class="feature-card">
             <div class="feature-icon">📦</div>
             <h3>Project-Centric</h3>
-            <p>Each project has its own configuration. No global defaults forcing choices on you.</p>
+            <p>Each project has its own configuration. No global defaults forcing choices on you. Customize per project.</p>
           </div>
           <div class="feature-card">
-            <div class="feature-icon">🔧</div>
-            <h3>Developer Control</h3>
-            <p>You're in charge. Review plans, approve changes, customize agent behavior per project.</p>
+            <div class="feature-icon">🎨</div>
+            <h3>Beautiful Interface</h3>
+            <p>Modern terminal interface with streaming responses, real-time updates, and intuitive slash commands for power users.</p>
           </div>
         </div>
       </div>
@@ -73,61 +210,60 @@ import Layout from '../layouts/Layout.astro';
     <!-- Installation Section -->
     <section id="install" class="install">
       <div class="container">
-        <h2 class="section-title">Get Started</h2>
-        <div class="install-steps">
-          <div class="step">
-            <div class="step-number">1</div>
-            <div class="step-content">
-              <h3>Install Smith</h3>
-              <pre><code>curl -fsSL https://agentsmith.sh/install | bash</code></pre>
-              <p class="step-note">Or with Go: <code>go install github.com/speier/smith@latest</code></p>
+        <div class="install-header">
+          <h2 class="section-title">Get started in seconds</h2>
+          <p class="section-subtitle">No complex setup. No configuration files. Just install and start building.</p>
+        </div>
+        <div class="install-methods">
+          <div class="install-method">
+            <h3>macOS / Linux</h3>
+            <div class="code-block install-code">
+              <code>curl -fsSL https://agentsmith.sh/install | bash</code>
+              <button class="copy-btn" data-copy="curl -fsSL https://agentsmith.sh/install | bash">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                  <rect x="5" y="5" width="9" height="9" rx="1" stroke="currentColor" stroke-width="1.5"/>
+                  <path d="M3 10V3C3 2.44772 3.44772 2 4 2H10" stroke="currentColor" stroke-width="1.5"/>
+                </svg>
+              </button>
             </div>
           </div>
-          <div class="step">
-            <div class="step-number">2</div>
-            <div class="step-content">
-              <h3>Start the REPL</h3>
-              <pre><code>cd your-project
-smith</code></pre>
-              <p class="step-note">Smith launches directly into an interactive chat session.</p>
-            </div>
-          </div>
-          <div class="step">
-            <div class="step-number">3</div>
-            <div class="step-content">
-              <h3>Start Building</h3>
-              <pre><code>💬 You: Add user authentication with JWT
-🤖 Smith: I'll help with that...</code></pre>
-              <p class="step-note">Chat naturally. Use slash commands like /status, /agents, /settings.</p>
+          <div class="install-method">
+            <h3>Go Install</h3>
+            <div class="code-block install-code">
+              <code>go install github.com/speier/smith@latest</code>
+              <button class="copy-btn" data-copy="go install github.com/speier/smith@latest">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                  <rect x="5" y="5" width="9" height="9" rx="1" stroke="currentColor" stroke-width="1.5"/>
+                  <path d="M3 10V3C3 2.44772 3.44772 2 4 2H10" stroke="currentColor" stroke-width="1.5"/>
+                </svg>
+              </button>
             </div>
           </div>
         </div>
-      </div>
-    </section>
-
-    <!-- How It Works Section -->
-    <section class="how-it-works">
-      <div class="container">
-        <h2 class="section-title">How It Works</h2>
-        <div class="workflow">
-          <div class="workflow-step">
-            <div class="workflow-badge">Planning Agent</div>
-            <p>Analyzes your request and creates a detailed implementation plan with tasks.</p>
-          </div>
-          <div class="workflow-arrow">→</div>
-          <div class="workflow-step">
-            <div class="workflow-badge">Implementation Agent</div>
-            <p>Executes tasks, writes code, and makes changes to your codebase.</p>
-          </div>
-          <div class="workflow-arrow">→</div>
-          <div class="workflow-step">
-            <div class="workflow-badge">Testing Agent</div>
-            <p>Creates comprehensive test suites to validate the implementation.</p>
-          </div>
-          <div class="workflow-arrow">→</div>
-          <div class="workflow-step">
-            <div class="workflow-badge">Review Agent</div>
-            <p>Reviews code quality, suggests improvements, ensures best practices.</p>
+        <div class="install-quickstart">
+          <h3>Quick Start</h3>
+          <div class="quickstart-steps">
+            <div class="quickstart-step">
+              <span class="step-num">1</span>
+              <div>
+                <code>cd your-project</code>
+                <p>Navigate to your project directory</p>
+              </div>
+            </div>
+            <div class="quickstart-step">
+              <span class="step-num">2</span>
+              <div>
+                <code>smith</code>
+                <p>Launch the interactive session</p>
+              </div>
+            </div>
+            <div class="quickstart-step">
+              <span class="step-num">3</span>
+              <div>
+                <code>Start chatting with your AI team</code>
+                <p>Describe what you want to build</p>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -136,12 +272,20 @@ smith</code></pre>
     <!-- CTA Section -->
     <section class="cta">
       <div class="container">
-        <h2>Ready to accelerate your development?</h2>
-        <p>Just run <code>smith</code> and start chatting. It's that simple.</p>
-        <div class="cta-actions">
-          <a href="#install" class="btn btn-primary btn-large">
-            Get Started Now
-          </a>
+        <div class="cta-content">
+          <h2>Ready to multiply your development velocity?</h2>
+          <p>Join developers who are shipping faster with AI agents that actually understand their code.</p>
+          <div class="cta-actions">
+            <a href="#install" class="btn btn-primary btn-large">
+              <span>Get Started Now</span>
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <path d="M6 3L11 8L6 13" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+              </svg>
+            </a>
+            <a href="https://github.com/speier/smith" class="btn btn-secondary btn-large" target="_blank" rel="noopener">
+              View on GitHub
+            </a>
+          </div>
         </div>
       </div>
     </section>
@@ -149,23 +293,130 @@ smith</code></pre>
     <!-- Footer -->
     <footer class="footer">
       <div class="container">
-        <p>Built with ❤️ for developers</p>
-        <div class="footer-links">
-          <a href="https://github.com/speier/smith" target="_blank" rel="noopener">GitHub</a>
-          <a href="https://github.com/speier/smith/issues" target="_blank" rel="noopener">Issues</a>
-          <a href="https://github.com/speier/smith/blob/main/README.md" target="_blank" rel="noopener">Docs</a>
+        <div class="footer-content">
+          <div class="footer-brand">
+            <div class="footer-logo">
+              <span class="logo-icon">🕶️</span>
+              <span class="logo-text">Smith</span>
+            </div>
+            <p>Multi-agent AI development system</p>
+          </div>
+          <div class="footer-links-group">
+            <div class="footer-column">
+              <h4>Product</h4>
+              <a href="#features">Features</a>
+              <a href="#use-cases">Use Cases</a>
+              <a href="#install">Install</a>
+            </div>
+            <div class="footer-column">
+              <h4>Resources</h4>
+              <a href="https://github.com/speier/smith/blob/main/README.md" target="_blank" rel="noopener">Documentation</a>
+              <a href="https://github.com/speier/smith/issues" target="_blank" rel="noopener">Issues</a>
+              <a href="https://github.com/speier/smith" target="_blank" rel="noopener">GitHub</a>
+            </div>
+            <div class="footer-column">
+              <h4>Community</h4>
+              <a href="https://github.com/speier/smith/discussions" target="_blank" rel="noopener">Discussions</a>
+              <a href="https://github.com/speier/smith/blob/main/CONTRIBUTING.md" target="_blank" rel="noopener">Contributing</a>
+            </div>
+          </div>
+        </div>
+        <div class="footer-bottom">
+          <p>Built with ❤️ for developers</p>
+          <p>© 2025 speier. Open source under <a href="https://github.com/speier/smith/blob/main/LICENSE" target="_blank" rel="noopener">MIT License</a>.</p>
         </div>
       </div>
     </footer>
   </main>
 </Layout>
 
+<script>
+  // Copy to clipboard functionality
+  document.querySelectorAll('.copy-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const text = btn.getAttribute('data-copy');
+      if (text) {
+        await navigator.clipboard.writeText(text);
+        btn.classList.add('copied');
+        setTimeout(() => btn.classList.remove('copied'), 2000);
+      }
+    });
+  });
+
+  // Smooth scroll for anchor links
+  document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+    anchor.addEventListener('click', function (e) {
+      e.preventDefault();
+      const target = document.querySelector(this.getAttribute('href'));
+      if (target) {
+        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    });
+  });
+</script>
+
 <style>
   /* Container */
   .container {
-    max-width: 1200px;
+    max-width: 1280px;
     margin: 0 auto;
     padding: 0 2rem;
+  }
+
+  /* Navigation */
+  .nav {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 100;
+    background: rgba(10, 10, 10, 0.8);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  }
+
+  .nav-content {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 4rem;
+  }
+
+  .nav-logo {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 1.25rem;
+    font-weight: 700;
+  }
+
+  .logo-icon {
+    font-size: 1.5rem;
+  }
+
+  .logo-text {
+    background: linear-gradient(135deg, var(--color-primary-light) 0%, var(--color-accent) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .nav-links {
+    display: flex;
+    gap: 2rem;
+    align-items: center;
+  }
+
+  .nav-links a {
+    color: var(--color-text-secondary);
+    text-decoration: none;
+    font-weight: 500;
+    transition: color 0.2s ease;
+    font-size: 0.95rem;
+  }
+
+  .nav-links a:hover {
+    color: var(--color-text);
   }
 
   /* Hero Section */
@@ -176,6 +427,7 @@ smith</code></pre>
     align-items: center;
     justify-content: center;
     overflow: hidden;
+    padding-top: 4rem;
   }
 
   .hero-gradient {
@@ -184,7 +436,23 @@ smith</code></pre>
     left: 0;
     right: 0;
     bottom: 0;
-    background: radial-gradient(circle at 50% 50%, rgba(99, 102, 241, 0.15) 0%, transparent 50%);
+    background: 
+      radial-gradient(circle at 20% 20%, rgba(99, 102, 241, 0.15) 0%, transparent 40%),
+      radial-gradient(circle at 80% 80%, rgba(34, 211, 238, 0.15) 0%, transparent 40%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .hero-grid {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-image: 
+      linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+    background-size: 50px 50px;
     pointer-events: none;
     z-index: 0;
   }
@@ -193,16 +461,46 @@ smith</code></pre>
     position: relative;
     z-index: 1;
     text-align: center;
-    max-width: 800px;
+    max-width: 900px;
     margin: 0 auto;
+    padding: 2rem 0;
+  }
+
+  .hero-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    background: rgba(99, 102, 241, 0.1);
+    border: 1px solid rgba(99, 102, 241, 0.2);
+    border-radius: 2rem;
+    color: var(--color-primary-light);
+    font-size: 0.875rem;
+    font-weight: 600;
+    margin-bottom: 2rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .badge-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--color-primary-light);
+    animation: pulse 2s ease-in-out infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
   }
 
   .hero-title {
-    font-size: clamp(3rem, 10vw, 6rem);
+    font-size: clamp(2.5rem, 8vw, 5rem);
     font-weight: 800;
     line-height: 1.1;
-    margin-bottom: 1rem;
-    letter-spacing: -0.02em;
+    margin-bottom: 1.5rem;
+    letter-spacing: -0.03em;
   }
 
   .gradient-text {
@@ -212,18 +510,14 @@ smith</code></pre>
     background-clip: text;
   }
 
-  .hero-subtitle {
-    font-size: clamp(1.25rem, 3vw, 1.75rem);
-    color: var(--color-text-secondary);
-    margin-bottom: 1.5rem;
-    font-weight: 500;
-  }
-
   .hero-description {
-    font-size: clamp(1rem, 2vw, 1.25rem);
+    font-size: clamp(1.125rem, 2vw, 1.375rem);
     color: var(--color-text-secondary);
-    margin-bottom: 3rem;
-    line-height: 1.8;
+    margin-bottom: 2.5rem;
+    line-height: 1.7;
+    max-width: 700px;
+    margin-left: auto;
+    margin-right: auto;
   }
 
   .hero-actions {
@@ -231,12 +525,90 @@ smith</code></pre>
     gap: 1rem;
     justify-content: center;
     flex-wrap: wrap;
+    margin-bottom: 4rem;
+  }
+
+  /* Terminal */
+  .hero-terminal {
+    max-width: 700px;
+    margin: 0 auto;
+    background: rgba(26, 26, 26, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 0.75rem;
+    overflow: hidden;
+    backdrop-filter: blur(12px);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  }
+
+  .terminal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.75rem 1rem;
+    background: rgba(255, 255, 255, 0.03);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  }
+
+  .terminal-dots {
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  .terminal-dots span {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--color-text-secondary);
+    opacity: 0.3;
+  }
+
+  .terminal-dots span:nth-child(1) { background: #ff5f56; }
+  .terminal-dots span:nth-child(2) { background: #ffbd2e; }
+  .terminal-dots span:nth-child(3) { background: #27c93f; }
+
+  .terminal-title {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    color: var(--color-text-secondary);
+    font-size: 0.875rem;
+    font-family: var(--font-mono);
+  }
+
+  .terminal-content {
+    padding: 1.5rem;
+    font-family: var(--font-mono);
+    font-size: 0.9rem;
+    line-height: 1.8;
+  }
+
+  .terminal-line {
+    margin-bottom: 0.5rem;
+  }
+
+  .prompt {
+    color: var(--color-accent);
+    margin-right: 0.5rem;
+  }
+
+  .chat-user {
+    color: var(--color-text);
+  }
+
+  .chat-agent {
+    color: var(--color-primary-light);
+  }
+
+  .chat-success {
+    color: #27c93f;
   }
 
   /* Buttons */
   .btn {
-    display: inline-block;
-    padding: 0.875rem 2rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.875rem 1.75rem;
     font-size: 1rem;
     font-weight: 600;
     text-decoration: none;
@@ -253,13 +625,13 @@ smith</code></pre>
   .btn-primary:hover {
     background: var(--color-primary-light);
     transform: translateY(-2px);
-    box-shadow: 0 8px 24px rgba(99, 102, 241, 0.3);
+    box-shadow: 0 12px 32px rgba(99, 102, 241, 0.4);
   }
 
   .btn-secondary {
     background: transparent;
     color: var(--color-text);
-    border-color: var(--color-text-secondary);
+    border-color: rgba(255, 255, 255, 0.2);
   }
 
   .btn-secondary:hover {
@@ -268,8 +640,129 @@ smith</code></pre>
   }
 
   .btn-large {
-    padding: 1.125rem 2.5rem;
+    padding: 1.125rem 2.25rem;
     font-size: 1.125rem;
+  }
+
+  /* Use Cases Section */
+  .use-cases {
+    padding: 8rem 0;
+    background: var(--color-bg);
+  }
+
+  .section-title {
+    font-size: clamp(2rem, 5vw, 3.5rem);
+    font-weight: 700;
+    text-align: center;
+    margin-bottom: 1rem;
+    background: linear-gradient(135deg, var(--color-text) 0%, var(--color-text-secondary) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    letter-spacing: -0.02em;
+  }
+
+  .section-subtitle {
+    text-align: center;
+    font-size: 1.25rem;
+    color: var(--color-text-secondary);
+    margin-bottom: 5rem;
+  }
+
+  .use-case {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4rem;
+    align-items: center;
+    margin-bottom: 6rem;
+    padding: 3rem 0;
+  }
+
+  .use-case-reverse {
+    direction: rtl;
+  }
+
+  .use-case-reverse > * {
+    direction: ltr;
+  }
+
+  .use-case-label {
+    display: inline-block;
+    padding: 0.375rem 0.875rem;
+    background: rgba(34, 211, 238, 0.1);
+    border: 1px solid rgba(34, 211, 238, 0.2);
+    border-radius: 0.375rem;
+    color: var(--color-accent);
+    font-size: 0.75rem;
+    font-weight: 700;
+    margin-bottom: 1.5rem;
+    letter-spacing: 0.1em;
+  }
+
+  .use-case-content h3 {
+    font-size: 2.25rem;
+    font-weight: 700;
+    margin-bottom: 1.5rem;
+    line-height: 1.2;
+    letter-spacing: -0.02em;
+  }
+
+  .use-case-content p {
+    font-size: 1.125rem;
+    color: var(--color-text-secondary);
+    line-height: 1.8;
+    margin-bottom: 2rem;
+  }
+
+  .link-arrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--color-primary-light);
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 1.125rem;
+    transition: gap 0.2s ease;
+  }
+
+  .link-arrow:hover {
+    gap: 0.75rem;
+  }
+
+  .use-case-visual {
+    position: relative;
+  }
+
+  .code-block {
+    background: rgba(26, 26, 26, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 0.75rem;
+    padding: 1.5rem;
+    font-family: var(--font-mono);
+    font-size: 0.9rem;
+    line-height: 1.8;
+    backdrop-filter: blur(12px);
+  }
+
+  .code-line {
+    margin-bottom: 0.25rem;
+  }
+
+  .code-comment { color: #6b7280; }
+  .code-keyword { color: var(--color-accent); }
+  .code-string { color: #a3a3a3; }
+  .code-success { color: #27c93f; }
+  .code-info { color: var(--color-primary-light); }
+
+  @media (max-width: 968px) {
+    .use-case {
+      grid-template-columns: 1fr;
+      gap: 2rem;
+    }
+
+    .use-case-reverse {
+      direction: ltr;
+    }
   }
 
   /* Features Section */
@@ -278,73 +771,148 @@ smith</code></pre>
     background: var(--color-surface);
   }
 
-  .section-title {
-    font-size: clamp(2rem, 5vw, 3rem);
-    font-weight: 700;
-    text-align: center;
-    margin-bottom: 4rem;
-    background: linear-gradient(135deg, var(--color-text) 0%, var(--color-text-secondary) 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-  }
-
   .features-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
     gap: 2rem;
+    margin-top: 4rem;
   }
 
   .feature-card {
-    padding: 2rem;
+    padding: 2.5rem;
     background: var(--color-bg);
     border-radius: 1rem;
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.05);
     transition: all 0.3s ease;
   }
 
   .feature-card:hover {
     transform: translateY(-4px);
-    border-color: var(--color-primary);
-    box-shadow: 0 8px 32px rgba(99, 102, 241, 0.2);
+    border-color: rgba(99, 102, 241, 0.3);
+    box-shadow: 0 12px 48px rgba(99, 102, 241, 0.15);
   }
 
   .feature-icon {
-    font-size: 2.5rem;
-    margin-bottom: 1rem;
+    font-size: 3rem;
+    margin-bottom: 1.5rem;
+    display: block;
   }
 
   .feature-card h3 {
     font-size: 1.5rem;
-    margin-bottom: 0.75rem;
+    margin-bottom: 1rem;
     color: var(--color-text);
+    font-weight: 700;
   }
 
   .feature-card p {
     color: var(--color-text-secondary);
     line-height: 1.7;
+    font-size: 1.05rem;
   }
 
   /* Installation Section */
   .install {
     padding: 8rem 0;
+    background: var(--color-bg);
   }
 
-  .install-steps {
-    max-width: 800px;
-    margin: 0 auto;
+  .install-header {
+    text-align: center;
+    margin-bottom: 4rem;
   }
 
-  .step {
-    display: flex;
+  .install-methods {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
     gap: 2rem;
-    margin-bottom: 3rem;
+    max-width: 900px;
+    margin: 0 auto 4rem;
   }
 
-  .step-number {
+  .install-method h3 {
+    font-size: 1.25rem;
+    margin-bottom: 1rem;
+    color: var(--color-text);
+    font-weight: 600;
+  }
+
+  .install-code {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 1.25rem 1.5rem;
+    background: rgba(26, 26, 26, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 0.5rem;
+  }
+
+  .install-code code {
+    flex: 1;
+    color: var(--color-accent);
+    font-size: 0.95rem;
+    font-family: var(--font-mono);
+    overflow-x: auto;
+  }
+
+  .copy-btn {
     flex-shrink: 0;
-    width: 3rem;
-    height: 3rem;
+    background: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: var(--color-text-secondary);
+    padding: 0.5rem;
+    border-radius: 0.375rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .copy-btn:hover {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+  }
+
+  .copy-btn.copied {
+    color: #27c93f;
+    border-color: #27c93f;
+  }
+
+  .install-quickstart {
+    max-width: 800px;
+    margin: 4rem auto 0;
+    padding: 3rem;
+    background: rgba(26, 26, 26, 0.4);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 1rem;
+  }
+
+  .install-quickstart h3 {
+    font-size: 2rem;
+    margin-bottom: 2rem;
+    text-align: center;
+  }
+
+  .quickstart-steps {
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+  }
+
+  .quickstart-step {
+    display: flex;
+    gap: 1.5rem;
+    align-items: flex-start;
+  }
+
+  .step-num {
+    flex-shrink: 0;
+    width: 2.5rem;
+    height: 2.5rem;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -352,143 +920,171 @@ smith</code></pre>
     color: white;
     border-radius: 50%;
     font-weight: 700;
-    font-size: 1.25rem;
+    font-size: 1.125rem;
   }
 
-  .step-content {
-    flex: 1;
-  }
-
-  .step-content h3 {
-    font-size: 1.5rem;
-    margin-bottom: 1rem;
-  }
-
-  .step-content pre {
-    background: var(--color-surface);
-    padding: 1rem 1.5rem;
-    border-radius: 0.5rem;
-    overflow-x: auto;
-    margin: 1rem 0;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-  }
-
-  .step-content code {
+  .quickstart-step code {
+    display: block;
+    background: rgba(0, 0, 0, 0.3);
+    padding: 0.5rem 1rem;
+    border-radius: 0.375rem;
     color: var(--color-accent);
+    font-family: var(--font-mono);
     font-size: 0.95rem;
+    margin-bottom: 0.5rem;
   }
 
-  .step-note {
+  .quickstart-step p {
     color: var(--color-text-secondary);
     font-size: 0.95rem;
-    margin-top: 0.5rem;
-  }
-
-  /* How It Works Section */
-  .how-it-works {
-    padding: 8rem 0;
-    background: var(--color-surface);
-  }
-
-  .workflow {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 1.5rem;
-    flex-wrap: wrap;
-    max-width: 1000px;
-    margin: 0 auto;
-  }
-
-  .workflow-step {
-    flex: 1;
-    min-width: 200px;
-    text-align: center;
-    padding: 1.5rem;
-  }
-
-  .workflow-badge {
-    display: inline-block;
-    padding: 0.75rem 1.5rem;
-    background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-light) 100%);
-    color: white;
-    border-radius: 2rem;
-    font-weight: 600;
-    margin-bottom: 1rem;
-    font-size: 0.95rem;
-  }
-
-  .workflow-step p {
-    color: var(--color-text-secondary);
-    line-height: 1.6;
-  }
-
-  .workflow-arrow {
-    font-size: 2rem;
-    color: var(--color-primary);
-    flex-shrink: 0;
-  }
-
-  @media (max-width: 768px) {
-    .workflow-arrow {
-      display: none;
-    }
   }
 
   /* CTA Section */
   .cta {
     padding: 8rem 0;
+    background: linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(34, 211, 238, 0.1) 100%);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .cta::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-image: 
+      linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+    background-size: 50px 50px;
+    pointer-events: none;
+  }
+
+  .cta-content {
+    position: relative;
     text-align: center;
+    max-width: 800px;
+    margin: 0 auto;
   }
 
   .cta h2 {
-    font-size: clamp(2rem, 5vw, 3rem);
-    margin-bottom: 1rem;
+    font-size: clamp(2rem, 5vw, 3.5rem);
+    margin-bottom: 1.5rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
   }
 
   .cta p {
-    font-size: 1.25rem;
+    font-size: 1.375rem;
     color: var(--color-text-secondary);
-    margin-bottom: 2rem;
-  }
-
-  .cta p code {
-    background: var(--color-surface);
-    padding: 0.25rem 0.75rem;
-    border-radius: 0.375rem;
-    font-size: 1.1rem;
-    color: var(--color-accent);
+    margin-bottom: 3rem;
+    line-height: 1.6;
   }
 
   .cta-actions {
-    margin-top: 2rem;
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    flex-wrap: wrap;
   }
 
   /* Footer */
   .footer {
-    padding: 3rem 0;
-    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 4rem 0 2rem;
+    background: var(--color-surface);
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+  }
+
+  .footer-content {
+    display: grid;
+    grid-template-columns: 2fr 3fr;
+    gap: 4rem;
+    margin-bottom: 3rem;
+  }
+
+  .footer-brand p {
+    color: var(--color-text-secondary);
+    margin-top: 1rem;
+    font-size: 0.95rem;
+  }
+
+  .footer-logo {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+  }
+
+  .footer-links-group {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 2rem;
+  }
+
+  .footer-column h4 {
+    font-size: 0.875rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 1rem;
+    color: var(--color-text);
+  }
+
+  .footer-column a {
+    display: block;
+    color: var(--color-text-secondary);
+    text-decoration: none;
+    margin-bottom: 0.75rem;
+    transition: color 0.2s ease;
+    font-size: 0.95rem;
+  }
+
+  .footer-column a:hover {
+    color: var(--color-primary-light);
+  }
+
+  .footer-bottom {
+    padding-top: 2rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
     text-align: center;
   }
 
-  .footer p {
+  .footer-bottom p {
     color: var(--color-text-secondary);
-    margin-bottom: 1rem;
+    font-size: 0.875rem;
+    margin-bottom: 0.5rem;
   }
 
-  .footer-links {
-    display: flex;
-    gap: 2rem;
-    justify-content: center;
-  }
-
-  .footer-links a {
-    color: var(--color-text-secondary);
+  .footer-bottom a {
+    color: var(--color-primary-light);
     text-decoration: none;
     transition: color 0.2s ease;
   }
 
-  .footer-links a:hover {
-    color: var(--color-primary);
+  .footer-bottom a:hover {
+    color: var(--color-accent);
+  }
+
+  /* Responsive */
+  @media (max-width: 768px) {
+    .nav-links {
+      display: none;
+    }
+
+    .footer-content {
+      grid-template-columns: 1fr;
+      gap: 3rem;
+    }
+
+    .footer-links-group {
+      grid-template-columns: repeat(2, 1fr);
+    }
+
+    .install-quickstart {
+      padding: 2rem;
+    }
   }
 </style>
