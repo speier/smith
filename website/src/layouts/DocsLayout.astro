@@ -34,39 +34,9 @@ const currentPath = Astro.url.pathname;
       <aside class="docs-sidebar">
         <div class="sidebar-content">
           <div class="sidebar-section">
-            <div class="sidebar-title">Getting Started</div>
+            <div class="sidebar-title">Documentation</div>
             <a href="/docs/quickstart" class={currentPath === '/docs/quickstart' ? 'active' : ''}>Quickstart</a>
-            <a href="/docs/installation" class={currentPath === '/docs/installation' ? 'active' : ''}>Installation</a>
-            <a href="/docs/first-project" class={currentPath === '/docs/first-project' ? 'active' : ''}>Your First Project</a>
-          </div>
-
-          <div class="sidebar-section">
-            <div class="sidebar-title">Core Concepts</div>
             <a href="/docs/multi-agent-system" class={currentPath === '/docs/multi-agent-system' ? 'active' : ''}>Multi-Agent System</a>
-            <a href="/docs/task-orchestration" class={currentPath === '/docs/task-orchestration' ? 'active' : ''}>Task Orchestration</a>
-            <a href="/docs/agents" class={currentPath === '/docs/agents' ? 'active' : ''}>Agent Roles</a>
-            <a href="/docs/tools" class={currentPath === '/docs/tools' ? 'active' : ''}>Tools & Capabilities</a>
-          </div>
-
-          <div class="sidebar-section">
-            <div class="sidebar-title">User Guides</div>
-            <a href="/docs/using-repl" class={currentPath === '/docs/using-repl' ? 'active' : ''}>Using the REPL</a>
-            <a href="/docs/safety-levels" class={currentPath === '/docs/safety-levels' ? 'active' : ''}>Safety Levels</a>
-            <a href="/docs/best-practices" class={currentPath === '/docs/best-practices' ? 'active' : ''}>Best Practices</a>
-            <a href="/docs/examples" class={currentPath === '/docs/examples' ? 'active' : ''}>Example Workflows</a>
-          </div>
-
-          <div class="sidebar-section">
-            <div class="sidebar-title">Configuration</div>
-            <a href="/docs/config-file" class={currentPath === '/docs/config-file' ? 'active' : ''}>Configuration File</a>
-            <a href="/docs/llm-providers" class={currentPath === '/docs/llm-providers' ? 'active' : ''}>LLM Providers</a>
-            <a href="/docs/presets" class={currentPath === '/docs/presets' ? 'active' : ''}>Presets</a>
-          </div>
-
-          <div class="sidebar-section">
-            <div class="sidebar-title">Reference</div>
-            <a href="/docs/cli-reference" class={currentPath === '/docs/cli-reference' ? 'active' : ''}>CLI Reference</a>
-            <a href="/docs/api" class={currentPath === '/docs/api' ? 'active' : ''}>Go API</a>
             <a href="/docs/architecture-deep-dive" class={currentPath === '/docs/architecture-deep-dive' ? 'active' : ''}>Architecture</a>
           </div>
         </div>
@@ -94,15 +64,17 @@ const currentPath = Astro.url.pathname;
 
   <style>
     :root {
-      --color-bg: #0a0a0a;
-      --color-surface: #111111;
-      --color-surface-hover: #1a1a1a;
-      --color-border: #222222;
-      --color-text: #e5e5e5;
-      --color-text-secondary: #a3a3a3;
-      --color-text-tertiary: #737373;
+      --color-bg: #1a1a1a;
+      --color-surface: #242424;
+      --color-surface-hover: #2d2d2d;
+      --color-border: #3a3a3a;
+      --color-text: #e8e8e8;
+      --color-text-secondary: #b4b4b4;
+      --color-text-tertiary: #888888;
       --color-primary: #00ff88;
       --color-primary-dim: #00cc6a;
+      --color-info: #22d3ee;
+      --color-warning: #fbbf24;
       --sidebar-width: 260px;
       --toc-width: 220px;
     }
@@ -125,7 +97,7 @@ const currentPath = Astro.url.pathname;
       position: sticky;
       top: 0;
       z-index: 100;
-      background: rgba(10, 10, 10, 0.8);
+      background: rgba(26, 26, 26, 0.95);
       backdrop-filter: blur(12px);
       border-bottom: 1px solid var(--color-border);
     }
@@ -316,7 +288,7 @@ const currentPath = Astro.url.pathname;
 
     .docs-sidebar::-webkit-scrollbar-thumb:hover,
     .docs-toc::-webkit-scrollbar-thumb:hover {
-      background: #333;
+      background: var(--color-text-tertiary);
     }
   </style>
 </body>

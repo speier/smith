@@ -984,20 +984,7 @@ func TestToolExecution(t *testing.T) {
 </DocsLayout>
 
 <style>
-  :root {
-    --color-bg: #0a0a0a;
-    --color-surface: #111111;
-    --color-surface-hover: #1a1a1a;
-    --color-border: #222222;
-    --color-text: #e5e5e5;
-    --color-text-secondary: #a3a3a3;
-    --color-text-tertiary: #737373;
-    --color-primary: #00ff88;
-    --color-primary-dim: #00cc6a;
-    --color-info: #00a8ff;
-    --color-warning: #ffa500;
-    --color-success: #00ff88;
-  }
+  /* Color variables inherited from DocsLayout */
 
   /* Reuse base styles from other docs pages */
   .docs-header {
@@ -1122,16 +1109,30 @@ func TestToolExecution(t *testing.T) {
 
   .layer-boxes {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-    gap: 1rem;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.75rem;
+  }
+
+  @media (min-width: 640px) {
+    .layer-boxes {
+      grid-template-columns: repeat(3, 1fr);
+    }
+  }
+
+  @media (min-width: 768px) {
+    .layer-boxes {
+      grid-template-columns: repeat(5, 1fr);
+      gap: 0.75rem;
+    }
   }
 
   .component-box {
-    padding: 1rem;
+    padding: 0.75rem 0.5rem;
     background: rgba(0, 168, 255, 0.05);
     border: 1px solid rgba(0, 168, 255, 0.3);
     border-radius: 8px;
     text-align: center;
+    min-width: 0;
   }
 
   .component-box.primary {
@@ -1142,12 +1143,16 @@ func TestToolExecution(t *testing.T) {
 
   .box-title {
     font-weight: 600;
+    font-size: 0.85rem;
     color: var(--color-text);
     margin-bottom: 0.25rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .box-desc {
-    font-size: 0.75rem;
+    font-size: 0.7rem;
     color: var(--color-text-tertiary);
   }
 

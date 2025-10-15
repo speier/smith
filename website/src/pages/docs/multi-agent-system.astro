@@ -319,20 +319,7 @@ import DocsLayout from '../../layouts/DocsLayout.astro';
 </DocsLayout>
 
 <style>
-  /* Reuse styles from quickstart plus new ones */
-  :root {
-    --color-bg: #0a0a0a;
-    --color-surface: #111111;
-    --color-surface-hover: #1a1a1a;
-    --color-border: #222222;
-    --color-text: #e5e5e5;
-    --color-text-secondary: #a3a3a3;
-    --color-text-tertiary: #737373;
-    --color-primary: #00ff88;
-    --color-primary-dim: #00cc6a;
-    --color-info: #00a8ff;
-    --color-warning: #ffa500;
-  }
+  /* Color variables inherited from DocsLayout */
 
   .docs-header {
     margin-bottom: 3rem;
@@ -407,12 +394,12 @@ import DocsLayout from '../../layouts/DocsLayout.astro';
   }
 
   .diagram-box {
-    padding: 1.5rem 2rem;
+    padding: 1rem 1.5rem;
     background: linear-gradient(135deg, rgba(0, 255, 136, 0.1), rgba(0, 204, 255, 0.1));
     border: 2px solid var(--color-primary);
     border-radius: 12px;
     text-align: center;
-    min-width: 200px;
+    min-width: 0;
   }
 
   .diagram-box.coordinator {
@@ -421,19 +408,19 @@ import DocsLayout from '../../layouts/DocsLayout.astro';
   }
 
   .box-icon {
-    font-size: 3rem;
+    font-size: 2rem;
     margin-bottom: 0.5rem;
   }
 
   .box-title {
-    font-size: 1.25rem;
+    font-size: 1rem;
     font-weight: 600;
     color: var(--color-primary);
-    margin-bottom: 0.5rem;
+    margin-bottom: 0.25rem;
   }
 
   .box-desc {
-    font-size: 0.9rem;
+    font-size: 0.85rem;
     color: var(--color-text-secondary);
   }
 
@@ -445,14 +432,22 @@ import DocsLayout from '../../layouts/DocsLayout.astro';
 
   .diagram-agents {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 1.5rem;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
     width: 100%;
+  }
+
+  @media (min-width: 768px) {
+    .diagram-agents {
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1rem;
+    }
   }
 
   .diagram-box.agent {
     border-color: var(--color-info);
     background: linear-gradient(135deg, rgba(0, 168, 255, 0.1), rgba(0, 204, 255, 0.1));
+    min-width: 0;
   }
 
   .diagram-box.agent .box-title {
