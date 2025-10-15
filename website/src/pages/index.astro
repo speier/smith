@@ -61,9 +61,9 @@ import Layout from '../layouts/Layout.astro';
             <div class="terminal-content">
               <div class="terminal-line"><span class="prompt">$</span> smith</div>
               <div class="terminal-line chat-user">💬 You: Add user authentication with JWT</div>
-              <div class="terminal-line chat-agent">🤖 Planning Agent: Breaking down into tasks...</div>
-              <div class="terminal-line chat-agent">🤖 Implementation Agent: Creating auth middleware...</div>
-              <div class="terminal-line chat-agent">🤖 Testing Agent: Writing test suite...</div>
+              <div class="terminal-line chat-agent">🏛️ Planning Agent: Breaking down into tasks...</div>
+              <div class="terminal-line chat-agent">� Implementation Agent: Creating auth middleware...</div>
+              <div class="terminal-line chat-agent">🦑 Testing Agent: Writing test suite...</div>
               <div class="terminal-line chat-success">✓ Feature complete and tested</div>
             </div>
           </div>
@@ -82,11 +82,11 @@ import Layout from '../layouts/Layout.astro';
         <div class="use-case">
           <div class="use-case-content">
             <div class="use-case-label">INTERACTIVE</div>
-            <h3>Smith in your terminal</h3>
+            <h3>Chat while agents work</h3>
             <p>
-              Launch an interactive chat session directly from your terminal. Natural conversation with AI agents
-              that understand your codebase, execute tasks in parallel, and keep you in control with configurable
-              safety levels.
+              Launch Smith in your terminal and have a natural conversation. Behind the scenes, specialized agents
+              coordinate in the background—planning, implementing, testing. Watch their progress in the sidebar
+              while you chat, with full control over safety levels and execution permissions.
             </p>
             <a href="#install" class="link-arrow">
               Get started
@@ -97,25 +97,27 @@ import Layout from '../layouts/Layout.astro';
           </div>
           <div class="use-case-visual">
             <div class="code-block">
-              <div class="code-line"><span class="code-comment"># Start interactive session</span></div>
+              <div class="code-line"><span class="code-comment"># Start Smith</span></div>
               <div class="code-line"><span class="code-keyword">$</span> cd my-project</div>
               <div class="code-line"><span class="code-keyword">$</span> smith</div>
               <div class="code-line"></div>
-              <div class="code-line"><span class="code-comment"># Chat naturally</span></div>
-              <div class="code-line"><span class="code-string">💬 You: Refactor the auth module</span></div>
-              <div class="code-line"><span class="code-success">🤖 Smith: I'll help with that...</span></div>
+              <div class="code-line"><span class="code-comment"># Chat while agents coordinate</span></div>
+              <div class="code-line"><span class="code-string">💬 You: Add user authentication</span></div>
+              <div class="code-line"><span class="code-info">🏛️ Planning Agent: Breaking into tasks...</span></div>
+              <div class="code-line"><span class="code-info">� Implementation Agent: Writing code...</span></div>
+              <div class="code-line"><span class="code-success">✓ Feature complete</span></div>
             </div>
           </div>
         </div>
 
         <div class="use-case use-case-reverse">
           <div class="use-case-content">
-            <div class="use-case-label">AUTONOMOUS</div>
-            <h3>Smith on autopilot</h3>
+            <div class="use-case-label">REAL-TIME</div>
+            <h3>Live coordination display</h3>
             <p>
-              Let Smith watch your project and autonomously handle tasks from your issue tracker, pull request
-              reviews, or task queue. Agents work in the background, coordinating file locks and parallel
-              execution without your intervention.
+              See exactly what's happening. The sidebar shows active agents, locked files, and task progress
+              in real-time. All agents coordinate through SQLite—preventing conflicts while working in parallel.
+              You stay in the loop without getting in the way.
             </p>
             <a href="#install" class="link-arrow">
               Learn more
@@ -126,14 +128,14 @@ import Layout from '../layouts/Layout.astro';
           </div>
           <div class="use-case-visual">
             <div class="code-block">
-              <div class="code-line"><span class="code-comment"># Watch mode</span></div>
-              <div class="code-line"><span class="code-keyword">$</span> smith watch</div>
+              <div class="code-line"><span class="code-comment"># Live status updates</span></div>
+              <div class="code-line"><span class="code-info">┌─ Active Agents ─────┐</span></div>
+              <div class="code-line"><span class="code-info">│ ● Planning         │</span></div>
+              <div class="code-line"><span class="code-info">│ ● Implementation   │</span></div>
+              <div class="code-line"><span class="code-info">│ ○ Testing          │</span></div>
+              <div class="code-line"><span class="code-info">└────────────────────┘</span></div>
               <div class="code-line"></div>
-              <div class="code-line"><span class="code-success">👁️  Watching for tasks...</span></div>
-              <div class="code-line"><span class="code-info">📋 Found: Issue #42 - Add caching</span></div>
-              <div class="code-line"><span class="code-info">🤖 Planning Agent: Creating plan...</span></div>
-              <div class="code-line"><span class="code-info">🤖 Implementation Agent: Working...</span></div>
-              <div class="code-line"><span class="code-success">✓ PR created and ready for review</span></div>
+              <div class="code-line"><span class="code-success">🔒 auth.go (locked by Implementation)</span></div>
             </div>
           </div>
         </div>
@@ -141,10 +143,11 @@ import Layout from '../layouts/Layout.astro';
         <div class="use-case">
           <div class="use-case-content">
             <div class="use-case-label">ONE-SHOT</div>
-            <h3>Smith on demand</h3>
+            <h3>Execute and exit</h3>
             <p>
-              Execute specific tasks with a single command. Perfect for CI/CD pipelines, automated refactoring,
-              code generation, or any scenario where you need agents to complete a defined task without interaction.
+              Need to run a specific task without interaction? Use exec mode. Perfect for CI/CD pipelines,
+              automated refactoring, or any scenario where you need agents to complete work and exit.
+              Same multi-agent coordination, just non-interactive.
             </p>
             <a href="#install" class="link-arrow">
               See examples
@@ -158,9 +161,9 @@ import Layout from '../layouts/Layout.astro';
               <div class="code-line"><span class="code-comment"># Execute and exit</span></div>
               <div class="code-line"><span class="code-keyword">$</span> smith exec "migrate to Go 1.22"</div>
               <div class="code-line"></div>
-              <div class="code-line"><span class="code-info">🤖 Analyzing codebase...</span></div>
-              <div class="code-line"><span class="code-info">🤖 Updating go.mod...</span></div>
-              <div class="code-line"><span class="code-info">🤖 Updating syntax...</span></div>
+              <div class="code-line"><span class="code-info">🕶️ Analyzing codebase...</span></div>
+              <div class="code-line"><span class="code-info">🕶️ Updating go.mod...</span></div>
+              <div class="code-line"><span class="code-info">🕶️ Updating syntax...</span></div>
               <div class="code-line"><span class="code-success">✓ Migration complete</span></div>
             </div>
           </div>
@@ -174,7 +177,7 @@ import Layout from '../layouts/Layout.astro';
         <h2 class="section-title">Built for developers who demand control</h2>
         <div class="features-grid">
           <div class="feature-card">
-            <div class="feature-icon">🤖</div>
+            <div class="feature-icon">🕶️</div>
             <h3>Multi-Agent Architecture</h3>
             <p>Specialized agents for planning, implementation, testing, and code review work together seamlessly. Each agent is an expert in its domain.</p>
           </div>

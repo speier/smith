@@ -853,15 +853,13 @@ func (m BubbleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			localCfg, _ := config.LoadLocal(m.projectPath)
 			if localCfg == nil || localCfg.Model == "" {
 				m.messages = append(m.messages, Message{
-					Content:   "🤖 I'd love to help, but I need a brain first!\n   → Type /settings to pick a model\n   → Then we can chat about building amazing things ✨",
+					Content:   "🕶️ I'd love to help, but I need a brain first!\n   → Type /settings to pick a model\n   → Then we can chat about building amazing things ✨",
 					Type:      "error",
 					Timestamp: time.Now(),
 				})
 				m.textarea.Reset()
 				return m, nil
-			}
-
-			// Add user message to display
+			} // Add user message to display
 			m.messages = append(m.messages, Message{Content: userMsg, Type: "user", Timestamp: time.Now()})
 
 			// Start streaming response with loading indicator
@@ -1058,7 +1056,7 @@ func (m BubbleModel) renderSidebar() string {
 
 	// Active Agents
 	sections = append(sections, "")
-	sections = append(sections, sidebarSectionStyle.Render("🤖 Active Agents"))
+	sections = append(sections, sidebarSectionStyle.Render("🕶️ Active Agents"))
 	agents := m.getActiveAgents()
 	if len(agents) == 0 {
 		sections = append(sections, sidebarIdleStyle.Render("None"))

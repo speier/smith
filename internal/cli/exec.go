@@ -69,7 +69,7 @@ Examples:
 			return fmt.Errorf("execution failed: %w", err)
 		}
 
-		fmt.Printf("🤖 Response:\n%s\n", response)
+		fmt.Printf("🕶️ Response:\n%s\n", response)
 		return nil
 	},
 }

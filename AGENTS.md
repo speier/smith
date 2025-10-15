@@ -243,7 +243,7 @@ The REPL starts and shows the welcome message correctly.
 
 ---
 
-## 🤖 Agent Responsibilities
+## 🕶️ Agent Responsibilities
 
 ### You ARE Responsible For:
 - ✅ Writing code when asked
@@ -313,10 +313,10 @@ Never do these without explicit user request:
 
 The multi-agent system we're building will have these agent roles embedded in code:
 
-- **Planning Agent** - Breaks down features into tasks
-- **Implementation Agent** - Writes code for tasks
-- **Testing Agent** - Creates test suites
-- **Review Agent** - Reviews code quality
+- 🏛️ **Planning Agent** (The Architect) - Breaks down features into tasks
+- 🔑 **Implementation Agent** (The Keymaker) - Writes code for tasks
+- 🦑 **Testing Agent** (Sentinels) - Creates test suites
+- 🔮 **Review Agent** (The Oracle) - Reviews code quality
 
 These will be defined in the application code, not in AGENTS.md.
 
