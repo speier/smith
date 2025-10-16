@@ -33,6 +33,11 @@ const (
 	EventAgentQuestion EventType = "agent_question"
 	EventAgentResponse EventType = "agent_response"
 
+	// Safety/approval events
+	EventCommandBlocked  EventType = "command_blocked"
+	EventCommandApproved EventType = "command_approved"
+	EventCommandDenied   EventType = "command_denied"
+
 	// Error events
 	EventError EventType = "error"
 )
@@ -41,11 +46,17 @@ const (
 type AgentRole string
 
 const (
-	RoleCoordinator    AgentRole = "coordinator"
-	RolePlanning       AgentRole = "planning"
-	RoleImplementation AgentRole = "implementation"
-	RoleTesting        AgentRole = "testing"
-	RoleReview         AgentRole = "review"
+	RoleCoordinator AgentRole = "coordinator"
+	RoleArchitect   AgentRole = "architect" // Planning - designs the structure
+	RoleKeymaker    AgentRole = "keymaker"  // Implementation - makes things work
+	RoleSentinel    AgentRole = "sentinel"  // Testing - hunts down bugs
+	RoleOracle      AgentRole = "oracle"    // Review - sees quality, predicts issues
+
+	// Legacy aliases for backward compatibility
+	RolePlanning       AgentRole = "architect"
+	RoleImplementation AgentRole = "keymaker"
+	RoleTesting        AgentRole = "sentinel"
+	RoleReview         AgentRole = "oracle"
 )
 
 // Event represents an event in the system

@@ -16,6 +16,12 @@ var rootCmd = &cobra.Command{
 Mr. Anderson... Welcome back.
 
 An agent system that duplicates itself to plan, implement, test, and review.
+
+The Architect (planning) designs the structure.
+The Keymaker (implementation) makes things work.
+Sentinels (testing) hunt down bugs relentlessly.
+The Oracle (review) sees quality and predicts issues.
+
 Just chat naturally and watch the agents multiply to build your software.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		// If args provided, start REPL with initial prompt

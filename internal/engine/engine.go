@@ -10,6 +10,7 @@ import (
 
 	"github.com/speier/smith/internal/coordinator"
 	"github.com/speier/smith/internal/llm"
+	"github.com/speier/smith/internal/safety"
 )
 
 // Engine is the core Smith system
@@ -18,6 +19,10 @@ type Engine struct {
 	coord       coordinator.Coordinator
 	llm         llm.Provider
 	projectPath string
+	autoLevel   string // Current safety auto-level
+
+	// Approval callback for blocked commands
+	approvalCallback func(command, reason string) (approved bool, addToAllowlist bool)
 
 	// Conversation state
 	conversationHistory []Message
@@ -46,6 +51,7 @@ type Task struct {
 type Config struct {
 	ProjectPath string
 	LLMProvider llm.Provider
+	AutoLevel   string // Safety auto-level (low/medium/high)
 }
 
 // New creates a new Smith engine instance
@@ -55,13 +61,25 @@ func New(cfg Config) (*Engine, error) {
 		cfg.LLMProvider = llm.NewCopilotProvider()
 	}
 
+	// Default to medium if not specified
+	autoLevel := cfg.AutoLevel
+	if autoLevel == "" {
+		autoLevel = "medium"
+	}
+
 	coord := coordinator.New(cfg.ProjectPath)
 
 	return &Engine{
 		llm:         cfg.LLMProvider,
 		coord:       coord,
 		projectPath: cfg.ProjectPath,
+		autoLevel:   autoLevel,
 	}, nil
+}
+
+// GetCoordinator returns the coordinator instance for accessing task stats and other coordination features
+func (e *Engine) GetCoordinator() coordinator.Coordinator {
+	return e.coord
 }
 
 // getSystemPrompt returns the system prompt with tool usage instructions
@@ -70,6 +88,25 @@ func (e *Engine) getSystemPrompt() string {
 
 **Your Role as Main Coordinator:**
 You are the main agent that talks to users. You can delegate work to specialized background agents.
+
+**Intent Classification:**
+First, classify the user's request into one of these categories:
+
+1. **Simple Query** - Questions, explanations, advice
+   → Respond directly, no tools needed
+   Examples: "What's the difference between X and Y?", "Explain how this works"
+
+2. **Direct Execution** - Quick file operations, status checks, simple edits
+   → Use tools yourself (read_file, write_file, run_command)
+   Examples: "Show me main.go", "Run the tests", "Add a comment to this function"
+
+3. **Complex Feature** - Multi-step implementation, new features, refactoring
+   → Break into tasks, delegate to specialized agents
+   Examples: "Implement authentication", "Refactor the API layer", "Add logging system"
+
+4. **Specialist Consultation** - Need specific expertise
+   → Directly ask the appropriate agent (bypass task queue for quick consultations)
+   Examples: "Review this code for bugs", "What's the best way to test this?"
 
 **Available Tools:**
 
@@ -96,17 +133,34 @@ When a user asks for features that involve coding or testing:
 4. Use get_task_stats or list_tasks to monitor progress
 5. Respond to user about what you've delegated
 
-**Example:**
-User: "Implement JWT authentication and add tests"
-You should:
-1. create_task(title="Implement JWT auth", description="Add JWT middleware...", agent_role="implementation")
-2. create_task(title="Test JWT auth", description="Write tests for...", agent_role="testing")
-3. Tell user: "I've created 2 tasks for the implementation and testing agents. They'll work on it in the background."
+**Routing Guidelines:**
+- **Simple Query?** Just answer, no tools
+- **Quick check/edit?** Use file/command tools directly
+- **Feature to build?** Break into tasks, delegate to agents:
+  - Architect (planning): Design and planning tasks
+  - Keymaker (implementation): Code implementation
+  - Sentinel (testing): Test writing and validation
+  - Oracle (review): Code review and quality checks
+- **Need expert opinion?** Consult specific agent directly
 
-**Direct Execution vs Delegation:**
-- Simple file edits, reading code: Do it yourself with file tools
-- Running tests/builds to check status: Do it yourself
-- Implementing features, writing tests: Delegate with create_task
+**Example - Complex Feature:**
+User: "Implement JWT authentication and add tests"
+→ Intent: Complex Feature
+→ Actions:
+1. create_task(title="Design JWT auth system", agent_role="architect")
+2. create_task(title="Implement JWT middleware", agent_role="keymaker")
+3. create_task(title="Test JWT authentication", agent_role="sentinel")
+4. create_task(title="Review security", agent_role="oracle")
+
+**Example - Simple Query:**
+User: "What's the difference between interfaces and structs in Go?"
+→ Intent: Simple Query
+→ Action: Answer directly, explain concepts
+
+**Example - Direct Execution:**
+User: "Show me the main function"
+→ Intent: Direct Execution
+→ Action: read_file("main.go")
 
 Be conversational and helpful. Explain what you're doing and why.
 Keep responses concise but friendly.`
@@ -217,8 +271,8 @@ func (e *Engine) getTools() []llm.Tool {
 					},
 					"agent_role": map[string]interface{}{
 						"type":        "string",
-						"description": "Type of agent: 'implementation' for coding tasks, 'testing' for test creation",
-						"enum":        []string{"implementation", "testing"},
+						"description": "Type of agent: 'keymaker' for coding, 'sentinel' for testing, 'architect' for planning, 'oracle' for review",
+						"enum":        []string{"keymaker", "sentinel", "architect", "oracle"},
 					},
 				},
 				"required": []string{"title", "description", "agent_role"},
@@ -259,6 +313,29 @@ func (e *Engine) getTools() []llm.Tool {
 				"type": "object",
 			},
 		},
+		{
+			Name:        "consult_agent",
+			Description: "Consult a specialized agent for quick advice or analysis. Use this for questions that don't require creating tasks (e.g., code review, design advice, test strategy). The agent responds immediately without going through the task queue.",
+			Parameters: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"agent_role": map[string]interface{}{
+						"type":        "string",
+						"description": "Which specialist to consult: 'architect' for design/planning, 'keymaker' for implementation help, 'sentinel' for testing strategy, 'oracle' for code review/quality",
+						"enum":        []string{"architect", "keymaker", "sentinel", "oracle"},
+					},
+					"question": map[string]interface{}{
+						"type":        "string",
+						"description": "The question or request for the specialist agent",
+					},
+					"context": map[string]interface{}{
+						"type":        "string",
+						"description": "Optional context (code snippets, file contents, etc.) to help the agent answer",
+					},
+				},
+				"required": []string{"agent_role", "question"},
+			},
+		},
 	}
 }
 
@@ -292,8 +369,8 @@ func (e *Engine) getRoleSystemPrompt(role, taskTitle, taskDescription string) st
 - run_command: Execute shell commands (build, test, etc.)`
 
 	switch role {
-	case "implementation":
-		return fmt.Sprintf(`You are an Implementation Agent - a specialized coding agent focused on building features.
+	case "keymaker", "implementation":
+		return fmt.Sprintf(`You are the Keymaker - a specialized coding agent focused on building features.
 
 **Your Task:**
 Title: %s
@@ -319,8 +396,8 @@ Description: %s
 Be professional, thorough, and detail-oriented. Your code should work correctly.`,
 			taskTitle, taskDescription, toolsSection)
 
-	case "testing":
-		return fmt.Sprintf(`You are a Testing Agent - a specialized QA agent focused on writing comprehensive tests.
+	case "sentinel", "testing":
+		return fmt.Sprintf(`You are a Sentinel - a specialized testing agent focused on hunting down bugs relentlessly.
 
 **Your Task:**
 Title: %s
@@ -347,8 +424,8 @@ Description: %s
 Be thorough and skeptical. Your tests should catch bugs before production.`,
 			taskTitle, taskDescription, toolsSection)
 
-	case "planning":
-		return fmt.Sprintf(`You are a Planning Agent - a specialized architect focused on breaking down features.
+	case "architect", "planning":
+		return fmt.Sprintf(`You are the Architect - a specialized planning agent focused on designing elegant solutions.
 
 **Your Task:**
 Title: %s
@@ -373,8 +450,8 @@ Description: %s
 Be strategic and thoughtful. Your plans guide the entire team.`,
 			taskTitle, taskDescription, toolsSection)
 
-	case "review":
-		return fmt.Sprintf(`You are a Review Agent - a specialized code reviewer focused on quality and correctness.
+	case "oracle", "review":
+		return fmt.Sprintf(`You are the Oracle - a specialized code review agent who sees quality and predicts issues.
 
 **Your Task:**
 Title: %s
@@ -517,6 +594,22 @@ func (e *Engine) GetConversationHistory() []Message {
 func (e *Engine) ClearConversation() {
 	e.conversationHistory = []Message{}
 	e.pendingPlan = nil
+}
+
+// SetAutoLevel updates the current auto-level
+func (e *Engine) SetAutoLevel(level string) {
+	e.autoLevel = level
+}
+
+// GetAutoLevel returns the current auto-level
+func (e *Engine) GetAutoLevel() string {
+	return e.autoLevel
+}
+
+// SetApprovalCallback sets the callback for command approval requests
+// The callback receives (command, reason) and returns (approved, addToAllowlist)
+func (e *Engine) SetApprovalCallback(callback func(command, reason string) (bool, bool)) {
+	e.approvalCallback = callback
 }
 
 // ExecuteTask executes a task using LLM with agent tools (no task management)
@@ -715,8 +808,26 @@ func (e *Engine) handleRunCommand(input map[string]interface{}) (string, error) 
 		workingDir = filepath.Join(e.projectPath, workingDir)
 	}
 
-	// TODO: Add safety checks - require confirmation for certain commands
-	// For MVP, execute directly
+	// Safety check - validate command against auto-level rules
+	checkResult := safety.IsCommandAllowed(command, e.autoLevel)
+	if !checkResult.Allowed {
+		// Command blocked - request approval if callback is set
+		if e.approvalCallback != nil {
+			approved, addToAllowlist := e.approvalCallback(command, checkResult.Reason)
+			if !approved {
+				return "", fmt.Errorf("command denied by user")
+			}
+			// If approved and should be added to allowlist
+			if addToAllowlist {
+				safety.AddToSessionAllowlist(command)
+			}
+			// Fall through to execute the approved command
+		} else {
+			// No approval callback - deny immediately
+			return "", fmt.Errorf("command blocked by safety rules (%s): %s\nCommand: %s\nReason: %s",
+				e.autoLevel, checkResult.Reason, command, checkResult.Reason)
+		}
+	}
 
 	// Use sh -c to execute command (works on Unix-like systems)
 	cmd := exec.Command("sh", "-c", command)
@@ -842,8 +953,90 @@ func (e *Engine) handleGetTaskStats(input map[string]interface{}) (string, error
 	return fmt.Sprintf(`📊 Task Statistics:
   Backlog: %d tasks ready
   WIP:     %d in progress
-  Review:  %d awaiting review
+  Review:  %d under review
   Done:    %d completed`, stats.Backlog, stats.WIP, stats.Review, stats.Done), nil
+}
+
+// handleConsultAgent handles the consult_agent tool call for direct agent-to-agent communication
+func (e *Engine) handleConsultAgent(input map[string]interface{}) (string, error) {
+	agentRole, ok := input["agent_role"].(string)
+	if !ok {
+		return "", fmt.Errorf("agent_role is required")
+	}
+
+	question, ok := input["question"].(string)
+	if !ok {
+		return "", fmt.Errorf("question is required")
+	}
+
+	context, _ := input["context"].(string)
+
+	// Build the specialist agent's prompt
+	var systemPrompt string
+	switch agentRole {
+	case "architect":
+		systemPrompt = `You are The Architect - a planning and design specialist.
+Your role is to provide architectural guidance, design patterns, and strategic planning advice.
+Focus on: structure, patterns, dependencies, order of operations, scalability, maintainability.
+Be concise but thorough in your analysis.`
+
+	case "keymaker":
+		systemPrompt = `You are The Keymaker - an implementation specialist.
+Your role is to provide coding advice, suggest implementations, and solve technical challenges.
+Focus on: code patterns, best practices, language features, libraries, algorithms.
+Be practical and include code examples when helpful.`
+
+	case "sentinel":
+		systemPrompt = `You are a Sentinel - a testing and quality specialist.
+Your role is to provide testing strategies, identify edge cases, and ensure code reliability.
+Focus on: test coverage, edge cases, failure scenarios, testing patterns, validation.
+Be thorough and think of what could go wrong.`
+
+	case "oracle":
+		systemPrompt = `You are The Oracle - a code review and quality specialist.
+Your role is to review code for quality, identify issues, and predict potential problems.
+Focus on: bugs, security, performance, maintainability, best practices, code smells.
+Be insightful and constructive in your feedback.`
+
+	default:
+		return "", fmt.Errorf("unknown agent role: %s", agentRole)
+	}
+
+	// Build the consultation message
+	var promptBuilder strings.Builder
+	promptBuilder.WriteString(question)
+	if context != "" {
+		promptBuilder.WriteString("\n\nContext:\n")
+		promptBuilder.WriteString(context)
+	}
+
+	// Create a single-turn conversation for the consultation
+	messages := []llm.Message{
+		{Role: "system", Content: systemPrompt},
+		{Role: "user", Content: promptBuilder.String()},
+	}
+
+	// Get response from the specialist agent
+	response, err := e.llm.Chat(messages, nil)
+	if err != nil {
+		return "", fmt.Errorf("consultation failed: %w", err)
+	}
+
+	// Format the response with agent identity
+	agentNames := map[string]string{
+		"architect": "🏛️ The Architect",
+		"keymaker":  "🔑 The Keymaker",
+		"sentinel":  "🦑 Sentinel",
+		"oracle":    "🔮 The Oracle",
+	}
+
+	return fmt.Sprintf("%s says:\n\n%s", agentNames[agentRole], response.Content), nil
+}
+
+// SessionAllowlistStats represents statistics about the session allowlist
+type SessionAllowlistStats struct {
+	AllowedCount int
+	BlockedCount int
 }
 
 type Status struct {
@@ -875,6 +1068,8 @@ func (e *Engine) executeToolCall(toolCall llm.ToolCall) (string, error) {
 		return e.handleGetTask(toolCall.Input)
 	case "get_task_stats":
 		return e.handleGetTaskStats(toolCall.Input)
+	case "consult_agent":
+		return e.handleConsultAgent(toolCall.Input)
 	default:
 		return "", fmt.Errorf("unknown tool: %s", toolCall.Name)
 	}

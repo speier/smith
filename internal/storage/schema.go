@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS events (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     timestamp DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     agent_id TEXT NOT NULL,
-    agent_role TEXT NOT NULL CHECK(agent_role IN ('coordinator', 'planning', 'implementation', 'testing', 'review')),
+    agent_role TEXT NOT NULL CHECK(agent_role IN ('coordinator', 'architect', 'keymaker', 'sentinel', 'oracle', 'planning', 'implementation', 'testing', 'review')),
     event_type TEXT NOT NULL,
     task_id TEXT,
     file_path TEXT,
@@ -29,7 +29,7 @@ CREATE TABLE IF NOT EXISTS task_assignments (
     title TEXT NOT NULL DEFAULT '',
     description TEXT NOT NULL DEFAULT '',
     agent_id TEXT,
-    agent_role TEXT CHECK(agent_role IN ('planning', 'implementation', 'testing', 'review', '') OR agent_role IS NULL),
+    agent_role TEXT CHECK(agent_role IN ('architect', 'keymaker', 'sentinel', 'oracle', 'planning', 'implementation', 'testing', 'review', '') OR agent_role IS NULL),
     status TEXT NOT NULL CHECK(status IN ('backlog', 'wip', 'review', 'done')) DEFAULT 'backlog',
     result TEXT,
     error TEXT,
@@ -42,7 +42,7 @@ CREATE TABLE IF NOT EXISTS task_assignments (
 -- Agents registry: tracks all active agents with heartbeat
 CREATE TABLE IF NOT EXISTS agents (
     agent_id TEXT PRIMARY KEY,
-    agent_role TEXT NOT NULL CHECK(agent_role IN ('coordinator', 'planning', 'implementation', 'testing', 'review')),
+    agent_role TEXT NOT NULL CHECK(agent_role IN ('coordinator', 'architect', 'keymaker', 'sentinel', 'oracle', 'planning', 'implementation', 'testing', 'review')),
     status TEXT NOT NULL CHECK(status IN ('active', 'idle', 'dead')) DEFAULT 'active',
     task_id TEXT,
     pid INTEGER,  -- Process ID for tracking

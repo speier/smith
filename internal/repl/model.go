@@ -63,6 +63,20 @@ type modelsFetchedMsg struct {
 	err    error
 }
 
+// approvalRequestMsg is sent when a command needs user approval
+type approvalRequestMsg struct {
+	command string
+	reason  string
+	// Response channel to send approval decision
+	responseChan chan<- approvalResponse
+}
+
+// approvalResponse contains the user's approval decision
+type approvalResponse struct {
+	approved       bool
+	addToAllowlist bool
+}
+
 // Message represents a chat message with metadata
 type Message struct {
 	Content   string
@@ -136,6 +150,7 @@ type Command struct {
 var availableCommands = []Command{
 	{Name: "/status", Alias: "/s", Description: "Show task counts and progress"},
 	{Name: "/settings", Alias: "", Description: "Change model and auto-level"},
+	{Name: "/allowlist", Alias: "", Description: "Manage session command allowlist"},
 	{Name: "/copy", Alias: "", Description: "Copy last message to clipboard"},
 	{Name: "/clear", Alias: "/c", Description: "Clear conversation"},
 	{Name: "/help", Alias: "/h", Description: "Show help"},
@@ -176,6 +191,11 @@ type BubbleModel struct {
 	authDeviceCode     string      // Device code for auth
 	authUserCode       string      // User code for auth
 	authVerifyURI      string      // Verification URI for auth
+	// Approval state
+	showApprovalPrompt   bool                    // Whether approval prompt is visible
+	approvalCommand      string                  // Command waiting for approval
+	approvalReason       string                  // Reason why command was blocked
+	approvalResponseChan chan<- approvalResponse // Channel to send approval decision
 }
 
 // keyMap defines our key bindings
@@ -276,6 +296,7 @@ func NewBubbleModel(projectPath string, initialPrompt string) (*BubbleModel, err
 	eng, err := engine.New(engine.Config{
 		ProjectPath: projectPath,
 		LLMProvider: provider,
+		AutoLevel:   autoLevel,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("creating engine: %w", err)
@@ -320,7 +341,7 @@ func NewBubbleModel(projectPath string, initialPrompt string) (*BubbleModel, err
 		ti.SetValue(initialPrompt)
 	}
 
-	return &BubbleModel{
+	model := &BubbleModel{
 		engine:             eng,
 		textarea:           ti,
 		messages:           messages,
@@ -330,7 +351,9 @@ func NewBubbleModel(projectPath string, initialPrompt string) (*BubbleModel, err
 		showSettings:       false, // Don't auto-open
 		width:              80,    // Default width until we get WindowSizeMsg
 		height:             24,    // Default height
-	}, nil
+	}
+
+	return model, nil
 }
 
 // filterModels filters models by name or ID based on the filter string
@@ -1073,11 +1096,70 @@ func (m BubbleModel) renderSidebar() string {
 	// Task counts
 	sections = append(sections, "")
 	sections = append(sections, sidebarSectionStyle.Render("📋 Tasks"))
-	// TODO: Parse task counts from m.engine.GetStatus()
-	// For now, show placeholder
-	sections = append(sections, sidebarItemStyle.Render("Todo:   0"))
-	sections = append(sections, sidebarItemStyle.Render("WIP:    0"))
-	sections = append(sections, sidebarItemStyle.Render("Done:   0"))
+
+	// Get real-time task stats from engine
+	taskStats, err := m.engine.GetCoordinator().GetTaskStats()
+	if err != nil || taskStats == nil {
+		sections = append(sections, sidebarIdleStyle.Render("No active tasks"))
+	} else {
+		// Show task counts with visual indicators
+		if taskStats.Backlog > 0 {
+			sections = append(sections, sidebarItemStyle.Render(fmt.Sprintf("📥 Backlog: %d", taskStats.Backlog)))
+		}
+		if taskStats.WIP > 0 {
+			sections = append(sections, sidebarActiveStyle.Render(fmt.Sprintf("🔄 Active:  %d", taskStats.WIP)))
+		}
+		if taskStats.Review > 0 {
+			sections = append(sections, sidebarItemStyle.Render(fmt.Sprintf("👀 Review:  %d", taskStats.Review)))
+		}
+		if taskStats.Done > 0 {
+			sections = append(sections, sidebarItemStyle.Render(fmt.Sprintf("✅ Done:    %d", taskStats.Done)))
+		}
+
+		// If no tasks at all
+		if taskStats.Backlog == 0 && taskStats.WIP == 0 && taskStats.Review == 0 && taskStats.Done == 0 {
+			sections = append(sections, sidebarIdleStyle.Render("No tasks yet"))
+		}
+	}
+
+	// Active Tasks Details (show what agents are working on)
+	if taskStats != nil && taskStats.WIP > 0 {
+		sections = append(sections, "")
+		sections = append(sections, sidebarSectionStyle.Render("⚡ Working On"))
+
+		// Get coordinator to list active tasks
+		coord := m.engine.GetCoordinator()
+		tasks, err := coord.GetTasksByStatus("wip")
+
+		if err == nil && len(tasks) > 0 {
+			// Show up to 3 active tasks
+			maxTasks := 3
+			if len(tasks) > maxTasks {
+				tasks = tasks[:maxTasks]
+			}
+
+			for _, task := range tasks {
+				// Get agent icon based on role
+				agentIcon := "🤖"
+				switch task.Role {
+				case "architect", "planning":
+					agentIcon = "🏛️"
+				case "keymaker", "implementation":
+					agentIcon = "🔑"
+				case "sentinel", "testing":
+					agentIcon = "🦑"
+				case "oracle", "review":
+					agentIcon = "🔮"
+				}
+
+				taskTitle := task.Title
+				if len(taskTitle) > 25 {
+					taskTitle = taskTitle[:22] + "..."
+				}
+				sections = append(sections, sidebarActiveStyle.Render(fmt.Sprintf("%s %s", agentIcon, taskTitle)))
+			}
+		}
+	}
 
 	content := lipgloss.JoinVertical(lipgloss.Left, sections...)
 
@@ -1145,6 +1227,9 @@ func (m *BubbleModel) cycleAutoLevel() {
 	default:
 		m.autoLevel = safety.AutoLevelMedium
 	}
+
+	// Update engine auto-level
+	m.engine.SetAutoLevel(m.autoLevel)
 
 	// Save to config
 	localCfg, _ := config.LoadLocal(m.projectPath)
@@ -1306,6 +1391,8 @@ func (m *BubbleModel) handleSlashCommand(cmd string) tea.Cmd {
 	case "/status", "/s":
 		status := m.engine.GetStatus()
 		m.messages = append(m.messages, Message{Content: status, Type: "system", Timestamp: time.Now()})
+	case "/allowlist":
+		m.handleAllowlistCommand(parts[1:])
 	case "/copy":
 		m.copyLastMessage()
 	case "/settings":
@@ -1322,6 +1409,65 @@ func (m *BubbleModel) handleSlashCommand(cmd string) tea.Cmd {
 	}
 
 	return nil
+}
+
+func (m *BubbleModel) handleAllowlistCommand(args []string) {
+	if len(args) == 0 {
+		// Show current allowlist
+		allowlist := safety.GetSessionAllowlist()
+		if len(allowlist) == 0 {
+			m.messages = append(m.messages, Message{
+				Content:   "📋 Session Allowlist (empty)\n\nNo commands have been added to the session allowlist yet.",
+				Type:      "system",
+				Timestamp: time.Now(),
+			})
+		} else {
+			content := "📋 Session Allowlist\n\nCommands that will bypass safety checks this session:\n\n"
+			for i, cmd := range allowlist {
+				content += fmt.Sprintf("%d. %s\n", i+1, cmd)
+			}
+			content += fmt.Sprintf("\nTotal: %d command(s)", len(allowlist))
+			m.messages = append(m.messages, Message{
+				Content:   content,
+				Type:      "system",
+				Timestamp: time.Now(),
+			})
+		}
+		return
+	}
+
+	subcommand := args[0]
+	switch subcommand {
+	case "clear":
+		safety.ClearSessionAllowlist()
+		m.messages = append(m.messages, Message{
+			Content:   "✅ Session allowlist cleared",
+			Type:      "system",
+			Timestamp: time.Now(),
+		})
+	case "add":
+		if len(args) < 2 {
+			m.messages = append(m.messages, Message{
+				Content:   "❌ Usage: /allowlist add <command>",
+				Type:      "error",
+				Timestamp: time.Now(),
+			})
+			return
+		}
+		command := strings.Join(args[1:], " ")
+		safety.AddToSessionAllowlist(command)
+		m.messages = append(m.messages, Message{
+			Content:   fmt.Sprintf("✅ Added to session allowlist: %s", command),
+			Type:      "system",
+			Timestamp: time.Now(),
+		})
+	default:
+		m.messages = append(m.messages, Message{
+			Content:   "❌ Unknown subcommand. Usage:\n  /allowlist          - Show current allowlist\n  /allowlist add <cmd> - Add command\n  /allowlist clear    - Clear all",
+			Type:      "error",
+			Timestamp: time.Now(),
+		})
+	}
 }
 
 func (m *BubbleModel) renderHistory(maxHeight int, width int) string {
@@ -1421,12 +1567,16 @@ func renderHelp() string {
 	help := `
 📚 Commands:
 
-  /status   /s  - Show task counts and progress
-  /settings     - Change model and auto-level
-  /copy         - Copy last message to clipboard
-  /clear    /c  - Clear conversation
-  /help     /h  - Show this help
-  /quit     /q  - Exit Smith
+  /status    /s  - Show task counts and progress
+  /settings      - Change model and auto-level
+  /allowlist     - Manage session command allowlist
+                   /allowlist          - Show current allowlist
+                   /allowlist add <cmd> - Add command to allowlist
+                   /allowlist clear    - Clear allowlist
+  /copy          - Copy last message to clipboard
+  /clear     /c  - Clear conversation
+  /help      /h  - Show this help
+  /quit      /q  - Exit Smith
 
 ⌨️  Keyboard Shortcuts:
 

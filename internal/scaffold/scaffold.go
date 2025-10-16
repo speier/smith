@@ -75,23 +75,24 @@ func createDefaultConfig(path string) error {
 # Per-agent overrides (optional)
 # Uncomment and configure after selecting a provider and model:
 #
-# agents:
-#   planning:
-#     model: ""
-#     autoLevel: high
-#     reasoning: high
-#   implementation:
-#     model: ""
-#     autoLevel: medium
-#     reasoning: medium
-#   testing:
-#     model: ""
-#     autoLevel: low
-#     reasoning: low
-#   review:
-#     model: ""
-#     autoLevel: high
-#     reasoning: high
+# Agent Configuration
+# Assign specific models to different agent roles
+agents:
+  # The Architect - Designs feature structure and breaks down work
+  architect:
+    model: ""  # Will use main model if not specified
+    
+  # The Keymaker - Implements features and writes code
+  keymaker:
+    model: ""  # Will use main model if not specified
+    
+  # Sentinels - Write tests and hunt bugs
+  sentinel:
+    model: ""  # Will use main model if not specified
+    
+  # The Oracle - Reviews code quality
+  oracle:
+    model: ""  # Will use main model if not specified
 `
 
 	fullContent := header + string(data) + footer
