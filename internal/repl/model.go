@@ -1067,7 +1067,7 @@ func (m BubbleModel) renderSidebar() string {
 
 	// Modified Files
 	sections = append(sections, "")
-	sections = append(sections, sidebarSectionStyle.Render("🗂️ Modified Files"))
+	sections = append(sections, sidebarSectionStyle.Render("🗂️  Modified Files"))
 	modifiedFiles := m.getModifiedFiles()
 	if len(modifiedFiles) == 0 {
 		sections = append(sections, sidebarIdleStyle.Render("None"))
@@ -1079,7 +1079,7 @@ func (m BubbleModel) renderSidebar() string {
 
 	// Active Agents
 	sections = append(sections, "")
-	sections = append(sections, sidebarSectionStyle.Render("🕶️ Active Agents"))
+	sections = append(sections, sidebarSectionStyle.Render("🕶️  Active Agents"))
 	agents := m.getActiveAgents()
 	if len(agents) == 0 {
 		sections = append(sections, sidebarIdleStyle.Render("None"))
@@ -1125,7 +1125,7 @@ func (m BubbleModel) renderSidebar() string {
 	// Active Tasks Details (show what agents are working on)
 	if taskStats != nil && taskStats.WIP > 0 {
 		sections = append(sections, "")
-		sections = append(sections, sidebarSectionStyle.Render("⚡ Working On"))
+		sections = append(sections, sidebarSectionStyle.Render("⚡  Working On"))
 
 		// Get coordinator to list active tasks
 		coord := m.engine.GetCoordinator()
