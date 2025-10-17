@@ -739,7 +739,7 @@ func (t *AppendToFileTool) Execute(ctx context.Context, params map[string]interf
 			Error:   fmt.Sprintf("failed to open file: %v", err),
 		}, err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	// Write content
 	bytesWritten, err := f.WriteString(content)

@@ -940,11 +940,14 @@ func (e *Engine) handleCreateTask(input map[string]interface{}) (string, error) 
 		return "", fmt.Errorf("failed to create task: %w", err)
 	}
 
-	priorityLabel := "medium"
-	if priority == 2 {
+	var priorityLabel string
+	switch priority {
+	case 2:
 		priorityLabel = "high"
-	} else if priority == 0 {
+	case 0:
 		priorityLabel = "low"
+	default:
+		priorityLabel = "medium"
 	}
 
 	result := fmt.Sprintf("✅ Created task %s: %s (assigned to %s agent, priority: %s)", taskID, title, agentRole, priorityLabel)

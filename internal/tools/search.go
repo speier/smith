@@ -190,7 +190,7 @@ func searchInFile(path string, pattern string, re *regexp.Regexp, caseSensitive 
 	if err != nil {
 		return nil, err
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	matches := make([]SearchMatch, 0)
 	scanner := bufio.NewScanner(file)

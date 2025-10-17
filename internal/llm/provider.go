@@ -116,7 +116,7 @@ func (p *OpenAIProvider) Chat(messages []Message, tools []Tool) (*Response, erro
 	if err != nil {
 		return nil, fmt.Errorf("API request failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
@@ -198,13 +198,13 @@ func (p *OllamaProvider) Chat(messages []Message, tools []Tool) (*Response, erro
 
 	resp, err := http.Post(p.endpoint, "application/json", bytes.NewBuffer(jsonData))
 	if err != nil {
-		return nil, fmt.Errorf("Ollama request failed (is Ollama running?): %w", err)
+		return nil, fmt.Errorf("ollama request failed (is Ollama running?): %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("Ollama error (status %d): %s", resp.StatusCode, string(body))
+		return nil, fmt.Errorf("ollama error (status %d): %s", resp.StatusCode, string(body))
 	}
 
 	var apiResp struct {

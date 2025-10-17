@@ -13,14 +13,14 @@ func TestInitProjectStorage(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	// Initialize storage
 	db, err := InitProjectStorage(tmpDir)
 	if err != nil {
 		t.Fatalf("InitProjectStorage failed: %v", err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	// Verify .smith directory was created
 	smithDir := filepath.Join(tmpDir, ".smith")
@@ -80,20 +80,20 @@ func TestInitProjectStorageIdempotent(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	// Initialize storage twice
 	db1, err := InitProjectStorage(tmpDir)
 	if err != nil {
 		t.Fatalf("first InitProjectStorage failed: %v", err)
 	}
-	db1.Close()
+	_ = db1.Close()
 
 	db2, err := InitProjectStorage(tmpDir)
 	if err != nil {
 		t.Fatalf("second InitProjectStorage failed: %v", err)
 	}
-	defer db2.Close()
+	defer func() { _ = db2.Close() }()
 
 	// Should succeed without errors (idempotent)
 }

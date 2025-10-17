@@ -21,7 +21,7 @@ func TestFullTaskFlow(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create coordinator: %v", err)
 	}
-	defer coord.Close()
+	defer func() { _ = coord.Close() }()
 
 	ctx := context.Background()
 
@@ -234,7 +234,7 @@ func TestTaskFailureAndRetry(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create coordinator: %v", err)
 	}
-	defer coord.Close()
+	defer func() { _ = coord.Close() }()
 
 	ctx := context.Background()
 
@@ -342,7 +342,7 @@ func TestConcurrentAgents(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create coordinator: %v", err)
 	}
-	defer coord.Close()
+	defer func() { _ = coord.Close() }()
 
 	ctx := context.Background()
 
@@ -428,7 +428,7 @@ func TestEventBusIntegration(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create coordinator: %v", err)
 	}
-	defer coord.Close()
+	defer func() { _ = coord.Close() }()
 
 	ctx := context.Background()
 

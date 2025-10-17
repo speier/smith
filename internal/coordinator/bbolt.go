@@ -124,7 +124,7 @@ func (a *registryAdapter) Unregister(ctx context.Context, agentID string) error 
 
 func (a *registryAdapter) GetActiveAgents(ctx context.Context) ([]Agent, error) {
 	// List all agents (role filter = nil means all roles)
-	agents, err := a.Registry.List(ctx, nil)
+	agents, err := a.List(ctx, nil)
 	if err != nil {
 		return nil, err
 	}

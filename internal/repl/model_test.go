@@ -164,7 +164,7 @@ func TestView(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	// Create minimal local config
 	smithDir := filepath.Join(tmpDir, ".smith")

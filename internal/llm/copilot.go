@@ -89,7 +89,7 @@ func (c *CopilotProvider) Authorize() (*DeviceCodeResponse, error) {
 	if err != nil {
 		return nil, fmt.Errorf("device code request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	var result DeviceCodeResponse
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
@@ -121,7 +121,7 @@ func (c *CopilotProvider) PollForToken(deviceCode string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("token request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	var result AccessTokenResponse
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
@@ -159,7 +159,7 @@ func (c *CopilotProvider) GetCopilotToken(githubToken string) (*CopilotTokenResp
 	if err != nil {
 		return nil, fmt.Errorf("copilot token request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
@@ -309,7 +309,7 @@ func (c *CopilotProvider) Chat(messages []Message, tools []Tool) (*Response, err
 	if err != nil {
 		return nil, fmt.Errorf("api request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		bodyBytes, _ := io.ReadAll(resp.Body)
@@ -380,7 +380,7 @@ func (c *CopilotProvider) GetModels() ([]Model, error) {
 	if err != nil {
 		return nil, fmt.Errorf("fetching models: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)

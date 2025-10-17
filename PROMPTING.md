@@ -1,5 +1,3 @@
-"Build a CLI tool that converts JSON to YAML"
-
 # Simple
 
 Then: "Explain how I should structure a REST API in Go"

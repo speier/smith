@@ -66,7 +66,7 @@ func (o *OpenRouterProvider) Chat(messages []Message, tools []Tool) (*Response, 
 	if err != nil {
 		return nil, fmt.Errorf("api request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		bodyBytes, _ := io.ReadAll(resp.Body)
@@ -141,7 +141,7 @@ func (o *OpenRouterProvider) ChatStream(messages []Message, tools []Tool, callba
 	if err != nil {
 		return fmt.Errorf("api request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		bodyBytes, _ := io.ReadAll(resp.Body)
@@ -229,7 +229,7 @@ func (o *OpenRouterProvider) GetModels() ([]Model, error) {
 	if err != nil {
 		return nil, fmt.Errorf("fetching models: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)

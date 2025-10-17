@@ -116,7 +116,7 @@ var (
 			Foreground(lipgloss.Color("241"))
 )
 
-const sidebarWidth = 40
+const sidebarWidth = 35 // Must match sidebarStyle.Width
 
 // Command represents a slash command
 type Command struct {
@@ -1275,19 +1275,20 @@ func (m BubbleModel) renderSidebar() string {
 		}
 	}
 
-	// Active Agents
-	sections = append(sections, "")
-	sections = append(sections, sidebarSectionStyle.Render("🕶️  Active Agents"))
+	// Active Agents - only show when agents are actually working
 	agents := m.getActiveAgents()
-	if len(agents) == 0 {
-		sections = append(sections, sidebarIdleStyle.Render("None"))
-	} else {
-		for _, agent := range agents {
-			if agent.active {
-				sections = append(sections, sidebarActiveStyle.Render("● "+agent.name))
-			} else {
-				sections = append(sections, sidebarIdleStyle.Render("○ "+agent.name))
-			}
+	var activeAgents []agentInfo
+	for _, agent := range agents {
+		if agent.active {
+			activeAgents = append(activeAgents, agent)
+		}
+	}
+
+	if len(activeAgents) > 0 {
+		sections = append(sections, "")
+		sections = append(sections, sidebarSectionStyle.Render("🕶️  Active Agents"))
+		for _, agent := range activeAgents {
+			sections = append(sections, sidebarActiveStyle.Render("● "+agent.name))
 		}
 	}
 
@@ -1440,13 +1441,13 @@ func (m BubbleModel) renderMainArea(width int) string {
 	history := m.renderHistory(historyHeight, width)
 
 	// Input box
-	m.textarea.SetWidth(width - 4)
+	textareaView := m.textarea.View()
 	inputBox := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(lipgloss.Color("240")).
 		Padding(0, 1).
 		Width(width - 2).
-		Render(m.textarea.View())
+		Render(textareaView)
 
 	// Command menu (if visible)
 	var commandMenu string
@@ -1462,14 +1463,14 @@ func (m BubbleModel) renderMainArea(width int) string {
 		helpText = helpStyle.Render("? for help")
 	}
 
-	components := []string{history, ""}
+	components := []string{history}
 
 	// Add command menu before input if visible
 	if m.showCommandMenu {
-		components = append(components, commandMenu)
+		components = append(components, "", commandMenu)
 	}
 
-	components = append(components, inputBox, helpText)
+	components = append(components, "", inputBox, helpText)
 
 	mainContent := lipgloss.JoinVertical(
 		lipgloss.Left,

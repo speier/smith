@@ -25,8 +25,8 @@ func setupTestDB(t *testing.T) (storage.Store, *registry.Registry, func()) {
 	reg := registry.New(store)
 
 	cleanup := func() {
-		store.Close()
-		os.RemoveAll(tmpDir)
+		_ = store.Close()
+		_ = os.RemoveAll(tmpDir)
 	}
 
 	return store, reg, cleanup

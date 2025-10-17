@@ -16,14 +16,14 @@ func TestBoltCoordinator(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	// Create BoltCoordinator
 	coord, err := NewBolt(tmpDir)
 	if err != nil {
 		t.Fatalf("NewBolt failed: %v", err)
 	}
-	defer coord.Close()
+	defer func() { _ = coord.Close() }()
 
 	// Test EnsureDirectories
 	if err := coord.EnsureDirectories(); err != nil {
@@ -114,13 +114,13 @@ func TestBoltCoordinatorLockConflict(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	coord, err := NewBolt(tmpDir)
 	if err != nil {
 		t.Fatalf("NewBolt failed: %v", err)
 	}
-	defer coord.Close()
+	defer func() { _ = coord.Close() }()
 
 	ctx := context.Background()
 

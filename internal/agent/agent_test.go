@@ -22,7 +22,7 @@ func TestCompleteVisionFlow(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create coordinator: %v", err)
 	}
-	defer coord.Close()
+	defer func() { _ = coord.Close() }()
 
 	// Get registry from coordinator
 	reg := coord.GetRegistry()
@@ -195,7 +195,7 @@ func TestMultipleAgentsConcurrent(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create coordinator: %v", err)
 	}
-	defer coord.Close()
+	defer func() { _ = coord.Close() }()
 
 	reg := coord.GetRegistry()
 
@@ -266,7 +266,7 @@ func TestAgentErrorHandling(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create coordinator: %v", err)
 	}
-	defer coord.Close()
+	defer func() { _ = coord.Close() }()
 
 	reg := coord.GetRegistry()
 
@@ -342,7 +342,7 @@ func TestPlanningAgent(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create coordinator: %v", err)
 	}
-	defer coord.Close()
+	defer func() { _ = coord.Close() }()
 
 	reg := coord.GetRegistry()
 
@@ -409,7 +409,7 @@ func TestReviewAgent(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create coordinator: %v", err)
 	}
-	defer coord.Close()
+	defer func() { _ = coord.Close() }()
 
 	reg := coord.GetRegistry()
 
@@ -476,7 +476,7 @@ func TestAllAgentTypes(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create coordinator: %v", err)
 	}
-	defer coord.Close()
+	defer func() { _ = coord.Close() }()
 
 	reg := coord.GetRegistry()
 

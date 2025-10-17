@@ -13,7 +13,7 @@ func TestGitignoreContent(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	// Create .smith directory
 	smithDir := filepath.Join(tmpDir, ".smith")
@@ -56,7 +56,7 @@ func TestInitProjectFilesIdempotent(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	smithDir := filepath.Join(tmpDir, ".smith")
 	if err := os.MkdirAll(smithDir, 0755); err != nil {

@@ -139,12 +139,15 @@ Running: go test ./...
 - ✅ No unused variables, functions, imports, or types
 - ✅ No empty if branches (use comments if intentional)
 - ✅ Handle all error returns (or explicitly ignore with `_`)
+- ✅ **Test cleanup is important**: Use `defer func() { _ = resource.Close() }()` in tests
+- ✅ **Production code must be perfect**: Zero tolerance for unchecked errors
 
 **When Writing Code:**
 1. ✅ Always check error returns: `if err != nil` or `_ = funcCall()`
 2. ✅ Remove unused code immediately
 3. ✅ Run `golangci-lint run ./...` before reporting completion
 4. ✅ Fix ALL issues before saying "done"
+5. ✅ In tests: Wrap cleanup in anonymous functions to satisfy linter
 
 **Example - CORRECT:**
 ```go
