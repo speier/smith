@@ -75,7 +75,7 @@ import DocsLayout from '../../layouts/DocsLayout.astro';
 
         <div class="comp-card">
           <h3>📋 Task Queue</h3>
-          <p>SQLite-based queue that coordinates work between agents safely.</p>
+          <p>BBolt-based queue that coordinates work between agents safely.</p>
         </div>
 
         <div class="comp-card">
@@ -124,7 +124,7 @@ import DocsLayout from '../../layouts/DocsLayout.astro';
       <h2 id="technical-stack">Technical Stack</h2>
       <ul>
         <li><strong>Language:</strong> Go - for performance, concurrency, and single binary distribution</li>
-        <li><strong>Storage:</strong> SQLite with WAL mode - reliable, concurrent task coordination</li>
+        <li><strong>Storage:</strong> BBolt - embedded key-value store for reliable, lock-free concurrent coordination</li>
         <li><strong>UI:</strong> Bubble Tea - beautiful terminal interface</li>
         <li><strong>LLM Providers:</strong> GitHub Copilot, OpenRouter - flexible model choices</li>
       </ul>

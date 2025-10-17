@@ -143,23 +143,171 @@ func (a *BaseAgent) StartLoop(ctx context.Context, executor func(context.Context
 				continue
 			}
 
+			// Query recent tasks for context (agent memory)
+			recentTasks, err := a.coord.GetRecentTasks(ctx, string(a.role), 5)
+			if err != nil {
+				log.Printf("[%s] Failed to get recent tasks for context: %v", a.ID, err)
+				// Non-critical, continue without context
+				recentTasks = nil
+			}
+
+			// Add recent learnings to task context if available
+			if len(recentTasks) > 0 {
+				contextInfo := "\n\n📚 Recent learnings from past tasks:\n"
+				for i, rt := range recentTasks {
+					if rt.Learnings != "" {
+						contextInfo += fmt.Sprintf("%d. From '%s': %s\n", i+1, rt.Title, rt.Learnings)
+					}
+					if len(rt.Blockers) > 0 {
+						contextInfo += fmt.Sprintf("   ⚠️ Known blockers: %v\n", rt.Blockers)
+					}
+				}
+				// Append context to task description for agent to consider
+				fullTask.Description += contextInfo
+			}
+
 			// Execute the task
 			result, err := executor(ctx, fullTask)
 			if err != nil {
 				log.Printf("[%s] Task %s failed: %v", a.ID, task.ID, err)
-				if failErr := a.coord.FailTask(task.ID, err.Error()); failErr != nil {
+
+				// Extract learnings from error if possible
+				learnings := a.extractLearnings(err.Error())
+				blockers := a.extractBlockers(err.Error())
+
+				opts := []coordinator.TaskOption{}
+				if learnings != "" {
+					opts = append(opts, coordinator.WithLearnings(learnings))
+				}
+				if len(blockers) > 0 {
+					opts = append(opts, coordinator.WithBlockers(blockers...))
+				}
+
+				if failErr := a.coord.FailTask(task.ID, err.Error(), opts...); failErr != nil {
 					log.Printf("[%s] Failed to mark task as failed: %v", a.ID, failErr)
 				}
 				continue
 			}
 
-			// Complete the task
+			// Extract learnings from result
+			learnings := a.extractLearnings(result)
+			approaches := a.extractApproaches(result)
+
+			// Complete the task with learnings
 			log.Printf("[%s] Task %s completed: %s", a.ID, task.ID, result)
-			if err := a.coord.CompleteTask(task.ID, result); err != nil {
+
+			opts := []coordinator.TaskOption{}
+			if learnings != "" {
+				opts = append(opts, coordinator.WithLearnings(learnings))
+			}
+			if len(approaches) > 0 {
+				opts = append(opts, coordinator.WithTriedApproaches(approaches...))
+			}
+
+			if err := a.coord.CompleteTask(task.ID, result, opts...); err != nil {
 				log.Printf("[%s] Failed to complete task: %v", a.ID, err)
 			}
 		}
 	}
+}
+
+// extractLearnings parses learnings from task result/error
+// Looks for patterns like "Learning:", "Learned:", "Key insight:"
+func (a *BaseAgent) extractLearnings(text string) string {
+	// Simple pattern matching - look for common learning indicators
+	patterns := []string{
+		"Learning:",
+		"Learned:",
+		"Key insight:",
+		"Takeaway:",
+		"Note:",
+	}
+
+	for _, pattern := range patterns {
+		if idx := indexOf(text, pattern); idx >= 0 {
+			// Extract text after the pattern
+			start := idx + len(pattern)
+			end := indexOfAny(text[start:], []string{"\n", ".", ";"})
+			if end > 0 {
+				return trim(text[start : start+end])
+			}
+			return trim(text[start:])
+		}
+	}
+
+	return "" // No explicit learning found
+}
+
+// extractApproaches parses tried approaches from result
+func (a *BaseAgent) extractApproaches(text string) []string {
+	// Look for "Tried:", "Attempted:", "Used approach:"
+	patterns := []string{
+		"Tried:",
+		"Attempted:",
+		"Used approach:",
+		"Approach:",
+	}
+
+	for _, pattern := range patterns {
+		if idx := indexOf(text, pattern); idx >= 0 {
+			start := idx + len(pattern)
+			end := indexOfAny(text[start:], []string{"\n\n", "."})
+			if end > 0 {
+				return []string{trim(text[start : start+end])}
+			}
+			return []string{trim(text[start:])}
+		}
+	}
+
+	return nil
+}
+
+// extractBlockers parses blockers from error messages
+func (a *BaseAgent) extractBlockers(errMsg string) []string {
+	// Look for common blocker indicators
+	if errMsg == "" {
+		return nil
+	}
+
+	// For now, just return the error as a blocker
+	// Could be enhanced with pattern matching
+	return []string{errMsg}
+}
+
+// Helper functions for string parsing
+func indexOf(text, substr string) int {
+	for i := 0; i <= len(text)-len(substr); i++ {
+		if text[i:i+len(substr)] == substr {
+			return i
+		}
+	}
+	return -1
+}
+
+func indexOfAny(text string, substrs []string) int {
+	minIdx := -1
+	for _, substr := range substrs {
+		idx := indexOf(text, substr)
+		if idx >= 0 && (minIdx < 0 || idx < minIdx) {
+			minIdx = idx
+		}
+	}
+	return minIdx
+}
+
+func trim(s string) string {
+	// Simple trim implementation
+	start := 0
+	end := len(s)
+
+	for start < end && (s[start] == ' ' || s[start] == '\t' || s[start] == '\n') {
+		start++
+	}
+	for end > start && (s[end-1] == ' ' || s[end-1] == '\t' || s[end-1] == '\n') {
+		end--
+	}
+
+	return s[start:end]
 }
 
 // Stop gracefully stops the agent

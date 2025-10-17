@@ -18,7 +18,7 @@ func TestCompleteVisionFlow(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	// Initialize coordinator (simulates what REPL does on startup)
-	coord, err := coordinator.NewSQLite(tmpDir)
+	coord, err := coordinator.NewBolt(tmpDir)
 	if err != nil {
 		t.Fatalf("failed to create coordinator: %v", err)
 	}
@@ -191,7 +191,7 @@ func TestCompleteVisionFlow(t *testing.T) {
 // TestMultipleAgentsConcurrent tests multiple agents of the same type
 func TestMultipleAgentsConcurrent(t *testing.T) {
 	tmpDir := t.TempDir()
-	coord, err := coordinator.NewSQLite(tmpDir)
+	coord, err := coordinator.NewBolt(tmpDir)
 	if err != nil {
 		t.Fatalf("failed to create coordinator: %v", err)
 	}
@@ -262,7 +262,7 @@ func TestMultipleAgentsConcurrent(t *testing.T) {
 // TestAgentErrorHandling tests that agents properly handle task failures
 func TestAgentErrorHandling(t *testing.T) {
 	tmpDir := t.TempDir()
-	coord, err := coordinator.NewSQLite(tmpDir)
+	coord, err := coordinator.NewBolt(tmpDir)
 	if err != nil {
 		t.Fatalf("failed to create coordinator: %v", err)
 	}
@@ -338,7 +338,7 @@ func TestAgentErrorHandling(t *testing.T) {
 func TestPlanningAgent(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	coord, err := coordinator.NewSQLite(tmpDir)
+	coord, err := coordinator.NewBolt(tmpDir)
 	if err != nil {
 		t.Fatalf("failed to create coordinator: %v", err)
 	}
@@ -405,7 +405,7 @@ func TestPlanningAgent(t *testing.T) {
 func TestReviewAgent(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	coord, err := coordinator.NewSQLite(tmpDir)
+	coord, err := coordinator.NewBolt(tmpDir)
 	if err != nil {
 		t.Fatalf("failed to create coordinator: %v", err)
 	}
@@ -472,7 +472,7 @@ func TestReviewAgent(t *testing.T) {
 func TestAllAgentTypes(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	coord, err := coordinator.NewSQLite(tmpDir)
+	coord, err := coordinator.NewBolt(tmpDir)
 	if err != nil {
 		t.Fatalf("failed to create coordinator: %v", err)
 	}

@@ -72,7 +72,7 @@ func (s *BoltStore) QueryEvents(ctx context.Context, filter EventFilter) ([]*Eve
 			return fmt.Errorf("events bucket not found")
 		}
 
-		// Iterate all events (BBolt doesn't have SQL-like WHERE, so we filter in Go)
+		// Iterate all events (BBolt doesn't support queries, so we filter in Go)
 		c := b.Cursor()
 		for k, v := c.Last(); k != nil && len(events) < 1000; k, v = c.Prev() {
 			var event Event

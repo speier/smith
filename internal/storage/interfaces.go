@@ -122,6 +122,12 @@ type Task struct {
 	StartedAt   time.Time
 	UpdatedAt   time.Time
 	CompletedAt *time.Time
+
+	// Agent memory/learnings - simple approach instead of separate memory system
+	Learnings       string            // What the agent learned ("This approach works well", "Avoid X because Y")
+	TriedApproaches []string          // Approaches attempted ("Used strategy A", "Tried pattern B")
+	Blockers        []string          // What didn't work or blocked progress
+	Notes           map[string]string // Freeform key-value notes from agents
 }
 
 // Session represents a work session

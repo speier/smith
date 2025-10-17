@@ -25,6 +25,12 @@ type Task struct {
 	StartedAt   time.Time
 	UpdatedAt   time.Time
 	CompletedAt *time.Time
+
+	// Agent memory/learnings
+	Learnings       string            // What the agent learned
+	TriedApproaches []string          // Approaches attempted
+	Blockers        []string          // What didn't work
+	Notes           map[string]string // Freeform agent notes
 }
 
 // Lock represents a file lock held by an agent

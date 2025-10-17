@@ -10,18 +10,18 @@ import (
 	"github.com/speier/smith/internal/storage"
 )
 
-func TestSQLiteCoordinator(t *testing.T) {
+func TestBoltCoordinator(t *testing.T) {
 	// Create temporary directory for test
-	tmpDir, err := os.MkdirTemp("", "smith-sqlite-coord-test-*")
+	tmpDir, err := os.MkdirTemp("", "smith-bbolt-coord-test-*")
 	if err != nil {
 		t.Fatalf("failed to create temp dir: %v", err)
 	}
 	defer os.RemoveAll(tmpDir)
 
-	// Create SQLite coordinator
-	coord, err := NewSQLite(tmpDir)
+	// Create BoltCoordinator
+	coord, err := NewBolt(tmpDir)
 	if err != nil {
-		t.Fatalf("NewSQLite failed: %v", err)
+		t.Fatalf("NewBolt failed: %v", err)
 	}
 	defer coord.Close()
 
@@ -109,16 +109,16 @@ func TestSQLiteCoordinator(t *testing.T) {
 	}
 }
 
-func TestSQLiteCoordinatorLockConflict(t *testing.T) {
-	tmpDir, err := os.MkdirTemp("", "smith-sqlite-coord-test-*")
+func TestBoltCoordinatorLockConflict(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "smith-bbolt-coord-test-*")
 	if err != nil {
 		t.Fatalf("failed to create temp dir: %v", err)
 	}
 	defer os.RemoveAll(tmpDir)
 
-	coord, err := NewSQLite(tmpDir)
+	coord, err := NewBolt(tmpDir)
 	if err != nil {
-		t.Fatalf("NewSQLite failed: %v", err)
+		t.Fatalf("NewBolt failed: %v", err)
 	}
 	defer coord.Close()
 

@@ -12,8 +12,8 @@ import (
 	"github.com/speier/smith/internal/storage"
 )
 
-// SQLiteCoordinator implements coordination using SQLite database
-type SQLiteCoordinator struct {
+// BoltCoordinator implements coordination using BBolt database
+type BoltCoordinator struct {
 	projectPath      string
 	db               storage.Store
 	eventBus         *eventbus.EventBus
@@ -22,8 +22,8 @@ type SQLiteCoordinator struct {
 	currentSessionID string // Active session ID
 }
 
-// NewSQLite creates a new BBolt-based coordinator
-func NewSQLite(projectPath string) (*SQLiteCoordinator, error) {
+// NewBolt creates a new BBolt-based coordinator
+func NewBolt(projectPath string) (*BoltCoordinator, error) {
 	// Initialize storage (creates .smith/ directory, db, config, etc.)
 	// Using BBolt for lock-free concurrent access by multiple agents
 	store, err := storage.InitProjectStorage(projectPath)
@@ -31,7 +31,7 @@ func NewSQLite(projectPath string) (*SQLiteCoordinator, error) {
 		return nil, fmt.Errorf("failed to initialize storage: %w", err)
 	}
 
-	c := &SQLiteCoordinator{
+	c := &BoltCoordinator{
 		projectPath: projectPath,
 		db:          store,
 		eventBus:    eventbus.New(store),
@@ -43,22 +43,22 @@ func NewSQLite(projectPath string) (*SQLiteCoordinator, error) {
 }
 
 // Registry returns the agent registry (legacy method - use GetRegistry instead)
-func (c *SQLiteCoordinator) Registry() *registry.Registry {
+func (c *BoltCoordinator) Registry() *registry.Registry {
 	return c.registry
 }
 
 // DB returns the database connection (for testing)
-func (c *SQLiteCoordinator) DB() storage.Store {
+func (c *BoltCoordinator) DB() storage.Store {
 	return c.db
 }
 
 // GetEventBus returns the event bus (implementing Coordinator interface)
-func (c *SQLiteCoordinator) GetEventBus() EventBus {
+func (c *BoltCoordinator) GetEventBus() EventBus {
 	return &eventBusAdapter{c.eventBus}
 }
 
 // GetRegistry returns the agent registry (implementing Coordinator interface)
-func (c *SQLiteCoordinator) GetRegistry() Registry {
+func (c *BoltCoordinator) GetRegistry() Registry {
 	return &registryAdapter{c.registry}
 }
 
@@ -144,17 +144,17 @@ func (a *registryAdapter) GetActiveAgents(ctx context.Context) ([]Agent, error) 
 }
 
 // EnsureDirectories creates the .smith directory structure
-// For SQLite coordinator, this just ensures the database is initialized
-func (c *SQLiteCoordinator) EnsureDirectories() error {
-	// Storage initialization already happened in NewSQLite
-	// This is here for interface compatibility with FileCoordinator
+// For BoltCoordinator, this just ensures the database is initialized
+func (c *BoltCoordinator) EnsureDirectories() error {
+	// Storage initialization already happened in NewBolt
+	// This is here for interface compatibility
 	return nil
 }
 
 // === Session Management ===
 
 // GetOrCreateSession returns the current session, creating one if needed
-func (c *SQLiteCoordinator) GetOrCreateSession(ctx context.Context) (string, error) {
+func (c *BoltCoordinator) GetOrCreateSession(ctx context.Context) (string, error) {
 	if c.currentSessionID != "" {
 		return c.currentSessionID, nil
 	}
@@ -186,7 +186,7 @@ func (c *SQLiteCoordinator) GetOrCreateSession(ctx context.Context) (string, err
 }
 
 // CreateNewSession archives the current session and creates a new one
-func (c *SQLiteCoordinator) CreateNewSession(ctx context.Context) (string, error) {
+func (c *BoltCoordinator) CreateNewSession(ctx context.Context) (string, error) {
 	// Archive current session if exists
 	if c.currentSessionID != "" {
 		if err := c.db.ArchiveSession(ctx, c.currentSessionID); err != nil {
@@ -214,7 +214,7 @@ func (c *SQLiteCoordinator) CreateNewSession(ctx context.Context) (string, error
 }
 
 // SwitchSession switches to a different session
-func (c *SQLiteCoordinator) SwitchSession(ctx context.Context, sessionID string) error {
+func (c *BoltCoordinator) SwitchSession(ctx context.Context, sessionID string) error {
 	// Verify session exists
 	session, err := c.db.GetSession(ctx, sessionID)
 	if err != nil {
@@ -232,7 +232,7 @@ func (c *SQLiteCoordinator) SwitchSession(ctx context.Context, sessionID string)
 }
 
 // GetCurrentSession returns the current session info
-func (c *SQLiteCoordinator) GetCurrentSession(ctx context.Context) (*Session, error) {
+func (c *BoltCoordinator) GetCurrentSession(ctx context.Context) (*Session, error) {
 	sessionID, err := c.GetOrCreateSession(ctx)
 	if err != nil {
 		return nil, err
@@ -254,7 +254,7 @@ func (c *SQLiteCoordinator) GetCurrentSession(ctx context.Context) (*Session, er
 }
 
 // ListSessions returns recent sessions
-func (c *SQLiteCoordinator) ListSessions(ctx context.Context, limit int) ([]*Session, error) {
+func (c *BoltCoordinator) ListSessions(ctx context.Context, limit int) ([]*Session, error) {
 	storageSessions, err := c.db.ListSessions(ctx, limit)
 	if err != nil {
 		return nil, err
@@ -276,7 +276,7 @@ func (c *SQLiteCoordinator) ListSessions(ctx context.Context, limit int) ([]*Ses
 }
 
 // UpdateSessionTitle updates the title of a session (auto-generated from first task)
-func (c *SQLiteCoordinator) UpdateSessionTitle(ctx context.Context, sessionID, title string) error {
+func (c *BoltCoordinator) UpdateSessionTitle(ctx context.Context, sessionID, title string) error {
 	session, err := c.db.GetSession(ctx, sessionID)
 	if err != nil {
 		return err
@@ -286,7 +286,7 @@ func (c *SQLiteCoordinator) UpdateSessionTitle(ctx context.Context, sessionID, t
 	return c.db.UpdateSession(ctx, session)
 }
 
-func (c *SQLiteCoordinator) generateSessionID() string {
+func (c *BoltCoordinator) generateSessionID() string {
 	now := time.Now()
 	return fmt.Sprintf("session-%s-%03d",
 		now.Format("2006-01-02"),
@@ -294,7 +294,7 @@ func (c *SQLiteCoordinator) generateSessionID() string {
 }
 
 // GetTaskStats returns statistics about tasks
-func (c *SQLiteCoordinator) GetTaskStats() (*TaskStats, error) {
+func (c *BoltCoordinator) GetTaskStats() (*TaskStats, error) {
 	ctx := context.Background()
 
 	storageStats, err := c.db.GetTaskStats(ctx)
@@ -313,7 +313,7 @@ func (c *SQLiteCoordinator) GetTaskStats() (*TaskStats, error) {
 }
 
 // GetAvailableTasks returns tasks in the backlog (not yet claimed)
-func (c *SQLiteCoordinator) GetAvailableTasks() ([]Task, error) {
+func (c *BoltCoordinator) GetAvailableTasks() ([]Task, error) {
 	ctx := context.Background()
 
 	status := "backlog"
@@ -341,19 +341,23 @@ func (c *SQLiteCoordinator) GetAvailableTasks() ([]Task, error) {
 		}
 
 		task := Task{
-			ID:          st.TaskID,
-			Title:       st.Title,
-			Description: st.Description,
-			Role:        st.AgentRole,
-			Status:      st.Status,
-			Priority:    st.Priority,
-			DependsOn:   st.DependsOn,
-			AgentID:     st.AgentID,
-			Result:      st.Result,
-			Error:       st.Error,
-			StartedAt:   st.StartedAt,
-			UpdatedAt:   st.UpdatedAt,
-			CompletedAt: st.CompletedAt,
+			ID:              st.TaskID,
+			Title:           st.Title,
+			Description:     st.Description,
+			Role:            st.AgentRole,
+			Status:          st.Status,
+			Priority:        st.Priority,
+			DependsOn:       st.DependsOn,
+			AgentID:         st.AgentID,
+			Result:          st.Result,
+			Error:           st.Error,
+			StartedAt:       st.StartedAt,
+			UpdatedAt:       st.UpdatedAt,
+			CompletedAt:     st.CompletedAt,
+			Learnings:       st.Learnings,
+			TriedApproaches: st.TriedApproaches,
+			Blockers:        st.Blockers,
+			Notes:           st.Notes,
 		}
 		tasks = append(tasks, task)
 	}
@@ -368,7 +372,7 @@ func (c *SQLiteCoordinator) GetAvailableTasks() ([]Task, error) {
 }
 
 // GetTasksByStatus returns tasks filtered by status, or all tasks if status is empty
-func (c *SQLiteCoordinator) GetTasksByStatus(status string) ([]Task, error) {
+func (c *BoltCoordinator) GetTasksByStatus(status string) ([]Task, error) {
 	ctx := context.Background()
 
 	var statusFilter *string
@@ -384,19 +388,23 @@ func (c *SQLiteCoordinator) GetTasksByStatus(status string) ([]Task, error) {
 	var tasks []Task
 	for _, st := range storageTasks {
 		task := Task{
-			ID:          st.TaskID,
-			Title:       st.Title,
-			Description: st.Description,
-			Role:        st.AgentRole,
-			Status:      st.Status,
-			AgentID:     st.AgentID,
-			Result:      st.Result,
-			Error:       st.Error,
-			Priority:    st.Priority,
-			DependsOn:   st.DependsOn,
-			StartedAt:   st.StartedAt,
-			UpdatedAt:   st.UpdatedAt,
-			CompletedAt: st.CompletedAt,
+			ID:              st.TaskID,
+			Title:           st.Title,
+			Description:     st.Description,
+			Role:            st.AgentRole,
+			Status:          st.Status,
+			AgentID:         st.AgentID,
+			Result:          st.Result,
+			Error:           st.Error,
+			Priority:        st.Priority,
+			DependsOn:       st.DependsOn,
+			StartedAt:       st.StartedAt,
+			UpdatedAt:       st.UpdatedAt,
+			CompletedAt:     st.CompletedAt,
+			Learnings:       st.Learnings,
+			TriedApproaches: st.TriedApproaches,
+			Blockers:        st.Blockers,
+			Notes:           st.Notes,
 		}
 		tasks = append(tasks, task)
 	}
@@ -405,7 +413,7 @@ func (c *SQLiteCoordinator) GetTasksByStatus(status string) ([]Task, error) {
 }
 
 // GetActiveLocks returns currently active file locks
-func (c *SQLiteCoordinator) GetActiveLocks() ([]Lock, error) {
+func (c *BoltCoordinator) GetActiveLocks() ([]Lock, error) {
 	ctx := context.Background()
 
 	fileLocks, err := c.lockMgr.GetAllLocks(ctx)
@@ -426,7 +434,7 @@ func (c *SQLiteCoordinator) GetActiveLocks() ([]Lock, error) {
 }
 
 // GetMessages returns messages for agents
-func (c *SQLiteCoordinator) GetMessages() ([]Message, error) {
+func (c *BoltCoordinator) GetMessages() ([]Message, error) {
 	ctx := context.Background()
 
 	// Query events of type "agent_message"
@@ -457,7 +465,7 @@ func (c *SQLiteCoordinator) GetMessages() ([]Message, error) {
 }
 
 // ClaimTask claims a task for an agent
-func (c *SQLiteCoordinator) ClaimTask(taskID, agent string) error {
+func (c *BoltCoordinator) ClaimTask(taskID, agent string) error {
 	ctx := context.Background()
 
 	// Use TaskStore to claim the task
@@ -478,7 +486,7 @@ func (c *SQLiteCoordinator) ClaimTask(taskID, agent string) error {
 }
 
 // CreateTask creates a new task in the system
-func (c *SQLiteCoordinator) CreateTask(title, description, role string, opts ...TaskOption) (string, error) {
+func (c *BoltCoordinator) CreateTask(title, description, role string, opts ...TaskOption) (string, error) {
 	ctx := context.Background()
 
 	// Apply options
@@ -506,16 +514,20 @@ func (c *SQLiteCoordinator) CreateTask(title, description, role string, opts ...
 
 	// Create task via TaskStore
 	task := &storage.Task{
-		TaskID:      taskID,
-		Title:       title,
-		Description: description,
-		AgentRole:   role,
-		Status:      "backlog",
-		Priority:    options.Priority,
-		DependsOn:   options.DependsOn,
-		SessionID:   sessionID,
-		StartedAt:   time.Now(),
-		UpdatedAt:   time.Now(),
+		TaskID:          taskID,
+		Title:           title,
+		Description:     description,
+		AgentRole:       role,
+		Status:          "backlog",
+		Priority:        options.Priority,
+		DependsOn:       options.DependsOn,
+		SessionID:       sessionID,
+		StartedAt:       time.Now(),
+		UpdatedAt:       time.Now(),
+		Learnings:       options.Learnings,
+		TriedApproaches: options.TriedApproaches,
+		Blockers:        options.Blockers,
+		Notes:           options.Notes,
 	}
 
 	if err := c.db.CreateTask(ctx, task); err != nil {
@@ -554,7 +566,7 @@ func (c *SQLiteCoordinator) CreateTask(title, description, role string, opts ...
 }
 
 // UpdateTaskStatus updates the status of a task
-func (c *SQLiteCoordinator) UpdateTaskStatus(taskID, status string) error {
+func (c *BoltCoordinator) UpdateTaskStatus(taskID, status string) error {
 	ctx := context.Background()
 
 	// Validate status
@@ -594,8 +606,14 @@ func (c *SQLiteCoordinator) UpdateTaskStatus(taskID, status string) error {
 }
 
 // CompleteTask marks a task as completed with a result
-func (c *SQLiteCoordinator) CompleteTask(taskID, result string) error {
+func (c *BoltCoordinator) CompleteTask(taskID, result string, opts ...TaskOption) error {
 	ctx := context.Background()
+
+	// Apply options
+	options := &TaskOptions{}
+	for _, opt := range opts {
+		opt(options)
+	}
 
 	// Get task and mark as done
 	task, err := c.db.GetTask(ctx, taskID)
@@ -608,6 +626,20 @@ func (c *SQLiteCoordinator) CompleteTask(taskID, result string) error {
 	now := time.Now()
 	task.CompletedAt = &now
 	task.UpdatedAt = now
+
+	// Apply memory fields if provided
+	if options.Learnings != "" {
+		task.Learnings = options.Learnings
+	}
+	if len(options.TriedApproaches) > 0 {
+		task.TriedApproaches = options.TriedApproaches
+	}
+	if len(options.Blockers) > 0 {
+		task.Blockers = options.Blockers
+	}
+	if options.Notes != nil {
+		task.Notes = options.Notes
+	}
 
 	if err := c.db.UpdateTask(ctx, task); err != nil {
 		return fmt.Errorf("failed to complete task: %w", err)
@@ -626,8 +658,14 @@ func (c *SQLiteCoordinator) CompleteTask(taskID, result string) error {
 }
 
 // FailTask marks a task as failed with an error message
-func (c *SQLiteCoordinator) FailTask(taskID, errorMsg string) error {
+func (c *BoltCoordinator) FailTask(taskID, errorMsg string, opts ...TaskOption) error {
 	ctx := context.Background()
+
+	// Apply options
+	options := &TaskOptions{}
+	for _, opt := range opts {
+		opt(options)
+	}
 
 	// Get task and move back to backlog
 	task, err := c.db.GetTask(ctx, taskID)
@@ -639,6 +677,20 @@ func (c *SQLiteCoordinator) FailTask(taskID, errorMsg string) error {
 	task.Error = errorMsg
 	task.AgentID = ""
 	task.UpdatedAt = time.Now()
+
+	// Apply memory fields if provided (useful to record why it failed)
+	if options.Learnings != "" {
+		task.Learnings = options.Learnings
+	}
+	if len(options.TriedApproaches) > 0 {
+		task.TriedApproaches = options.TriedApproaches
+	}
+	if len(options.Blockers) > 0 {
+		task.Blockers = options.Blockers
+	}
+	if options.Notes != nil {
+		task.Notes = options.Notes
+	}
 
 	if err := c.db.UpdateTask(ctx, task); err != nil {
 		return fmt.Errorf("failed to fail task: %w", err)
@@ -664,7 +716,7 @@ func (c *SQLiteCoordinator) FailTask(taskID, errorMsg string) error {
 }
 
 // GetTask retrieves a task by ID
-func (c *SQLiteCoordinator) GetTask(taskID string) (*Task, error) {
+func (c *BoltCoordinator) GetTask(taskID string) (*Task, error) {
 	ctx := context.Background()
 
 	// Get task from TaskStore
@@ -675,26 +727,84 @@ func (c *SQLiteCoordinator) GetTask(taskID string) (*Task, error) {
 
 	// Convert storage.Task to coordinator.Task
 	task := &Task{
-		ID:          storageTask.TaskID,
-		Title:       storageTask.Title,
-		Description: storageTask.Description,
-		Status:      storageTask.Status,
-		Role:        storageTask.AgentRole,
-		AgentID:     storageTask.AgentID,
-		Result:      storageTask.Result,
-		Error:       storageTask.Error,
-		Priority:    storageTask.Priority,
-		DependsOn:   storageTask.DependsOn,
-		StartedAt:   storageTask.StartedAt,
-		UpdatedAt:   storageTask.UpdatedAt,
-		CompletedAt: storageTask.CompletedAt,
+		ID:              storageTask.TaskID,
+		Title:           storageTask.Title,
+		Description:     storageTask.Description,
+		Status:          storageTask.Status,
+		Role:            storageTask.AgentRole,
+		AgentID:         storageTask.AgentID,
+		Result:          storageTask.Result,
+		Error:           storageTask.Error,
+		Priority:        storageTask.Priority,
+		DependsOn:       storageTask.DependsOn,
+		StartedAt:       storageTask.StartedAt,
+		UpdatedAt:       storageTask.UpdatedAt,
+		CompletedAt:     storageTask.CompletedAt,
+		Learnings:       storageTask.Learnings,
+		TriedApproaches: storageTask.TriedApproaches,
+		Blockers:        storageTask.Blockers,
+		Notes:           storageTask.Notes,
 	}
 
 	return task, nil
 }
 
+// GetRecentTasks retrieves recent tasks, optionally filtered by agent role
+// This is the "memory query" API - agents use this to learn from past work
+func (c *BoltCoordinator) GetRecentTasks(ctx context.Context, role string, limit int) ([]*Task, error) {
+	// Get all tasks (pass nil to get all statuses)
+	storageTasks, err := c.db.ListTasks(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list tasks: %w", err)
+	}
+
+	// Filter by role if specified
+	var filtered []*storage.Task
+	for _, st := range storageTasks {
+		if role == "" || st.AgentRole == role {
+			filtered = append(filtered, st)
+		}
+	}
+
+	// Sort by UpdatedAt descending (most recent first)
+	sort.Slice(filtered, func(i, j int) bool {
+		return filtered[i].UpdatedAt.After(filtered[j].UpdatedAt)
+	})
+
+	// Apply limit
+	if limit > 0 && len(filtered) > limit {
+		filtered = filtered[:limit]
+	}
+
+	// Convert to coordinator.Task
+	tasks := make([]*Task, len(filtered))
+	for i, st := range filtered {
+		tasks[i] = &Task{
+			ID:              st.TaskID,
+			Title:           st.Title,
+			Description:     st.Description,
+			Status:          st.Status,
+			Role:            st.AgentRole,
+			AgentID:         st.AgentID,
+			Result:          st.Result,
+			Error:           st.Error,
+			Priority:        st.Priority,
+			DependsOn:       st.DependsOn,
+			StartedAt:       st.StartedAt,
+			UpdatedAt:       st.UpdatedAt,
+			CompletedAt:     st.CompletedAt,
+			Learnings:       st.Learnings,
+			TriedApproaches: st.TriedApproaches,
+			Blockers:        st.Blockers,
+			Notes:           st.Notes,
+		}
+	}
+
+	return tasks, nil
+}
+
 // LockFiles locks files for a task/agent
-func (c *SQLiteCoordinator) LockFiles(taskID, agent string, files []string) error {
+func (c *BoltCoordinator) LockFiles(taskID, agent string, files []string) error {
 	ctx := context.Background()
 
 	// Acquire lock on each file
@@ -721,6 +831,6 @@ func (c *SQLiteCoordinator) LockFiles(taskID, agent string, files []string) erro
 }
 
 // Close closes the database connection
-func (c *SQLiteCoordinator) Close() error {
+func (c *BoltCoordinator) Close() error {
 	return c.db.Close()
 }

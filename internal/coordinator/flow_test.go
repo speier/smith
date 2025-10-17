@@ -17,7 +17,7 @@ import (
 func TestFullTaskFlow(t *testing.T) {
 	// Setup
 	tmpDir := t.TempDir()
-	coord, err := NewSQLite(tmpDir)
+	coord, err := NewBolt(tmpDir)
 	if err != nil {
 		t.Fatalf("failed to create coordinator: %v", err)
 	}
@@ -230,7 +230,7 @@ func TestFullTaskFlow(t *testing.T) {
 // 4. Another agent retries successfully
 func TestTaskFailureAndRetry(t *testing.T) {
 	tmpDir := t.TempDir()
-	coord, err := NewSQLite(tmpDir)
+	coord, err := NewBolt(tmpDir)
 	if err != nil {
 		t.Fatalf("failed to create coordinator: %v", err)
 	}
@@ -338,7 +338,7 @@ func TestTaskFailureAndRetry(t *testing.T) {
 // TestConcurrentAgents tests multiple agents working simultaneously
 func TestConcurrentAgents(t *testing.T) {
 	tmpDir := t.TempDir()
-	coord, err := NewSQLite(tmpDir)
+	coord, err := NewBolt(tmpDir)
 	if err != nil {
 		t.Fatalf("failed to create coordinator: %v", err)
 	}
@@ -424,7 +424,7 @@ func TestConcurrentAgents(t *testing.T) {
 // TestEventBusIntegration tests that events are properly published
 func TestEventBusIntegration(t *testing.T) {
 	tmpDir := t.TempDir()
-	coord, err := NewSQLite(tmpDir)
+	coord, err := NewBolt(tmpDir)
 	if err != nil {
 		t.Fatalf("failed to create coordinator: %v", err)
 	}

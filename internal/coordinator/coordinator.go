@@ -8,8 +8,12 @@ import (
 
 // TaskOptions holds optional parameters for task creation
 type TaskOptions struct {
-	Priority  int      // 0=low, 1=medium (default), 2=high
-	DependsOn []string // Task IDs that must be completed first
+	Priority        int               // 0=low, 1=medium (default), 2=high
+	DependsOn       []string          // Task IDs that must be completed first
+	Learnings       string            // What was learned
+	TriedApproaches []string          // Approaches attempted
+	Blockers        []string          // What didn't work
+	Notes           map[string]string // Freeform notes
 }
 
 // TaskOption is a functional option for CreateTask
@@ -29,6 +33,34 @@ func WithDependencies(dependsOn ...string) TaskOption {
 	}
 }
 
+// WithLearnings sets what was learned during task execution
+func WithLearnings(learnings string) TaskOption {
+	return func(opts *TaskOptions) {
+		opts.Learnings = learnings
+	}
+}
+
+// WithTriedApproaches records approaches that were attempted
+func WithTriedApproaches(approaches ...string) TaskOption {
+	return func(opts *TaskOptions) {
+		opts.TriedApproaches = approaches
+	}
+}
+
+// WithBlockers records what didn't work or blocked progress
+func WithBlockers(blockers ...string) TaskOption {
+	return func(opts *TaskOptions) {
+		opts.Blockers = blockers
+	}
+}
+
+// WithNotes sets freeform key-value notes
+func WithNotes(notes map[string]string) TaskOption {
+	return func(opts *TaskOptions) {
+		opts.Notes = notes
+	}
+}
+
 // Coordinator defines the interface for task and file coordination
 // This interface is storage-agnostic and can be implemented with different backends
 type Coordinator interface {
@@ -43,9 +75,10 @@ type Coordinator interface {
 	CreateTask(title, description, role string, opts ...TaskOption) (taskID string, err error)
 	ClaimTask(taskID, agent string) error
 	UpdateTaskStatus(taskID, status string) error
-	CompleteTask(taskID, result string) error
-	FailTask(taskID, errorMsg string) error
+	CompleteTask(taskID, result string, opts ...TaskOption) error
+	FailTask(taskID, errorMsg string, opts ...TaskOption) error
 	GetTask(taskID string) (*Task, error)
+	GetRecentTasks(ctx context.Context, role string, limit int) ([]*Task, error)
 
 	// File coordination
 	LockFiles(taskID, agent string, files []string) error
@@ -100,9 +133,9 @@ type Agent struct {
 type EventType string
 type AgentRole string
 
-// New creates a new SQLite-based Coordinator instance
+// New creates a new BBolt-based Coordinator instance
 func New(projectPath string) Coordinator {
-	coord, err := NewSQLite(projectPath)
+	coord, err := NewBolt(projectPath)
 	if err != nil {
 		log.Fatalf("Failed to create coordinator: %v", err)
 	}
@@ -111,7 +144,7 @@ func New(projectPath string) Coordinator {
 
 // MustNew creates a coordinator or panics
 func MustNew(projectPath string) Coordinator {
-	coord, err := NewSQLite(projectPath)
+	coord, err := NewBolt(projectPath)
 	if err != nil {
 		panic(fmt.Sprintf("Failed to create coordinator: %v", err))
 	}
