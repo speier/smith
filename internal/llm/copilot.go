@@ -322,6 +322,11 @@ func (c *CopilotProvider) Chat(messages []Message, tools []Tool) (*Response, err
 				Content string `json:"content"`
 			} `json:"message"`
 		} `json:"choices"`
+		Usage struct {
+			PromptTokens     int `json:"prompt_tokens"`
+			CompletionTokens int `json:"completion_tokens"`
+			TotalTokens      int `json:"total_tokens"`
+		} `json:"usage"`
 	}
 
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
@@ -333,7 +338,10 @@ func (c *CopilotProvider) Chat(messages []Message, tools []Tool) (*Response, err
 	}
 
 	return &Response{
-		Content: result.Choices[0].Message.Content,
+		Content:          result.Choices[0].Message.Content,
+		PromptTokens:     result.Usage.PromptTokens,
+		CompletionTokens: result.Usage.CompletionTokens,
+		TotalTokens:      result.Usage.TotalTokens,
 	}, nil
 }
 

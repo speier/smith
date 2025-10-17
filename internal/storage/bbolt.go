@@ -25,6 +25,7 @@ var (
 	AgentsBucket    = []byte("agents")
 	SessionsBucket  = []byte("sessions")
 	SequenceBucket  = []byte("sequences")
+	LLMUsageBucket  = []byte("llm_usage")
 )
 
 // Note: Task, Agent, Event, FileLock types are now defined in interfaces.go
@@ -74,6 +75,7 @@ func initBoltDatabase(dbPath string) (*BoltDB, error) {
 			AgentsBucket,
 			SessionsBucket,
 			SequenceBucket,
+			LLMUsageBucket,
 		}
 		for _, bucket := range buckets {
 			if _, err := tx.CreateBucketIfNotExists(bucket); err != nil {

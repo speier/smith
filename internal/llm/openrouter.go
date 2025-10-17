@@ -79,6 +79,11 @@ func (o *OpenRouterProvider) Chat(messages []Message, tools []Tool) (*Response, 
 				Content string `json:"content"`
 			} `json:"message"`
 		} `json:"choices"`
+		Usage struct {
+			PromptTokens     int `json:"prompt_tokens"`
+			CompletionTokens int `json:"completion_tokens"`
+			TotalTokens      int `json:"total_tokens"`
+		} `json:"usage"`
 	}
 
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
@@ -90,7 +95,10 @@ func (o *OpenRouterProvider) Chat(messages []Message, tools []Tool) (*Response, 
 	}
 
 	return &Response{
-		Content: result.Choices[0].Message.Content,
+		Content:          result.Choices[0].Message.Content,
+		PromptTokens:     result.Usage.PromptTokens,
+		CompletionTokens: result.Usage.CompletionTokens,
+		TotalTokens:      result.Usage.TotalTokens,
 	}, nil
 }
 
@@ -142,6 +150,8 @@ func (o *OpenRouterProvider) ChatStream(messages []Message, tools []Tool, callba
 
 	// Parse streaming response
 	scanner := bufio.NewScanner(resp.Body)
+	var totalPromptTokens, totalCompletionTokens, totalTokens int
+
 	for scanner.Scan() {
 		line := scanner.Text()
 		if !strings.HasPrefix(line, "data: ") {
@@ -160,10 +170,22 @@ func (o *OpenRouterProvider) ChatStream(messages []Message, tools []Tool, callba
 				} `json:"delta"`
 				FinishReason *string `json:"finish_reason"`
 			} `json:"choices"`
+			Usage struct {
+				PromptTokens     int `json:"prompt_tokens"`
+				CompletionTokens int `json:"completion_tokens"`
+				TotalTokens      int `json:"total_tokens"`
+			} `json:"usage"`
 		}
 
 		if err := json.Unmarshal([]byte(data), &chunk); err != nil {
 			continue // Skip malformed chunks
+		}
+
+		// Capture usage data from any chunk that includes it
+		if chunk.Usage.TotalTokens > 0 {
+			totalPromptTokens = chunk.Usage.PromptTokens
+			totalCompletionTokens = chunk.Usage.CompletionTokens
+			totalTokens = chunk.Usage.TotalTokens
 		}
 
 		if len(chunk.Choices) > 0 {
@@ -171,8 +193,11 @@ func (o *OpenRouterProvider) ChatStream(messages []Message, tools []Tool, callba
 			done := chunk.Choices[0].FinishReason != nil
 
 			if err := callback(&Response{
-				Content: content,
-				Done:    done,
+				Content:          content,
+				Done:             done,
+				PromptTokens:     totalPromptTokens,
+				CompletionTokens: totalCompletionTokens,
+				TotalTokens:      totalTokens,
 			}); err != nil {
 				return err
 			}

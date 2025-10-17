@@ -1238,6 +1238,18 @@ func (m BubbleModel) renderSidebar() string {
 		sessionInfo := sidebarSectionStyle.Render("📂 " + sessionTitle)
 		sessionDetails := sidebarItemStyle.Render(fmt.Sprintf("Started %s • %d tasks", timeStr, session.TaskCount))
 		sections = append(sections, sessionInfo, sessionDetails)
+
+		// Show token usage for this session
+		if usage, err := coord.GetSessionUsage(ctx, session.SessionID); err == nil && usage != nil && usage.TotalTokens > 0 {
+			var tokenStr string
+			if usage.TotalTokens < 1000 {
+				tokenStr = fmt.Sprintf("%d", usage.TotalTokens)
+			} else {
+				tokenStr = fmt.Sprintf("%.1fk", float64(usage.TotalTokens)/1000)
+			}
+			usageInfo := sidebarItemStyle.Render(fmt.Sprintf("💰 Tokens: %s", tokenStr))
+			sections = append(sections, usageInfo)
+		}
 	} else {
 		// Fallback if session not available
 		sessionInfo := sidebarSectionStyle.Render("New Session")

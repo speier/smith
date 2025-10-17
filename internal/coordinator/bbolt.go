@@ -830,6 +830,22 @@ func (c *BoltCoordinator) LockFiles(taskID, agent string, files []string) error 
 	return nil
 }
 
+// GetSessionUsage retrieves token usage for a session
+func (c *BoltCoordinator) GetSessionUsage(ctx context.Context, sessionID string) (*LLMUsage, error) {
+	usage, err := c.db.GetSessionUsage(ctx, sessionID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Convert storage.LLMUsage to coordinator.LLMUsage
+	return &LLMUsage{
+		SessionID:        usage.SessionID,
+		TotalTokens:      usage.TotalTokens,
+		PromptTokens:     usage.PromptTokens,
+		CompletionTokens: usage.CompletionTokens,
+	}, nil
+}
+
 // Close closes the database connection
 func (c *BoltCoordinator) Close() error {
 	return c.db.Close()

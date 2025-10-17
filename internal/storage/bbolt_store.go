@@ -745,6 +745,121 @@ func (s *BoltStore) GetSessionTasks(ctx context.Context, sessionID string) ([]*T
 	return tasks, err
 }
 
+// === LLMUsageStore Implementation ===
+
+func (s *BoltStore) SaveUsage(ctx context.Context, usage *LLMUsage) error {
+	return s.db.Update(func(tx *bbolt.Tx) error {
+		b := tx.Bucket(LLMUsageBucket)
+		if b == nil {
+			return fmt.Errorf("llm_usage bucket not found")
+		}
+
+		// Set timestamp if not set
+		if usage.Timestamp.IsZero() {
+			usage.Timestamp = time.Now()
+		}
+
+		// Encode usage
+		data, err := json.Marshal(usage)
+		if err != nil {
+			return fmt.Errorf("failed to encode usage: %w", err)
+		}
+
+		// Store by task ID (one entry per task)
+		key := []byte(usage.TaskID)
+		if err := b.Put(key, data); err != nil {
+			return fmt.Errorf("failed to store usage: %w", err)
+		}
+
+		return nil
+	})
+}
+
+func (s *BoltStore) GetUsage(ctx context.Context, taskID string) (*LLMUsage, error) {
+	var usage *LLMUsage
+
+	err := s.db.View(func(tx *bbolt.Tx) error {
+		b := tx.Bucket(LLMUsageBucket)
+		if b == nil {
+			return fmt.Errorf("llm_usage bucket not found")
+		}
+
+		data := b.Get([]byte(taskID))
+		if data == nil {
+			return nil // No usage recorded for this task
+		}
+
+		usage = &LLMUsage{}
+		if err := json.Unmarshal(data, usage); err != nil {
+			return fmt.Errorf("failed to decode usage: %w", err)
+		}
+
+		return nil
+	})
+
+	return usage, err
+}
+
+func (s *BoltStore) GetSessionUsage(ctx context.Context, sessionID string) (*LLMUsage, error) {
+	var totalUsage LLMUsage
+	totalUsage.SessionID = sessionID
+
+	err := s.db.View(func(tx *bbolt.Tx) error {
+		b := tx.Bucket(LLMUsageBucket)
+		if b == nil {
+			return fmt.Errorf("llm_usage bucket not found")
+		}
+
+		// Iterate all usage records and sum up for this session
+		c := b.Cursor()
+		for k, v := c.First(); k != nil; k, v = c.Next() {
+			var usage LLMUsage
+			if err := json.Unmarshal(v, &usage); err != nil {
+				continue // Skip corrupted entries
+			}
+
+			// Filter by session
+			if usage.SessionID == sessionID {
+				totalUsage.PromptTokens += usage.PromptTokens
+				totalUsage.CompletionTokens += usage.CompletionTokens
+				totalUsage.TotalTokens += usage.TotalTokens
+			}
+		}
+
+		return nil
+	})
+
+	return &totalUsage, err
+}
+
+func (s *BoltStore) GetTotalUsage(ctx context.Context) (*LLMUsage, error) {
+	var totalUsage LLMUsage
+
+	err := s.db.View(func(tx *bbolt.Tx) error {
+		b := tx.Bucket(LLMUsageBucket)
+		if b == nil {
+			return fmt.Errorf("llm_usage bucket not found")
+		}
+
+		// Iterate all usage records and sum up
+		c := b.Cursor()
+		for k, v := c.First(); k != nil; k, v = c.Next() {
+			var usage LLMUsage
+			if err := json.Unmarshal(v, &usage); err != nil {
+				continue // Skip corrupted entries
+			}
+
+			totalUsage.PromptTokens += usage.PromptTokens
+			totalUsage.CompletionTokens += usage.CompletionTokens
+			totalUsage.TotalTokens += usage.TotalTokens
+		}
+
+		return nil
+	})
+
+	return &totalUsage, err
+}
+
 // Close closes the database
 func (s *BoltStore) Close() error {
 	return s.db.Close()

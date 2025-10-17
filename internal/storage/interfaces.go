@@ -192,6 +192,33 @@ type SessionStore interface {
 	GetSessionTasks(ctx context.Context, sessionID string) ([]*Task, error)
 }
 
+// LLMUsageStore defines the interface for LLM token usage tracking
+type LLMUsageStore interface {
+	// SaveUsage records token usage for a task
+	SaveUsage(ctx context.Context, usage *LLMUsage) error
+
+	// GetUsage retrieves usage for a specific task
+	GetUsage(ctx context.Context, taskID string) (*LLMUsage, error)
+
+	// GetSessionUsage retrieves cumulative usage for a session
+	GetSessionUsage(ctx context.Context, sessionID string) (*LLMUsage, error)
+
+	// GetTotalUsage retrieves cumulative usage across all sessions
+	GetTotalUsage(ctx context.Context) (*LLMUsage, error)
+}
+
+// LLMUsage represents token usage for LLM calls
+type LLMUsage struct {
+	TaskID           string    // Task that made the LLM call
+	SessionID        string    // Session the task belongs to
+	Timestamp        time.Time // When the usage was recorded
+	PromptTokens     int       // Tokens in the prompt
+	CompletionTokens int       // Tokens in the completion
+	TotalTokens      int       // Total tokens used
+	Provider         string    // Provider name (copilot, openrouter)
+	Model            string    // Model used (gpt-4o, claude-3.5-sonnet, etc.)
+}
+
 // Store combines all storage interfaces
 type Store interface {
 	EventStore
@@ -199,6 +226,7 @@ type Store interface {
 	TaskStore
 	LockStore
 	SessionStore
+	LLMUsageStore
 
 	// Close closes the storage backend
 	Close() error

@@ -50,6 +50,14 @@ type Session struct {
 	Status     string
 }
 
+// LLMUsage represents token usage for a session or task
+type LLMUsage struct {
+	SessionID        string
+	TotalTokens      int
+	PromptTokens     int
+	CompletionTokens int
+}
+
 // Message represents a message between agents
 type Message struct {
 	From    string

@@ -92,6 +92,9 @@ type Coordinator interface {
 	ListSessions(ctx context.Context, limit int) ([]*Session, error)
 	SwitchSession(ctx context.Context, sessionID string) error
 	GetCurrentSession(ctx context.Context) (*Session, error)
+
+	// Token usage tracking
+	GetSessionUsage(ctx context.Context, sessionID string) (*LLMUsage, error)
 }
 
 // EventBus defines the interface for event publishing and querying

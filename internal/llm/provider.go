@@ -37,9 +37,12 @@ type Tool struct {
 }
 
 type Response struct {
-	Content   string
-	ToolCalls []ToolCall
-	Done      bool
+	Content          string
+	ToolCalls        []ToolCall
+	Done             bool
+	PromptTokens     int // Tokens used in the prompt
+	CompletionTokens int // Tokens generated in the completion
+	TotalTokens      int // Total tokens used (prompt + completion)
 }
 
 type ToolCall struct {
