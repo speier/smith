@@ -284,10 +284,10 @@ func (c *CopilotProvider) Chat(messages []Message, tools []Tool) (*Response, err
 		"stream":   false,
 	}
 
-	// Add tools if provided (for future function calling support)
-	if len(tools) > 0 {
-		// TODO: Convert tools to OpenAI function calling format
-	}
+	// TODO: Add tools support (for future function calling support)
+	// if len(tools) > 0 {
+	// 	Convert tools to OpenAI function calling format
+	// }
 
 	body, err := json.Marshal(payload)
 	if err != nil {

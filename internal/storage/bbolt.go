@@ -1,7 +1,6 @@
 package storage
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -98,23 +97,4 @@ func initBoltDatabase(dbPath string) (*BoltDB, error) {
 // Path returns the file path of the database
 func (db *BoltDB) Path() string {
 	return db.path
-}
-
-// Helper function to get next sequence number
-func (db *BoltDB) nextSequence(tx *bbolt.Tx, key string) (uint64, error) {
-	b := tx.Bucket(SequenceBucket)
-	seq, _ := b.NextSequence()
-	return seq, nil
-}
-
-// Helper functions for JSON encoding/decoding
-func encodeJSON(v interface{}) ([]byte, error) {
-	return json.Marshal(v)
-}
-
-func decodeJSON(data []byte, v interface{}) error {
-	if len(data) == 0 {
-		return fmt.Errorf("empty data")
-	}
-	return json.Unmarshal(data, v)
 }

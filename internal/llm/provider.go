@@ -156,7 +156,7 @@ func (p *OpenAIProvider) Chat(messages []Message, tools []Tool) (*Response, erro
 	// Parse tool calls if present
 	for _, tc := range choice.Message.ToolCalls {
 		var input map[string]interface{}
-		json.Unmarshal(tc.Function.Arguments, &input)
+		_ = json.Unmarshal(tc.Function.Arguments, &input)
 		response.ToolCalls = append(response.ToolCalls, ToolCall{
 			Name:  tc.Function.Name,
 			Input: input,

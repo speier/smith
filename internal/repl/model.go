@@ -67,20 +67,6 @@ type modelsFetchedMsg struct {
 	err    error
 }
 
-// approvalRequestMsg is sent when a command needs user approval
-type approvalRequestMsg struct {
-	command string
-	reason  string
-	// Response channel to send approval decision
-	responseChan chan<- approvalResponse
-}
-
-// approvalResponse contains the user's approval decision
-type approvalResponse struct {
-	approved       bool
-	addToAllowlist bool
-}
-
 // Message represents a chat message with metadata
 type Message struct {
 	Content   string
@@ -115,18 +101,6 @@ var (
 
 	sidebarIdleStyle = lipgloss.NewStyle().
 				Foreground(lipgloss.Color("240"))
-
-	// Main area styles
-	statusBarStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("241")).
-			Background(lipgloss.Color("235"))
-
-	autoLevelStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("6")).
-			Bold(true)
-
-	modelStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("241"))
 
 	promptStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("6"))
@@ -167,7 +141,6 @@ type BubbleModel struct {
 	engine             *engine.Engine
 	textarea           textarea.Model
 	messages           []Message
-	err                error
 	width              int
 	height             int
 	autoLevel          string
@@ -200,10 +173,6 @@ type BubbleModel struct {
 	authUserCode       string      // User code for auth
 	authVerifyURI      string      // Verification URI for auth
 	// Approval state
-	showApprovalPrompt   bool                    // Whether approval prompt is visible
-	approvalCommand      string                  // Command waiting for approval
-	approvalReason       string                  // Reason why command was blocked
-	approvalResponseChan chan<- approvalResponse // Channel to send approval decision
 	// Error tracking
 	recentErrors []ErrorInfo // Last 3 errors for sidebar display
 	// Session management
@@ -549,10 +518,10 @@ func (m BubbleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if cmd != nil {
 				stdin, err := cmd.StdinPipe()
 				if err == nil {
-					cmd.Start()
-					stdin.Write([]byte(msg.userCode))
-					stdin.Close()
-					cmd.Wait()
+					_ = cmd.Start()
+					_, _ = stdin.Write([]byte(msg.userCode))
+					_ = stdin.Close()
+					_ = cmd.Wait()
 				}
 			}
 		}()
@@ -570,7 +539,7 @@ func (m BubbleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				cmd = exec.Command("rundll32", "url.dll,FileProtocolHandler", msg.verificationURI)
 			}
 			if cmd != nil {
-				cmd.Run()
+				_ = cmd.Run()
 			}
 		}()
 
@@ -791,7 +760,7 @@ func (m BubbleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					selectedProvider := providers[m.providerMenuIndex]
 					cfg, _ := config.Load()
 					cfg.Provider = selectedProvider.ID
-					cfg.Save()
+					_ = cfg.Save()
 
 					// If provider requires auth, start auth flow and keep settings visible until auth starts
 					if selectedProvider.RequiresAuth && selectedProvider.ID == "copilot" {
@@ -881,7 +850,7 @@ func (m BubbleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					}
 					selectedModel := models[m.modelMenuIndex]
 					localCfg.Model = selectedModel.ID
-					localCfg.SaveLocal(m.projectPath)
+					_ = localCfg.SaveLocal(m.projectPath)
 					m.messages = append(m.messages, Message{Content: fmt.Sprintf("✓ Model changed to %s", selectedModel.Name), Type: "system", Timestamp: time.Now()})
 					m.showModelMenu = false
 					m.modelMenuIndex = 0
@@ -1612,21 +1581,6 @@ func (m *BubbleModel) getActiveAgents() []agentInfo {
 	return result
 }
 
-// addError adds an error to the recent errors list (keeps last 3)
-func (m *BubbleModel) addError(message, agentRole, taskID string) {
-	errInfo := ErrorInfo{
-		Message:   message,
-		Timestamp: time.Now(),
-		AgentRole: agentRole,
-		TaskID:    taskID,
-	}
-
-	m.recentErrors = append([]ErrorInfo{errInfo}, m.recentErrors...)
-	if len(m.recentErrors) > 3 {
-		m.recentErrors = m.recentErrors[:3]
-	}
-}
-
 // getRecentErrors returns errors from failed tasks
 func (m *BubbleModel) getRecentErrors() []ErrorInfo {
 	// Get failed tasks from coordinator
@@ -1967,60 +1921,6 @@ func renderHelp() string {
 💡 Just chat naturally - no commands needed to build features!
 `
 	return helpStyle.Render(help)
-}
-
-func (m *BubbleModel) renderSettings() string {
-	titleStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("10")).
-		Bold(true)
-
-	sectionStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("241"))
-
-	labelStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("241"))
-
-	valueStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("208")).
-		Bold(true)
-
-	footerStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("240"))
-
-	// Get current config
-	cfg, err := config.Load()
-	if err != nil {
-		return errorStyle.Render(fmt.Sprintf("Error loading config: %v", err))
-	}
-
-	// Get config directory
-	configDir, _ := config.GetConfigDir()
-
-	var settings strings.Builder
-
-	settings.WriteString(titleStyle.Render("Settings") + "\n\n")
-
-	// Model & Reasoning section
-	settings.WriteString(sectionStyle.Render("Model & Reasoning") + "\n")
-	modelDisplay := cfg.Model
-	if modelDisplay == "" {
-		modelDisplay = "(not configured)"
-	}
-	settings.WriteString(labelStyle.Render("> Model: ") + valueStyle.Render(modelDisplay) + "\n")
-	settings.WriteString(labelStyle.Render("  Reasoning level: ") + m.autoLevel + "\n\n")
-
-	// Preferences section
-	settings.WriteString(sectionStyle.Render("Preferences") + "\n")
-	settings.WriteString(labelStyle.Render("  Completion bell: Off\n"))
-	settings.WriteString(labelStyle.Render("  Edit AllowList & DenyList: Open in editor\n\n"))
-
-	// Config location
-	settings.WriteString(sectionStyle.Render("Configuration") + "\n")
-	settings.WriteString(labelStyle.Render("  Config directory: ") + configDir + "\n\n")
-
-	settings.WriteString(footerStyle.Render("↑/↓ to navigate, Enter to select, ESC to exit"))
-
-	return settings.String()
 }
 
 func (m *BubbleModel) renderAuthPanel(base string) string {

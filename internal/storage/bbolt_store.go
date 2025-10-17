@@ -4,8 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"strconv"
-	"strings"
 	"time"
 
 	"go.etcd.io/bbolt"
@@ -863,9 +861,4 @@ func (s *BoltStore) GetTotalUsage(ctx context.Context) (*LLMUsage, error) {
 // Close closes the database
 func (s *BoltStore) Close() error {
 	return s.db.Close()
-}
-
-// Helper function to convert string to int64
-func parseInt64(s string) (int64, error) {
-	return strconv.ParseInt(strings.TrimSpace(s), 10, 64)
 }

@@ -21,16 +21,16 @@ func initGitRepo(t *testing.T, dir string) {
 	}
 
 	// Configure git
-	exec.Command("git", "config", "user.email", "test@example.com").Run()
-	exec.Command("git", "config", "user.name", "Test User").Run()
+	_ = exec.Command("git", "config", "user.email", "test@example.com").Run()
+	_ = exec.Command("git", "config", "user.name", "Test User").Run()
 
 	cmd = exec.Command("git", "config", "user.email", "test@example.com")
 	cmd.Dir = dir
-	cmd.Run()
+	_ = cmd.Run()
 
 	cmd = exec.Command("git", "config", "user.name", "Test User")
 	cmd.Dir = dir
-	cmd.Run()
+	_ = cmd.Run()
 }
 
 func TestGetGitStatusTool(t *testing.T) {
@@ -38,17 +38,17 @@ func TestGetGitStatusTool(t *testing.T) {
 	initGitRepo(t, tempDir)
 
 	// Create initial commit
-	os.WriteFile(filepath.Join(tempDir, "file1.txt"), []byte("content"), 0644)
+	_ = os.WriteFile(filepath.Join(tempDir, "file1.txt"), []byte("content"), 0644)
 	cmd := exec.Command("git", "add", "file1.txt")
 	cmd.Dir = tempDir
-	cmd.Run()
+	_ = cmd.Run()
 	cmd = exec.Command("git", "commit", "-m", "initial")
 	cmd.Dir = tempDir
-	cmd.Run()
+	_ = cmd.Run()
 
 	// Create some changes
-	os.WriteFile(filepath.Join(tempDir, "file1.txt"), []byte("modified"), 0644) // Modified
-	os.WriteFile(filepath.Join(tempDir, "file2.txt"), []byte("new"), 0644)      // Untracked
+	_ = os.WriteFile(filepath.Join(tempDir, "file1.txt"), []byte("modified"), 0644) // Modified
+	_ = os.WriteFile(filepath.Join(tempDir, "file2.txt"), []byte("new"), 0644)      // Untracked
 
 	tool := NewGetGitStatusTool(tempDir)
 
@@ -85,13 +85,13 @@ func TestGetGitStatusTool_CleanRepo(t *testing.T) {
 	initGitRepo(t, tempDir)
 
 	// Create initial commit
-	os.WriteFile(filepath.Join(tempDir, "file1.txt"), []byte("content"), 0644)
+	_ = os.WriteFile(filepath.Join(tempDir, "file1.txt"), []byte("content"), 0644)
 	cmd := exec.Command("git", "add", "file1.txt")
 	cmd.Dir = tempDir
-	cmd.Run()
+	_ = cmd.Run()
 	cmd = exec.Command("git", "commit", "-m", "initial")
 	cmd.Dir = tempDir
-	cmd.Run()
+	_ = cmd.Run()
 
 	tool := NewGetGitStatusTool(tempDir)
 
@@ -130,16 +130,16 @@ func TestGetGitDiffTool(t *testing.T) {
 	initGitRepo(t, tempDir)
 
 	// Create initial commit
-	os.WriteFile(filepath.Join(tempDir, "file1.txt"), []byte("line 1\n"), 0644)
+	_ = os.WriteFile(filepath.Join(tempDir, "file1.txt"), []byte("line 1\n"), 0644)
 	cmd := exec.Command("git", "add", "file1.txt")
 	cmd.Dir = tempDir
-	cmd.Run()
+	_ = cmd.Run()
 	cmd = exec.Command("git", "commit", "-m", "initial")
 	cmd.Dir = tempDir
-	cmd.Run()
+	_ = cmd.Run()
 
 	// Modify file
-	os.WriteFile(filepath.Join(tempDir, "file1.txt"), []byte("line 1\nline 2\n"), 0644)
+	_ = os.WriteFile(filepath.Join(tempDir, "file1.txt"), []byte("line 1\nline 2\n"), 0644)
 
 	tool := NewGetGitDiffTool(tempDir)
 
@@ -170,18 +170,18 @@ func TestGetGitDiffTool_SpecificFile(t *testing.T) {
 	initGitRepo(t, tempDir)
 
 	// Create initial commit
-	os.WriteFile(filepath.Join(tempDir, "file1.txt"), []byte("content 1"), 0644)
-	os.WriteFile(filepath.Join(tempDir, "file2.txt"), []byte("content 2"), 0644)
+	_ = os.WriteFile(filepath.Join(tempDir, "file1.txt"), []byte("content 1"), 0644)
+	_ = os.WriteFile(filepath.Join(tempDir, "file2.txt"), []byte("content 2"), 0644)
 	cmd := exec.Command("git", "add", ".")
 	cmd.Dir = tempDir
-	cmd.Run()
+	_ = cmd.Run()
 	cmd = exec.Command("git", "commit", "-m", "initial")
 	cmd.Dir = tempDir
-	cmd.Run()
+	_ = cmd.Run()
 
 	// Modify both files
-	os.WriteFile(filepath.Join(tempDir, "file1.txt"), []byte("modified 1"), 0644)
-	os.WriteFile(filepath.Join(tempDir, "file2.txt"), []byte("modified 2"), 0644)
+	_ = os.WriteFile(filepath.Join(tempDir, "file1.txt"), []byte("modified 1"), 0644)
+	_ = os.WriteFile(filepath.Join(tempDir, "file2.txt"), []byte("modified 2"), 0644)
 
 	tool := NewGetGitDiffTool(tempDir)
 
@@ -209,13 +209,13 @@ func TestGetGitDiffTool_NoDiff(t *testing.T) {
 	initGitRepo(t, tempDir)
 
 	// Create initial commit
-	os.WriteFile(filepath.Join(tempDir, "file1.txt"), []byte("content"), 0644)
+	_ = os.WriteFile(filepath.Join(tempDir, "file1.txt"), []byte("content"), 0644)
 	cmd := exec.Command("git", "add", "file1.txt")
 	cmd.Dir = tempDir
-	cmd.Run()
+	_ = cmd.Run()
 	cmd = exec.Command("git", "commit", "-m", "initial")
 	cmd.Dir = tempDir
-	cmd.Run()
+	_ = cmd.Run()
 
 	tool := NewGetGitDiffTool(tempDir)
 

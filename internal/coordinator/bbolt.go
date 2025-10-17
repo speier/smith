@@ -545,7 +545,8 @@ func (c *BoltCoordinator) CreateTask(title, description, role string, opts ...Ta
 			session.Title = title
 		}
 
-		c.db.UpdateSession(ctx, session)
+		// Best effort - session title update is non-critical
+		_ = c.db.UpdateSession(ctx, session)
 	}
 
 	// Publish task created event
@@ -810,13 +811,13 @@ func (c *BoltCoordinator) LockFiles(taskID, agent string, files []string) error 
 	// Acquire lock on each file
 	for _, file := range files {
 		if err := c.lockMgr.Acquire(ctx, file, agent, taskID); err != nil {
-			// If lock fails, release any we acquired
-			c.lockMgr.ReleaseAll(ctx, agent)
+			// If lock fails, release any we acquired (best effort)
+			_ = c.lockMgr.ReleaseAll(ctx, agent)
 			return fmt.Errorf("failed to lock file %s: %w", file, err)
 		}
 
-		// Publish lock event
-		c.eventBus.PublishWithData(
+		// Publish lock event (best effort - not critical for operation)
+		_ = c.eventBus.PublishWithData(
 			ctx,
 			agent,
 			eventbus.RoleImplementation,

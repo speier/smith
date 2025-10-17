@@ -171,7 +171,7 @@ func TestSubscribe(t *testing.T) {
 	go func() {
 		time.Sleep(200 * time.Millisecond)
 		taskID := "task-async"
-		bus.Publish(context.Background(), &Event{
+		_ = bus.Publish(context.Background(), &Event{
 			AgentID:   "agent-async",
 			AgentRole: RoleTesting,
 			Type:      EventTaskStarted,

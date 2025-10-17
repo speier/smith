@@ -1,0 +1,15 @@
+# golangci-lint configuration for Smith
+# Minimal config - focuses on the critical linters
+
+run:
+  timeout: 5m
+
+linters:
+  enable:
+    - errcheck      # Check for unchecked errors
+    - unused        # Check for unused code  
+    - staticcheck   # Static analysis checks
+    - gosimple      # Simplify code
+    - ineffassign   # Detect ineffectual assignments
+    - typecheck     # Type checking
+    - govet         # Reports suspicious constructs

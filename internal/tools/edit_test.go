@@ -456,9 +456,9 @@ func TestDiffFilesTool(t *testing.T) {
 	file2Path := filepath.Join(tempDir, "file2.txt")
 	file3Path := filepath.Join(tempDir, "file3.txt")
 
-	os.WriteFile(file1Path, []byte("line 1\nline 2\nline 3\n"), 0644)
-	os.WriteFile(file2Path, []byte("line 1\nmodified line 2\nline 3\n"), 0644)
-	os.WriteFile(file3Path, []byte("line 1\nline 2\nline 3\n"), 0644)
+	_ = os.WriteFile(file1Path, []byte("line 1\nline 2\nline 3\n"), 0644)
+	_ = os.WriteFile(file2Path, []byte("line 1\nmodified line 2\nline 3\n"), 0644)
+	_ = os.WriteFile(file3Path, []byte("line 1\nline 2\nline 3\n"), 0644)
 
 	tests := []struct {
 		name        string
@@ -534,9 +534,9 @@ func TestBatchSearchReplaceTool(t *testing.T) {
 	tempDir := t.TempDir()
 
 	// Create test files
-	os.WriteFile(filepath.Join(tempDir, "test1.go"), []byte("package main\nfunc oldName() {}\n"), 0644)
-	os.WriteFile(filepath.Join(tempDir, "test2.go"), []byte("package test\nfunc oldName() {}\n"), 0644)
-	os.WriteFile(filepath.Join(tempDir, "readme.md"), []byte("# oldName"), 0644)
+	_ = os.WriteFile(filepath.Join(tempDir, "test1.go"), []byte("package main\nfunc oldName() {}\n"), 0644)
+	_ = os.WriteFile(filepath.Join(tempDir, "test2.go"), []byte("package test\nfunc oldName() {}\n"), 0644)
+	_ = os.WriteFile(filepath.Join(tempDir, "readme.md"), []byte("# oldName"), 0644)
 
 	tests := []struct {
 		name           string
@@ -569,9 +569,9 @@ func TestBatchSearchReplaceTool(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Reset files for each test
-			os.WriteFile(filepath.Join(tempDir, "test1.go"), []byte("package main\nfunc oldName() {}\n"), 0644)
-			os.WriteFile(filepath.Join(tempDir, "test2.go"), []byte("package test\nfunc oldName() {}\n"), 0644)
-			os.WriteFile(filepath.Join(tempDir, "readme.md"), []byte("# oldName"), 0644)
+			_ = os.WriteFile(filepath.Join(tempDir, "test1.go"), []byte("package main\nfunc oldName() {}\n"), 0644)
+			_ = os.WriteFile(filepath.Join(tempDir, "test2.go"), []byte("package test\nfunc oldName() {}\n"), 0644)
+			_ = os.WriteFile(filepath.Join(tempDir, "readme.md"), []byte("# oldName"), 0644)
 
 			tool := NewBatchSearchReplaceTool(tempDir)
 

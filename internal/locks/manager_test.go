@@ -84,8 +84,8 @@ func TestLockConflict(t *testing.T) {
 	ctx := context.Background()
 
 	// Register agents
-	reg.Register(ctx, "agent-1", eventbus.RoleImplementation, 12345)
-	reg.Register(ctx, "agent-2", eventbus.RoleImplementation, 12346)
+	_ = reg.Register(ctx, "agent-1", eventbus.RoleImplementation, 12345)
+	_ = reg.Register(ctx, "agent-2", eventbus.RoleImplementation, 12346)
 
 	// Agent 1 acquires lock
 	err := manager.Acquire(ctx, "/path/to/file.go", "agent-1", "task-1")
@@ -118,7 +118,7 @@ func TestSameAgentReacquire(t *testing.T) {
 	ctx := context.Background()
 
 	// Register agent
-	reg.Register(ctx, "agent-1", eventbus.RoleImplementation, 12345)
+	_ = reg.Register(ctx, "agent-1", eventbus.RoleImplementation, 12345)
 
 	// Acquire lock
 	err := manager.Acquire(ctx, "/path/to/file.go", "agent-1", "task-1")
@@ -141,7 +141,7 @@ func TestReleaseAll(t *testing.T) {
 	ctx := context.Background()
 
 	// Register agent
-	reg.Register(ctx, "agent-1", eventbus.RoleImplementation, 12345)
+	_ = reg.Register(ctx, "agent-1", eventbus.RoleImplementation, 12345)
 
 	// Acquire multiple locks for same agent
 	files := []string{"/file1.go", "/file2.go", "/file3.go"}
@@ -178,7 +178,7 @@ func TestGetLockedFiles(t *testing.T) {
 	ctx := context.Background()
 
 	// Register agent
-	reg.Register(ctx, "agent-1", eventbus.RoleImplementation, 12345)
+	_ = reg.Register(ctx, "agent-1", eventbus.RoleImplementation, 12345)
 
 	// Acquire locks
 	files := []string{"/file1.go", "/file2.go"}
@@ -208,14 +208,14 @@ func TestGetAllLocks(t *testing.T) {
 	ctx := context.Background()
 
 	// Register agents
-	reg.Register(ctx, "agent-1", eventbus.RoleImplementation, 12345)
-	reg.Register(ctx, "agent-2", eventbus.RoleImplementation, 12346)
-	reg.Register(ctx, "agent-3", eventbus.RoleImplementation, 12347)
+	_ = reg.Register(ctx, "agent-1", eventbus.RoleImplementation, 12345)
+	_ = reg.Register(ctx, "agent-2", eventbus.RoleImplementation, 12346)
+	_ = reg.Register(ctx, "agent-3", eventbus.RoleImplementation, 12347)
 
 	// Multiple agents acquire locks
-	manager.Acquire(ctx, "/file1.go", "agent-1", "task-1")
-	manager.Acquire(ctx, "/file2.go", "agent-2", "task-2")
-	manager.Acquire(ctx, "/file3.go", "agent-3", "task-3")
+	_ = manager.Acquire(ctx, "/file1.go", "agent-1", "task-1")
+	_ = manager.Acquire(ctx, "/file2.go", "agent-2", "task-2")
+	_ = manager.Acquire(ctx, "/file3.go", "agent-3", "task-3")
 
 	// Get all locks
 	locks, err := manager.GetAllLocks(ctx)

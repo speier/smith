@@ -125,6 +125,54 @@ Running: go test ./...
 ❌ "Done! (Tests are failing but the feature works)"
 ```
 
+### Rule #7: Zero Linter Errors - ALWAYS
+**NO EXCEPTIONS** - Code must pass `golangci-lint run ./...` with ZERO errors.
+
+**Why This Matters:**
+- Prevents wasting tokens writing code that needs fixing
+- Catches bugs early (unchecked errors, unused code, etc.)
+- Maintains consistent code quality
+- Saves time - fix issues as you write, not after
+
+**Linting Requirements:**
+- ✅ Check for errors: `_ =` for intentionally ignored errors
+- ✅ No unused variables, functions, imports, or types
+- ✅ No empty if branches (use comments if intentional)
+- ✅ Handle all error returns (or explicitly ignore with `_`)
+
+**When Writing Code:**
+1. ✅ Always check error returns: `if err != nil` or `_ = funcCall()`
+2. ✅ Remove unused code immediately
+3. ✅ Run `golangci-lint run ./...` before reporting completion
+4. ✅ Fix ALL issues before saying "done"
+
+**Example - CORRECT:**
+```go
+// Intentionally ignore non-critical error
+_ = cfg.Save()
+
+// Handle error properly
+if err := db.Update(); err != nil {
+    return fmt.Errorf("update failed: %w", err)
+}
+```
+
+**Example - WRONG:**
+```go
+cfg.Save()  // ❌ Unchecked error return
+
+func unused() {}  // ❌ Unused function
+
+import "fmt"  // ❌ Unused import (if not used)
+```
+
+**Before Reporting Done:**
+```bash
+golangci-lint run ./...
+# Must show: (empty output = success)
+✅ No issues found!
+```
+
 ---
 
 ## � Development Workflow

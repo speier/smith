@@ -54,7 +54,7 @@ func NewProviderByID(providerID string) (Provider, error) {
 		provider := NewCopilotProvider()
 		// Try to load auth, but don't fail if it doesn't exist
 		// Auth will be required when Chat is called
-		provider.LoadAuth()
+		_ = provider.LoadAuth()
 		return provider, nil
 
 	case "openrouter":

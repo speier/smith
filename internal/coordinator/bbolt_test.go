@@ -125,8 +125,8 @@ func TestBoltCoordinatorLockConflict(t *testing.T) {
 	ctx := context.Background()
 
 	// Register two agents
-	coord.registry.Register(ctx, "agent-1", eventbus.RoleImplementation, 12345)
-	coord.registry.Register(ctx, "agent-2", eventbus.RoleImplementation, 12346)
+	_ = coord.registry.Register(ctx, "agent-1", eventbus.RoleImplementation, 12345)
+	_ = coord.registry.Register(ctx, "agent-2", eventbus.RoleImplementation, 12346)
 
 	// Agent 1 locks a file
 	if err := coord.LockFiles("task-1", "agent-1", []string{"shared.go"}); err != nil {

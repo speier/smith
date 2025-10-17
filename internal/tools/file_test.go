@@ -246,10 +246,10 @@ func TestListFilesTool(t *testing.T) {
 	tempDir := t.TempDir()
 
 	// Create test files and directories
-	os.WriteFile(filepath.Join(tempDir, "file1.txt"), []byte("content"), 0644)
-	os.WriteFile(filepath.Join(tempDir, "file2.txt"), []byte("content"), 0644)
-	os.Mkdir(filepath.Join(tempDir, "subdir"), 0755)
-	os.WriteFile(filepath.Join(tempDir, "subdir", "nested.txt"), []byte("content"), 0644)
+	_ = os.WriteFile(filepath.Join(tempDir, "file1.txt"), []byte("content"), 0644)
+	_ = os.WriteFile(filepath.Join(tempDir, "file2.txt"), []byte("content"), 0644)
+	_ = os.Mkdir(filepath.Join(tempDir, "subdir"), 0755)
+	_ = os.WriteFile(filepath.Join(tempDir, "subdir", "nested.txt"), []byte("content"), 0644)
 
 	tests := []struct {
 		name        string
@@ -640,7 +640,7 @@ func TestMoveFileTool(t *testing.T) {
 			name: "move_file",
 			setup: func() string {
 				path := filepath.Join(tempDir, "move_source.txt")
-				os.WriteFile(path, []byte("content"), 0644)
+				_ = os.WriteFile(path, []byte("content"), 0644)
 				return path
 			},
 			source: "move_source.txt",
@@ -650,7 +650,7 @@ func TestMoveFileTool(t *testing.T) {
 			name: "rename_file",
 			setup: func() string {
 				path := filepath.Join(tempDir, "old_name.txt")
-				os.WriteFile(path, []byte("content"), 0644)
+				_ = os.WriteFile(path, []byte("content"), 0644)
 				return path
 			},
 			source: "old_name.txt",
@@ -660,7 +660,7 @@ func TestMoveFileTool(t *testing.T) {
 			name: "move_to_subdir",
 			setup: func() string {
 				path := filepath.Join(tempDir, "tomove.txt")
-				os.WriteFile(path, []byte("content"), 0644)
+				_ = os.WriteFile(path, []byte("content"), 0644)
 				return path
 			},
 			source: "tomove.txt",
@@ -677,8 +677,8 @@ func TestMoveFileTool(t *testing.T) {
 		{
 			name: "dest_already_exists",
 			setup: func() string {
-				os.WriteFile(filepath.Join(tempDir, "src.txt"), []byte("source"), 0644)
-				os.WriteFile(filepath.Join(tempDir, "dst.txt"), []byte("dest"), 0644)
+	_ = os.WriteFile(filepath.Join(tempDir, "src.txt"), []byte("source"), 0644)
+	_ = os.WriteFile(filepath.Join(tempDir, "dst.txt"), []byte("dest"), 0644)
 				return ""
 			},
 			source:      "src.txt",
@@ -763,7 +763,7 @@ func TestDeleteFileTool(t *testing.T) {
 			name: "delete_file",
 			setup: func() string {
 				path := filepath.Join(tempDir, "delete_me.txt")
-				os.WriteFile(path, []byte("content"), 0644)
+	_ = os.WriteFile(path, []byte("content"), 0644)
 				return path
 			},
 			path: "delete_me.txt",
@@ -772,7 +772,7 @@ func TestDeleteFileTool(t *testing.T) {
 			name: "delete_empty_directory",
 			setup: func() string {
 				path := filepath.Join(tempDir, "empty_dir")
-				os.Mkdir(path, 0755)
+				_ = os.Mkdir(path, 0755)
 				return path
 			},
 			path: "empty_dir",
@@ -788,8 +788,8 @@ func TestDeleteFileTool(t *testing.T) {
 			name: "non_empty_directory",
 			setup: func() string {
 				dirPath := filepath.Join(tempDir, "nonempty_dir")
-				os.Mkdir(dirPath, 0755)
-				os.WriteFile(filepath.Join(dirPath, "file.txt"), []byte("content"), 0644)
+				_ = os.Mkdir(dirPath, 0755)
+	_ = os.WriteFile(filepath.Join(dirPath, "file.txt"), []byte("content"), 0644)
 				return dirPath
 			},
 			path:        "nonempty_dir",
@@ -867,7 +867,7 @@ func TestAppendToFileTool(t *testing.T) {
 			name: "append_to_existing_file",
 			setup: func() string {
 				path := filepath.Join(tempDir, "append.txt")
-				os.WriteFile(path, []byte("line 1\n"), 0644)
+	_ = os.WriteFile(path, []byte("line 1\n"), 0644)
 				return path
 			},
 			path:           "append.txt",
@@ -885,7 +885,7 @@ func TestAppendToFileTool(t *testing.T) {
 			name: "append_empty_string",
 			setup: func() string {
 				path := filepath.Join(tempDir, "empty_append.txt")
-				os.WriteFile(path, []byte("content"), 0644)
+	_ = os.WriteFile(path, []byte("content"), 0644)
 				return path
 			},
 			path:           "empty_append.txt",
@@ -952,11 +952,11 @@ func TestFindFilesByPatternTool(t *testing.T) {
 	tempDir := t.TempDir()
 
 	// Create test files
-	os.WriteFile(filepath.Join(tempDir, "test1.go"), []byte("package main"), 0644)
-	os.WriteFile(filepath.Join(tempDir, "test2.go"), []byte("package test"), 0644)
-	os.WriteFile(filepath.Join(tempDir, "readme.md"), []byte("# README"), 0644)
-	os.WriteFile(filepath.Join(tempDir, "large.txt"), make([]byte, 1000), 0644)
-	os.WriteFile(filepath.Join(tempDir, "small.txt"), []byte("tiny"), 0644)
+	_ = os.WriteFile(filepath.Join(tempDir, "test1.go"), []byte("package main"), 0644)
+	_ = os.WriteFile(filepath.Join(tempDir, "test2.go"), []byte("package test"), 0644)
+	_ = os.WriteFile(filepath.Join(tempDir, "readme.md"), []byte("# README"), 0644)
+	_ = os.WriteFile(filepath.Join(tempDir, "large.txt"), make([]byte, 1000), 0644)
+	_ = os.WriteFile(filepath.Join(tempDir, "small.txt"), []byte("tiny"), 0644)
 
 	tests := []struct {
 		name        string
