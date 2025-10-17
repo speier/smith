@@ -31,12 +31,16 @@ Just chat naturally and watch the agents multiply to build your software.`,
 		}
 		startREPL(initialPrompt)
 	},
-	Version:            "0.1.0",
 	DisableFlagParsing: false,
 	FParseErrWhitelist: cobra.FParseErrWhitelist{UnknownFlags: true},
 	Args:               cobra.ArbitraryArgs,
 	SilenceErrors:      true,
 	SilenceUsage:       true,
+}
+
+// SetVersion sets the version for the CLI
+func SetVersion(v string) {
+	rootCmd.Version = v
 }
 
 func Execute() error {

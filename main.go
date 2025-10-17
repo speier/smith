@@ -7,9 +7,13 @@ import (
 
 	"github.com/speier/smith/internal/cli"
 	"github.com/speier/smith/internal/repl"
+	"github.com/speier/smith/internal/version"
 )
 
 func main() {
+	// Initialize CLI with version
+	cli.SetVersion(version.Get())
+
 	// If args provided and first arg is not a known command or flag, treat as initial prompt
 	if len(os.Args) > 1 {
 		first := os.Args[1]

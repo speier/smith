@@ -20,9 +20,7 @@ builds:
     binary: smith
     ldflags:
       - -s -w
-      - -X main.version={{.Version}}
-      - -X main.commit={{.Commit}}
-      - -X main.date={{.Date}}
+      - -X github.com/speier/smith/internal/version.Version={{.Version}}
 
 archives:
   - format: tar.gz

@@ -19,6 +19,7 @@ import (
 	"github.com/speier/smith/internal/engine"
 	"github.com/speier/smith/internal/llm"
 	"github.com/speier/smith/internal/safety"
+	"github.com/speier/smith/internal/version"
 )
 
 // delayedQuitMsg is sent after showing the goodbye message
@@ -1891,7 +1892,7 @@ func renderWelcome() string {
 ███████║██║ ╚═╝ ██║██║   ██║   ██║  ██║
 ╚══════╝╚═╝     ╚═╝╚═╝   ╚═╝   ╚═╝  ╚═╝`)
 
-	version := versionStyle.Width(46).Render("v0.1.0")
+	versionText := versionStyle.Width(46).Render("v" + version.Get())
 	welcome := welcomeStyle.Width(46).Render("Mr. Anderson... Welcome back.\nI've been expecting you.")
 
 	return lipgloss.JoinVertical(
@@ -1899,7 +1900,7 @@ func renderWelcome() string {
 		"",
 		logo,
 		"",
-		version,
+		versionText,
 		"",
 		welcome,
 		"",

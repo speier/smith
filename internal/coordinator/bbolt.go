@@ -129,14 +129,19 @@ func (a *registryAdapter) GetActiveAgents(ctx context.Context) ([]Agent, error) 
 		return nil, err
 	}
 
-	// Filter for active agents only
+	// Filter for agents that are alive (not dead) and return them with working status
 	var activeAgents []Agent
 	for _, ag := range agents {
-		if ag.Status == registry.StatusActive {
+		if ag.Status != registry.StatusDead {
+			// Agent is "active" (green) only if it has a task assigned
+			status := "idle"
+			if ag.TaskID != nil && *ag.TaskID != "" {
+				status = "active"
+			}
 			activeAgents = append(activeAgents, Agent{
 				ID:     ag.ID,
 				Role:   AgentRole(ag.Role),
-				Status: string(ag.Status),
+				Status: status,
 			})
 		}
 	}
