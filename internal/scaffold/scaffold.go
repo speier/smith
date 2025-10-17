@@ -116,10 +116,8 @@ func createGitignore(path string) error {
 	ignoreItems := []string{
 		"# Gitignore for .smith directory",
 		"",
-		"# Local agent runtime state (not committed)",
+		"# Project-local database (tasks, sessions, events)",
 		"smith.db",
-		"smith.db-shm",
-		"smith.db-wal",
 		"",
 		"# User-specific config with API keys",
 		"config.yaml",

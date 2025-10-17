@@ -1,5 +1,7 @@
 package coordinator
 
+import "time"
+
 // TaskStats represents statistics about tasks in different states
 type TaskStats struct {
 	Backlog int
@@ -16,8 +18,13 @@ type Task struct {
 	Status      string // backlog, wip, review, done
 	Role        string // planning, implementation, testing, review
 	AgentID     string
-	Result      string // Output/result from task execution
-	Error       string // Error message if task failed
+	Result      string   // Output/result from task execution
+	Error       string   // Error message if task failed
+	Priority    int      // 0=low, 1=medium (default), 2=high
+	DependsOn   []string // Task IDs that must be completed first
+	StartedAt   time.Time
+	UpdatedAt   time.Time
+	CompletedAt *time.Time
 }
 
 // Lock represents a file lock held by an agent
@@ -25,6 +32,16 @@ type Lock struct {
 	Agent  string
 	TaskID string
 	Files  string
+}
+
+// Session represents a work session
+type Session struct {
+	SessionID  string
+	Title      string
+	StartedAt  time.Time
+	LastActive time.Time
+	TaskCount  int
+	Status     string
 }
 
 // Message represents a message between agents

@@ -6,6 +6,29 @@ import (
 	"log"
 )
 
+// TaskOptions holds optional parameters for task creation
+type TaskOptions struct {
+	Priority  int      // 0=low, 1=medium (default), 2=high
+	DependsOn []string // Task IDs that must be completed first
+}
+
+// TaskOption is a functional option for CreateTask
+type TaskOption func(*TaskOptions)
+
+// WithPriority sets the task priority
+func WithPriority(priority int) TaskOption {
+	return func(opts *TaskOptions) {
+		opts.Priority = priority
+	}
+}
+
+// WithDependencies sets the task dependencies
+func WithDependencies(dependsOn ...string) TaskOption {
+	return func(opts *TaskOptions) {
+		opts.DependsOn = dependsOn
+	}
+}
+
 // Coordinator defines the interface for task and file coordination
 // This interface is storage-agnostic and can be implemented with different backends
 type Coordinator interface {
@@ -17,7 +40,7 @@ type Coordinator interface {
 	GetMessages() ([]Message, error)
 
 	// Task lifecycle management
-	CreateTask(title, description, role string) (taskID string, err error)
+	CreateTask(title, description, role string, opts ...TaskOption) (taskID string, err error)
 	ClaimTask(taskID, agent string) error
 	UpdateTaskStatus(taskID, status string) error
 	CompleteTask(taskID, result string) error
@@ -30,6 +53,12 @@ type Coordinator interface {
 	// Access to sub-systems (needed for agents)
 	GetEventBus() EventBus
 	GetRegistry() Registry
+
+	// Session management
+	CreateNewSession(ctx context.Context) (sessionID string, err error)
+	ListSessions(ctx context.Context, limit int) ([]*Session, error)
+	SwitchSession(ctx context.Context, sessionID string) error
+	GetCurrentSession(ctx context.Context) (*Session, error)
 }
 
 // EventBus defines the interface for event publishing and querying

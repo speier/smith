@@ -15,6 +15,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/speier/smith/internal/agent"
 	"github.com/speier/smith/internal/config"
+	"github.com/speier/smith/internal/coordinator"
 	"github.com/speier/smith/internal/engine"
 	"github.com/speier/smith/internal/llm"
 	"github.com/speier/smith/internal/safety"
@@ -152,10 +153,11 @@ type Command struct {
 // Available commands
 var availableCommands = []Command{
 	{Name: "/status", Alias: "/s", Description: "Show task counts and progress"},
+	{Name: "/sessions", Alias: "", Description: "Switch to a different session"},
 	{Name: "/settings", Alias: "", Description: "Change model and auto-level"},
 	{Name: "/allowlist", Alias: "", Description: "Manage session command allowlist"},
 	{Name: "/copy", Alias: "", Description: "Copy last message to clipboard"},
-	{Name: "/clear", Alias: "/c", Description: "Clear conversation"},
+	{Name: "/clear", Alias: "/c", Description: "Clear and start new session"},
 	{Name: "/help", Alias: "/h", Description: "Show help"},
 	{Name: "/quit", Alias: "/q", Description: "Exit Smith"},
 }
@@ -202,6 +204,20 @@ type BubbleModel struct {
 	approvalCommand      string                  // Command waiting for approval
 	approvalReason       string                  // Reason why command was blocked
 	approvalResponseChan chan<- approvalResponse // Channel to send approval decision
+	// Error tracking
+	recentErrors []ErrorInfo // Last 3 errors for sidebar display
+	// Session management
+	showSessionPicker  bool                   // Whether session picker is visible
+	sessionsList       []*coordinator.Session // List of available sessions
+	sessionPickerIndex int                    // Selected session in picker
+}
+
+// ErrorInfo represents an error with context for display
+type ErrorInfo struct {
+	Message   string
+	Timestamp time.Time
+	AgentRole string
+	TaskID    string
 }
 
 // keyMap defines our key bindings
@@ -667,6 +683,11 @@ func (m BubbleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.showAuthPanel = false
 				return m, nil
 			}
+			if m.showSessionPicker {
+				m.showSessionPicker = false
+				m.sessionPickerIndex = 0
+				return m, nil
+			}
 			if m.showHelp {
 				m.showHelp = false
 				return m, nil
@@ -699,6 +720,53 @@ func (m BubbleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Toggle help with ?
 		if msg.String() == "?" && !m.showSettings && !m.showProviderMenu && !m.showModelMenu {
 			m.showHelp = !m.showHelp
+			return m, nil
+		}
+
+		// Handle session picker
+		if m.showSessionPicker {
+			switch msg.String() {
+			case "up", "k":
+				if m.sessionPickerIndex > 0 {
+					m.sessionPickerIndex--
+				}
+				return m, nil
+			case "down", "j":
+				if m.sessionPickerIndex < len(m.sessionsList)-1 {
+					m.sessionPickerIndex++
+				}
+				return m, nil
+			case "enter":
+				// Switch to selected session
+				if m.sessionPickerIndex < len(m.sessionsList) {
+					selectedSession := m.sessionsList[m.sessionPickerIndex]
+					ctx := context.Background()
+					coord := m.engine.GetCoordinator()
+
+					err := coord.SwitchSession(ctx, selectedSession.SessionID)
+					if err != nil {
+						m.messages = append(m.messages, Message{
+							Content:   fmt.Sprintf("❌ Failed to switch session: %v", err),
+							Type:      "error",
+							Timestamp: time.Now(),
+						})
+					} else {
+						// Clear messages and show switch confirmation
+						m.messages = []Message{}
+						m.messages = append(m.messages, Message{
+							Content:   fmt.Sprintf("📂 Switched to session: %s", selectedSession.Title),
+							Type:      "system",
+							Timestamp: time.Now(),
+						})
+					}
+
+					// Close picker
+					m.showSessionPicker = false
+					m.sessionPickerIndex = 0
+					m.sessionsList = nil
+				}
+				return m, nil
+			}
 			return m, nil
 		}
 
@@ -1045,7 +1113,7 @@ func (m BubbleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	// Skip textarea updates when settings/menus are shown
-	if !m.showSettings && !m.showProviderMenu && !m.showModelMenu {
+	if !m.showSettings && !m.showProviderMenu && !m.showModelMenu && !m.showSessionPicker {
 		// Update textarea
 		m.textarea, cmd = m.textarea.Update(msg)
 		cmds = append(cmds, cmd)
@@ -1115,6 +1183,11 @@ func (m BubbleModel) View() string {
 		return m.renderAuthPanel(base)
 	}
 
+	// Overlay session picker if active
+	if m.showSessionPicker {
+		return m.renderSessionPicker(base)
+	}
+
 	// Overlay help panel if active
 	if m.showHelp {
 		return m.renderHelpPanel(base)
@@ -1135,10 +1208,44 @@ func (m BubbleModel) renderSidebar() string {
 	logo := sidebarTitleStyle.Render("SMITH")
 	sections = append(sections, logo)
 
-	// Session info
-	sessionInfo := sidebarSectionStyle.Render("New Session")
+	// Current Session info
+	ctx := context.Background()
+	coord := m.engine.GetCoordinator()
+	session, err := coord.GetCurrentSession(ctx)
+
+	if err == nil && session != nil {
+		sessionTitle := session.Title
+		if len(sessionTitle) > 25 {
+			sessionTitle = sessionTitle[:22] + "..."
+		}
+
+		// Calculate elapsed time since session started
+		elapsed := time.Since(session.StartedAt)
+		var timeStr string
+		if elapsed < time.Minute {
+			timeStr = "just now"
+		} else if elapsed < time.Hour {
+			mins := int(elapsed.Minutes())
+			timeStr = fmt.Sprintf("%dm ago", mins)
+		} else if elapsed < 24*time.Hour {
+			hours := int(elapsed.Hours())
+			timeStr = fmt.Sprintf("%dh ago", hours)
+		} else {
+			days := int(elapsed.Hours() / 24)
+			timeStr = fmt.Sprintf("%dd ago", days)
+		}
+
+		sessionInfo := sidebarSectionStyle.Render("📂 " + sessionTitle)
+		sessionDetails := sidebarItemStyle.Render(fmt.Sprintf("Started %s • %d tasks", timeStr, session.TaskCount))
+		sections = append(sections, sessionInfo, sessionDetails)
+	} else {
+		// Fallback if session not available
+		sessionInfo := sidebarSectionStyle.Render("New Session")
+		sections = append(sections, sessionInfo)
+	}
+
 	pathInfo := sidebarItemStyle.Render(m.projectPath)
-	sections = append(sections, sessionInfo, pathInfo)
+	sections = append(sections, pathInfo)
 
 	// Model status
 	sections = append(sections, "")
@@ -1232,6 +1339,15 @@ func (m BubbleModel) renderSidebar() string {
 			}
 
 			for _, task := range tasks {
+				// Get priority indicator
+				priorityIcon := "🟡" // medium (default)
+				switch task.Priority {
+				case 2:
+					priorityIcon = "🔴" // high
+				case 0:
+					priorityIcon = "🟢" // low
+				}
+
 				// Get agent icon based on role
 				agentIcon := "🤖"
 				switch task.Role {
@@ -1246,11 +1362,70 @@ func (m BubbleModel) renderSidebar() string {
 				}
 
 				taskTitle := task.Title
-				if len(taskTitle) > 25 {
-					taskTitle = taskTitle[:22] + "..."
+				if len(taskTitle) > 23 { // Shortened to make room for priority
+					taskTitle = taskTitle[:20] + "..."
 				}
-				sections = append(sections, sidebarActiveStyle.Render(fmt.Sprintf("%s %s", agentIcon, taskTitle)))
+
+				// Calculate elapsed time
+				elapsed := time.Since(task.StartedAt)
+				var elapsedStr string
+				if elapsed < time.Minute {
+					elapsedStr = fmt.Sprintf("%.0fs", elapsed.Seconds())
+				} else if elapsed < time.Hour {
+					elapsedStr = fmt.Sprintf("%.0fm", elapsed.Minutes())
+				} else {
+					elapsedStr = fmt.Sprintf("%.1fh", elapsed.Hours())
+				}
+
+				sections = append(sections, sidebarActiveStyle.Render(fmt.Sprintf("%s %s %s", priorityIcon, agentIcon, taskTitle)))
+				sections = append(sections, sidebarIdleStyle.Render(fmt.Sprintf("  ⏱️  %s", elapsedStr)))
 			}
+		}
+	}
+
+	// Recent Errors
+	recentErrors := m.getRecentErrors()
+	if len(recentErrors) > 0 {
+		sections = append(sections, "")
+		sections = append(sections, sidebarSectionStyle.Render("⚠️  Recent Errors"))
+
+		for _, errInfo := range recentErrors {
+			// Format timestamp as relative time
+			elapsed := time.Since(errInfo.Timestamp)
+			var timeStr string
+			if elapsed < time.Minute {
+				timeStr = "just now"
+			} else if elapsed < time.Hour {
+				timeStr = fmt.Sprintf("%.0fm ago", elapsed.Minutes())
+			} else if elapsed < 24*time.Hour {
+				timeStr = fmt.Sprintf("%.0fh ago", elapsed.Hours())
+			} else {
+				timeStr = fmt.Sprintf("%.0fd ago", elapsed.Hours()/24)
+			}
+
+			// Truncate error message
+			errMsg := errInfo.Message
+			if len(errMsg) > 30 {
+				errMsg = errMsg[:27] + "..."
+			}
+
+			// Get agent icon
+			agentIcon := "🤖"
+			switch errInfo.AgentRole {
+			case "architect", "planning":
+				agentIcon = "🏛️"
+			case "keymaker", "implementation":
+				agentIcon = "🔑"
+			case "sentinel", "testing":
+				agentIcon = "🦑"
+			case "oracle", "review":
+				agentIcon = "🔮"
+			}
+
+			sections = append(sections, lipgloss.NewStyle().
+				Foreground(lipgloss.Color("1")). // Red for errors
+				Render(fmt.Sprintf("%s %s", agentIcon, errMsg)))
+			sections = append(sections, sidebarIdleStyle.Render(fmt.Sprintf("  %s", timeStr)))
 		}
 	}
 
@@ -1406,14 +1581,71 @@ func (m *BubbleModel) getModifiedFiles() []string {
 }
 
 func (m *BubbleModel) getActiveAgents() []agentInfo {
-	// TODO: Get from coordinator
-	// For now, return mock data showing the planned agents
-	return []agentInfo{
-		{name: "planning", active: false},
-		{name: "implementation", active: false},
-		{name: "testing", active: false},
-		{name: "review", active: false},
+	coord := m.engine.GetCoordinator()
+	reg := coord.GetRegistry()
+
+	agents, err := reg.GetActiveAgents(context.Background())
+	if err != nil {
+		// Return empty list on error
+		return []agentInfo{}
 	}
+
+	result := []agentInfo{}
+	for _, agent := range agents {
+		result = append(result, agentInfo{
+			name:   string(agent.Role),
+			active: agent.Status == "active",
+		})
+	}
+	return result
+}
+
+// addError adds an error to the recent errors list (keeps last 3)
+func (m *BubbleModel) addError(message, agentRole, taskID string) {
+	errInfo := ErrorInfo{
+		Message:   message,
+		Timestamp: time.Now(),
+		AgentRole: agentRole,
+		TaskID:    taskID,
+	}
+
+	m.recentErrors = append([]ErrorInfo{errInfo}, m.recentErrors...)
+	if len(m.recentErrors) > 3 {
+		m.recentErrors = m.recentErrors[:3]
+	}
+}
+
+// getRecentErrors returns errors from failed tasks
+func (m *BubbleModel) getRecentErrors() []ErrorInfo {
+	// Get failed tasks from coordinator
+	coord := m.engine.GetCoordinator()
+	tasks, err := coord.GetTasksByStatus("failed")
+	if err != nil {
+		return m.recentErrors // Return any manually added errors
+	}
+
+	// Convert failed tasks to ErrorInfo (up to 3 most recent)
+	var errors []ErrorInfo
+	for i, task := range tasks {
+		if i >= 3 {
+			break
+		}
+		if task.Error != "" {
+			errors = append(errors, ErrorInfo{
+				Message:   task.Error,
+				Timestamp: task.UpdatedAt,
+				AgentRole: task.Role,
+				TaskID:    task.ID,
+			})
+		}
+	}
+
+	// If no failed tasks, return manually added errors
+	if len(errors) == 0 {
+		return m.recentErrors
+	}
+
+	return errors
 }
 
 func (m *BubbleModel) filterCommands(input string) {
@@ -1488,11 +1720,47 @@ func (m *BubbleModel) handleSlashCommand(cmd string) tea.Cmd {
 		m.handleAllowlistCommand(parts[1:])
 	case "/copy":
 		m.copyLastMessage()
+	case "/sessions":
+		// Load and show session picker
+		ctx := context.Background()
+		coord := m.engine.GetCoordinator()
+		sessions, err := coord.ListSessions(ctx, 10) // Show last 10 sessions
+		if err != nil {
+			m.messages = append(m.messages, Message{
+				Content:   fmt.Sprintf("❌ Failed to load sessions: %v", err),
+				Type:      "error",
+				Timestamp: time.Now(),
+			})
+			return nil
+		}
+
+		m.sessionsList = sessions
+		m.sessionPickerIndex = 0
+		m.showSessionPicker = true
 	case "/settings":
 		m.showSettings = true
 		m.settingsIndex = 0
 	case "/clear", "/c":
-		// Handled in Update
+		// Archive current session and start new one
+		ctx := context.Background()
+		coord := m.engine.GetCoordinator()
+		sessionID, err := coord.CreateNewSession(ctx)
+		if err != nil {
+			m.messages = append(m.messages, Message{
+				Content:   fmt.Sprintf("❌ Failed to create new session: %v", err),
+				Type:      "error",
+				Timestamp: time.Now(),
+			})
+			return nil
+		}
+
+		// Clear messages
+		m.messages = []Message{}
+		m.messages = append(m.messages, Message{
+			Content:   fmt.Sprintf("🆕 Started new session: %s", sessionID),
+			Type:      "system",
+			Timestamp: time.Now(),
+		})
 	case "/quit", "/q", "/exit":
 		m.quitting = true
 		return delayedQuit()
@@ -1774,6 +2042,87 @@ func (m *BubbleModel) renderAuthPanel(base string) string {
 		BorderForeground(lipgloss.Color("10")).
 		Padding(1, 2).
 		Width(60).
+		Render(content.String())
+
+	// Overlay on center of screen
+	return lipgloss.Place(
+		m.width,
+		m.height,
+		lipgloss.Center,
+		lipgloss.Center,
+		panel,
+		lipgloss.WithWhitespaceChars(" "),
+		lipgloss.WithWhitespaceForeground(lipgloss.Color("0")),
+	)
+}
+
+func (m *BubbleModel) renderSessionPicker(base string) string {
+	titleStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("10")).
+		Bold(true)
+
+	itemStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("252"))
+
+	selectedStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("10")).
+		Background(lipgloss.Color("236")).
+		Bold(true)
+
+	dimStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("240"))
+
+	var content strings.Builder
+	content.WriteString(titleStyle.Render("📂 Session History") + "\n\n")
+
+	if len(m.sessionsList) == 0 {
+		content.WriteString(dimStyle.Render("No previous sessions found.") + "\n")
+	} else {
+		for i, session := range m.sessionsList {
+			// Calculate relative time
+			elapsed := time.Since(session.LastActive)
+			var timeStr string
+			if elapsed < time.Minute {
+				timeStr = "just now"
+			} else if elapsed < time.Hour {
+				mins := int(elapsed.Minutes())
+				timeStr = fmt.Sprintf("%dm ago", mins)
+			} else if elapsed < 24*time.Hour {
+				hours := int(elapsed.Hours())
+				timeStr = fmt.Sprintf("%dh ago", hours)
+			} else {
+				days := int(elapsed.Hours() / 24)
+				if days == 1 {
+					timeStr = "1 day ago"
+				} else {
+					timeStr = fmt.Sprintf("%d days ago", days)
+				}
+			}
+
+			// Format: Title (5 tasks) • Started 2h ago
+			line := fmt.Sprintf("%s (%d tasks) • %s", session.Title, session.TaskCount, timeStr)
+
+			// Truncate if too long
+			if len(line) > 60 {
+				line = line[:57] + "..."
+			}
+
+			if i == m.sessionPickerIndex {
+				content.WriteString(selectedStyle.Render("> "+line) + "\n")
+			} else {
+				content.WriteString(itemStyle.Render("  "+line) + "\n")
+			}
+		}
+	}
+
+	content.WriteString("\n" + helpStyle.Render("↑/↓: Navigate  Enter: Select  Esc: Cancel"))
+
+	// Create panel
+	panel := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(lipgloss.Color("10")).
+		Padding(1, 2).
+		Width(70).
 		Render(content.String())
 
 	// Overlay on center of screen

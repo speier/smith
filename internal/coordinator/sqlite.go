@@ -3,6 +3,7 @@ package coordinator
 import (
 	"context"
 	"fmt"
+	"sort"
 	"time"
 
 	"github.com/speier/smith/internal/eventbus"
@@ -13,11 +14,12 @@ import (
 
 // SQLiteCoordinator implements coordination using SQLite database
 type SQLiteCoordinator struct {
-	projectPath string
-	db          storage.Store
-	eventBus    *eventbus.EventBus
-	lockMgr     *locks.Manager
-	registry    *registry.Registry
+	projectPath      string
+	db               storage.Store
+	eventBus         *eventbus.EventBus
+	lockMgr          *locks.Manager
+	registry         *registry.Registry
+	currentSessionID string // Active session ID
 }
 
 // NewSQLite creates a new BBolt-based coordinator
@@ -149,6 +151,148 @@ func (c *SQLiteCoordinator) EnsureDirectories() error {
 	return nil
 }
 
+// === Session Management ===
+
+// GetOrCreateSession returns the current session, creating one if needed
+func (c *SQLiteCoordinator) GetOrCreateSession(ctx context.Context) (string, error) {
+	if c.currentSessionID != "" {
+		return c.currentSessionID, nil
+	}
+
+	// Try to find most recent active session
+	sessions, err := c.db.ListSessions(ctx, 1)
+	if err == nil && len(sessions) > 0 && sessions[0].Status == "active" {
+		c.currentSessionID = sessions[0].SessionID
+		return c.currentSessionID, nil
+	}
+
+	// Create new session
+	sessionID := c.generateSessionID()
+	session := &storage.Session{
+		SessionID:  sessionID,
+		Title:      "New Session",
+		StartedAt:  time.Now(),
+		LastActive: time.Now(),
+		TaskCount:  0,
+		Status:     "active",
+	}
+
+	if err := c.db.CreateSession(ctx, session); err != nil {
+		return "", fmt.Errorf("failed to create session: %w", err)
+	}
+
+	c.currentSessionID = sessionID
+	return sessionID, nil
+}
+
+// CreateNewSession archives the current session and creates a new one
+func (c *SQLiteCoordinator) CreateNewSession(ctx context.Context) (string, error) {
+	// Archive current session if exists
+	if c.currentSessionID != "" {
+		if err := c.db.ArchiveSession(ctx, c.currentSessionID); err != nil {
+			return "", fmt.Errorf("failed to archive session: %w", err)
+		}
+	}
+
+	// Create new session
+	sessionID := c.generateSessionID()
+	session := &storage.Session{
+		SessionID:  sessionID,
+		Title:      "New Session",
+		StartedAt:  time.Now(),
+		LastActive: time.Now(),
+		TaskCount:  0,
+		Status:     "active",
+	}
+
+	if err := c.db.CreateSession(ctx, session); err != nil {
+		return "", fmt.Errorf("failed to create session: %w", err)
+	}
+
+	c.currentSessionID = sessionID
+	return sessionID, nil
+}
+
+// SwitchSession switches to a different session
+func (c *SQLiteCoordinator) SwitchSession(ctx context.Context, sessionID string) error {
+	// Verify session exists
+	session, err := c.db.GetSession(ctx, sessionID)
+	if err != nil {
+		return fmt.Errorf("session not found: %w", err)
+	}
+
+	// Update last active time
+	session.LastActive = time.Now()
+	if err := c.db.UpdateSession(ctx, session); err != nil {
+		return fmt.Errorf("failed to update session: %w", err)
+	}
+
+	c.currentSessionID = sessionID
+	return nil
+}
+
+// GetCurrentSession returns the current session info
+func (c *SQLiteCoordinator) GetCurrentSession(ctx context.Context) (*Session, error) {
+	sessionID, err := c.GetOrCreateSession(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	storageSession, err := c.db.GetSession(ctx, sessionID)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Session{
+		SessionID:  storageSession.SessionID,
+		Title:      storageSession.Title,
+		StartedAt:  storageSession.StartedAt,
+		LastActive: storageSession.LastActive,
+		TaskCount:  storageSession.TaskCount,
+		Status:     storageSession.Status,
+	}, nil
+}
+
+// ListSessions returns recent sessions
+func (c *SQLiteCoordinator) ListSessions(ctx context.Context, limit int) ([]*Session, error) {
+	storageSessions, err := c.db.ListSessions(ctx, limit)
+	if err != nil {
+		return nil, err
+	}
+
+	var sessions []*Session
+	for _, ss := range storageSessions {
+		sessions = append(sessions, &Session{
+			SessionID:  ss.SessionID,
+			Title:      ss.Title,
+			StartedAt:  ss.StartedAt,
+			LastActive: ss.LastActive,
+			TaskCount:  ss.TaskCount,
+			Status:     ss.Status,
+		})
+	}
+
+	return sessions, nil
+}
+
+// UpdateSessionTitle updates the title of a session (auto-generated from first task)
+func (c *SQLiteCoordinator) UpdateSessionTitle(ctx context.Context, sessionID, title string) error {
+	session, err := c.db.GetSession(ctx, sessionID)
+	if err != nil {
+		return err
+	}
+
+	session.Title = title
+	return c.db.UpdateSession(ctx, session)
+}
+
+func (c *SQLiteCoordinator) generateSessionID() string {
+	now := time.Now()
+	return fmt.Sprintf("session-%s-%03d",
+		now.Format("2006-01-02"),
+		now.UnixNano()%1000)
+}
+
 // GetTaskStats returns statistics about tasks
 func (c *SQLiteCoordinator) GetTaskStats() (*TaskStats, error) {
 	ctx := context.Background()
@@ -180,15 +324,45 @@ func (c *SQLiteCoordinator) GetAvailableTasks() ([]Task, error) {
 
 	var tasks []Task
 	for _, st := range storageTasks {
+		// Check if dependencies are satisfied
+		if len(st.DependsOn) > 0 {
+			allDependenciesMet := true
+			for _, depID := range st.DependsOn {
+				depTask, err := c.db.GetTask(ctx, depID)
+				if err != nil || depTask.Status != "done" {
+					allDependenciesMet = false
+					break
+				}
+			}
+			// Skip this task if dependencies not met
+			if !allDependenciesMet {
+				continue
+			}
+		}
+
 		task := Task{
 			ID:          st.TaskID,
 			Title:       st.Title,
 			Description: st.Description,
 			Role:        st.AgentRole,
 			Status:      st.Status,
+			Priority:    st.Priority,
+			DependsOn:   st.DependsOn,
+			AgentID:     st.AgentID,
+			Result:      st.Result,
+			Error:       st.Error,
+			StartedAt:   st.StartedAt,
+			UpdatedAt:   st.UpdatedAt,
+			CompletedAt: st.CompletedAt,
 		}
 		tasks = append(tasks, task)
 	}
+
+	// Sort by priority (high -> medium -> low)
+	// Priority: 2=high, 1=medium, 0=low
+	sort.Slice(tasks, func(i, j int) bool {
+		return tasks[i].Priority > tasks[j].Priority
+	})
 
 	return tasks, nil
 }
@@ -215,6 +389,14 @@ func (c *SQLiteCoordinator) GetTasksByStatus(status string) ([]Task, error) {
 			Description: st.Description,
 			Role:        st.AgentRole,
 			Status:      st.Status,
+			AgentID:     st.AgentID,
+			Result:      st.Result,
+			Error:       st.Error,
+			Priority:    st.Priority,
+			DependsOn:   st.DependsOn,
+			StartedAt:   st.StartedAt,
+			UpdatedAt:   st.UpdatedAt,
+			CompletedAt: st.CompletedAt,
 		}
 		tasks = append(tasks, task)
 	}
@@ -296,8 +478,23 @@ func (c *SQLiteCoordinator) ClaimTask(taskID, agent string) error {
 }
 
 // CreateTask creates a new task in the system
-func (c *SQLiteCoordinator) CreateTask(title, description, role string) (string, error) {
+func (c *SQLiteCoordinator) CreateTask(title, description, role string, opts ...TaskOption) (string, error) {
 	ctx := context.Background()
+
+	// Apply options
+	options := TaskOptions{
+		Priority:  1, // Default to medium priority
+		DependsOn: []string{},
+	}
+	for _, opt := range opts {
+		opt(&options)
+	}
+
+	// Ensure we have an active session
+	sessionID, err := c.GetOrCreateSession(ctx)
+	if err != nil {
+		return "", fmt.Errorf("failed to get/create session: %w", err)
+	}
 
 	// Generate unique task ID (simple counter-based for now)
 	allTasks, err := c.db.ListTasks(ctx, nil)
@@ -314,12 +511,29 @@ func (c *SQLiteCoordinator) CreateTask(title, description, role string) (string,
 		Description: description,
 		AgentRole:   role,
 		Status:      "backlog",
+		Priority:    options.Priority,
+		DependsOn:   options.DependsOn,
+		SessionID:   sessionID,
 		StartedAt:   time.Now(),
 		UpdatedAt:   time.Now(),
 	}
 
 	if err := c.db.CreateTask(ctx, task); err != nil {
 		return "", fmt.Errorf("failed to create task: %w", err)
+	}
+
+	// Update session: increment task count and update LastActive
+	session, err := c.db.GetSession(ctx, sessionID)
+	if err == nil {
+		session.TaskCount++
+		session.LastActive = time.Now()
+
+		// Auto-set session title from first task
+		if session.TaskCount == 1 {
+			session.Title = title
+		}
+
+		c.db.UpdateSession(ctx, session)
 	}
 
 	// Publish task created event
@@ -330,7 +544,7 @@ func (c *SQLiteCoordinator) CreateTask(title, description, role string) (string,
 		eventbus.EventTaskCreated,
 		&taskID,
 		nil,
-		map[string]string{"task_id": taskID, "title": title, "role": role},
+		map[string]string{"task_id": taskID, "title": title, "role": role, "session_id": sessionID},
 	); err != nil {
 		// Log error but don't fail task creation
 		fmt.Printf("warning: failed to publish task_created event: %v\n", err)
@@ -469,6 +683,11 @@ func (c *SQLiteCoordinator) GetTask(taskID string) (*Task, error) {
 		AgentID:     storageTask.AgentID,
 		Result:      storageTask.Result,
 		Error:       storageTask.Error,
+		Priority:    storageTask.Priority,
+		DependsOn:   storageTask.DependsOn,
+		StartedAt:   storageTask.StartedAt,
+		UpdatedAt:   storageTask.UpdatedAt,
+		CompletedAt: storageTask.CompletedAt,
 	}
 
 	return task, nil

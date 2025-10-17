@@ -596,6 +596,155 @@ func (s *BoltStore) GetLocksForAgent(ctx context.Context, agentID string) ([]*Fi
 	return locks, err
 }
 
+// === SessionStore Implementation ===
+
+func (s *BoltStore) CreateSession(ctx context.Context, session *Session) error {
+	return s.db.Update(func(tx *bbolt.Tx) error {
+		b := tx.Bucket(SessionsBucket)
+		if b == nil {
+			return fmt.Errorf("sessions bucket not found")
+		}
+
+		// Encode session
+		data, err := json.Marshal(session)
+		if err != nil {
+			return fmt.Errorf("failed to encode session: %w", err)
+		}
+
+		// Store session
+		return b.Put([]byte(session.SessionID), data)
+	})
+}
+
+func (s *BoltStore) GetSession(ctx context.Context, sessionID string) (*Session, error) {
+	var session *Session
+
+	err := s.db.View(func(tx *bbolt.Tx) error {
+		b := tx.Bucket(SessionsBucket)
+		if b == nil {
+			return fmt.Errorf("sessions bucket not found")
+		}
+
+		data := b.Get([]byte(sessionID))
+		if data == nil {
+			return fmt.Errorf("session not found: %s", sessionID)
+		}
+
+		session = &Session{}
+		return json.Unmarshal(data, session)
+	})
+
+	return session, err
+}
+
+func (s *BoltStore) UpdateSession(ctx context.Context, session *Session) error {
+	return s.CreateSession(ctx, session) // Same as create - upsert
+}
+
+func (s *BoltStore) ListSessions(ctx context.Context, limit int) ([]*Session, error) {
+	var sessions []*Session
+
+	err := s.db.View(func(tx *bbolt.Tx) error {
+		b := tx.Bucket(SessionsBucket)
+		if b == nil {
+			return fmt.Errorf("sessions bucket not found")
+		}
+
+		// Collect all sessions
+		c := b.Cursor()
+		for k, v := c.First(); k != nil; k, v = c.Next() {
+			var session Session
+			if err := json.Unmarshal(v, &session); err != nil {
+				continue // Skip corrupted entries
+			}
+			sessions = append(sessions, &session)
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	// Sort by LastActive (most recent first)
+	// Simple bubble sort for small lists
+	for i := 0; i < len(sessions)-1; i++ {
+		for j := i + 1; j < len(sessions); j++ {
+			if sessions[j].LastActive.After(sessions[i].LastActive) {
+				sessions[i], sessions[j] = sessions[j], sessions[i]
+			}
+		}
+	}
+
+	// Apply limit
+	if limit > 0 && len(sessions) > limit {
+		sessions = sessions[:limit]
+	}
+
+	return sessions, nil
+}
+
+func (s *BoltStore) ArchiveSession(ctx context.Context, sessionID string) error {
+	return s.db.Update(func(tx *bbolt.Tx) error {
+		b := tx.Bucket(SessionsBucket)
+		if b == nil {
+			return fmt.Errorf("sessions bucket not found")
+		}
+
+		// Get existing session
+		data := b.Get([]byte(sessionID))
+		if data == nil {
+			return fmt.Errorf("session not found: %s", sessionID)
+		}
+
+		var session Session
+		if err := json.Unmarshal(data, &session); err != nil {
+			return fmt.Errorf("failed to decode session: %w", err)
+		}
+
+		// Update status
+		session.Status = "archived"
+
+		// Re-encode and save
+		updatedData, err := json.Marshal(session)
+		if err != nil {
+			return fmt.Errorf("failed to encode session: %w", err)
+		}
+
+		return b.Put([]byte(sessionID), updatedData)
+	})
+}
+
+func (s *BoltStore) GetSessionTasks(ctx context.Context, sessionID string) ([]*Task, error) {
+	var tasks []*Task
+
+	err := s.db.View(func(tx *bbolt.Tx) error {
+		b := tx.Bucket(TasksBucket)
+		if b == nil {
+			return fmt.Errorf("tasks bucket not found")
+		}
+
+		// Iterate through all tasks
+		c := b.Cursor()
+		for k, v := c.First(); k != nil; k, v = c.Next() {
+			var task Task
+			if err := json.Unmarshal(v, &task); err != nil {
+				continue // Skip corrupted entries
+			}
+
+			// Filter by session
+			if task.SessionID == sessionID {
+				tasks = append(tasks, &task)
+			}
+		}
+
+		return nil
+	})
+
+	return tasks, err
+}
+
 // Close closes the database
 func (s *BoltStore) Close() error {
 	return s.db.Close()

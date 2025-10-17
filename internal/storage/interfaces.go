@@ -43,6 +43,7 @@ type Event struct {
 	TaskID    *string
 	FilePath  *string
 	Data      string
+	SessionID string // Session this event belongs to
 }
 
 // EventFilter defines criteria for querying events
@@ -115,9 +116,22 @@ type Task struct {
 	Status      string
 	Result      string
 	Error       string
+	Priority    int      // 0=low, 1=medium (default), 2=high
+	DependsOn   []string // Task IDs that must be completed first
+	SessionID   string   // Session this task belongs to
 	StartedAt   time.Time
 	UpdatedAt   time.Time
 	CompletedAt *time.Time
+}
+
+// Session represents a work session
+type Session struct {
+	SessionID  string // "session-2025-10-17-001"
+	Title      string // Auto-generated from first task or user-provided
+	StartedAt  time.Time
+	LastActive time.Time
+	TaskCount  int    // Total tasks in session
+	Status     string // "active" | "archived"
 }
 
 // TaskStats represents task statistics
@@ -151,12 +165,34 @@ type FileLock struct {
 	LockedAt time.Time
 }
 
+// SessionStore defines the interface for session storage operations
+type SessionStore interface {
+	// CreateSession creates a new session
+	CreateSession(ctx context.Context, session *Session) error
+
+	// GetSession retrieves a single session
+	GetSession(ctx context.Context, sessionID string) (*Session, error)
+
+	// UpdateSession updates an existing session
+	UpdateSession(ctx context.Context, session *Session) error
+
+	// ListSessions retrieves sessions, sorted by LastActive (most recent first)
+	ListSessions(ctx context.Context, limit int) ([]*Session, error)
+
+	// ArchiveSession marks a session as archived
+	ArchiveSession(ctx context.Context, sessionID string) error
+
+	// GetSessionTasks retrieves all tasks for a session
+	GetSessionTasks(ctx context.Context, sessionID string) ([]*Task, error)
+}
+
 // Store combines all storage interfaces
 type Store interface {
 	EventStore
 	AgentStore
 	TaskStore
 	LockStore
+	SessionStore
 
 	// Close closes the storage backend
 	Close() error

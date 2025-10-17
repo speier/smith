@@ -257,7 +257,7 @@ func (e *Engine) getTools() []llm.Tool {
 		// Task Management Tools
 		{
 			Name:        "create_task",
-			Description: "Create a new task for a background agent to execute. Use this to delegate work like implementing features or writing tests.",
+			Description: "Create a new task for a background agent to execute. Use this to delegate work like implementing features or writing tests. Set priority and dependencies for optimal task ordering.",
 			Parameters: map[string]interface{}{
 				"type": "object",
 				"properties": map[string]interface{}{
@@ -273,6 +273,18 @@ func (e *Engine) getTools() []llm.Tool {
 						"type":        "string",
 						"description": "Type of agent: 'keymaker' for coding, 'sentinel' for testing, 'architect' for planning, 'oracle' for review",
 						"enum":        []string{"keymaker", "sentinel", "architect", "oracle"},
+					},
+					"priority": map[string]interface{}{
+						"type":        "string",
+						"description": "Task priority: 'high' (critical/blocking), 'medium' (normal, default), 'low' (nice-to-have)",
+						"enum":        []string{"high", "medium", "low"},
+					},
+					"depends_on": map[string]interface{}{
+						"type":        "array",
+						"description": "Array of task IDs that must complete before this task (e.g., ['task-001', 'task-002'])",
+						"items": map[string]interface{}{
+							"type": "string",
+						},
 					},
 				},
 				"required": []string{"title", "description", "agent_role"},
@@ -437,8 +449,29 @@ Description: %s
 1. **Analyze Requirements** - Understand what the user wants
 2. **Review Codebase** - Use read_file to understand current architecture
 3. **Break Down Work** - Split large features into smaller, focused tasks
-4. **Identify Dependencies** - Determine task order and dependencies
-5. **Return Plan** - Provide structured task breakdown
+4. **Set Priorities** - Determine urgency: HIGH (critical/blocking), MEDIUM (normal), LOW (nice-to-have)
+5. **Identify Dependencies** - Determine which tasks must complete before others
+6. **Return Structured Plan** - Provide tasks in this exact format:
+
+**Task Breakdown Format:**
+For each task, output:
+TASK: <clear title>
+DESCRIPTION: <detailed description>
+ROLE: <keymaker|sentinel|oracle>
+PRIORITY: <HIGH|MEDIUM|LOW>
+DEPENDS_ON: <task-001, task-002> (or NONE if no dependencies)
+---
+
+**Priority Guidelines:**
+- HIGH: Critical bugs, blocking issues, foundational work needed by other tasks
+- MEDIUM: Normal features, improvements (default priority)
+- LOW: Nice-to-have improvements, refactoring, optimizations
+
+**Dependency Guidelines:**
+- Implementation must come before testing
+- Testing must come before review
+- Foundation/infrastructure before features that use it
+- Use task IDs like task-001, task-002 for dependencies
 
 **Best Practices:**
 - Read existing code to understand patterns
@@ -446,6 +479,7 @@ Description: %s
 - Order tasks logically (infrastructure before features)
 - Consider testing needs for each task
 - Be specific in task descriptions
+- Set realistic priorities based on impact and urgency
 
 Be strategic and thoughtful. Your plans guide the entire team.`,
 			taskTitle, taskDescription, toolsSection)
@@ -868,13 +902,57 @@ func (e *Engine) handleCreateTask(input map[string]interface{}) (string, error) 
 		return "", fmt.Errorf("agent_role must be 'implementation' or 'testing'")
 	}
 
+	// Parse optional priority (default: 1=medium)
+	priority := 1 // medium
+	if priorityStr, ok := input["priority"].(string); ok {
+		switch priorityStr {
+		case "high", "HIGH":
+			priority = 2
+		case "low", "LOW":
+			priority = 0
+		default:
+			priority = 1 // medium
+		}
+	}
+
+	// Parse optional dependencies
+	var dependsOn []string
+	if deps, ok := input["depends_on"].([]interface{}); ok {
+		for _, dep := range deps {
+			if depStr, ok := dep.(string); ok && depStr != "" {
+				dependsOn = append(dependsOn, depStr)
+			}
+		}
+	}
+
+	// Build task options
+	var opts []coordinator.TaskOption
+	if priority != 1 { // Only set if non-default
+		opts = append(opts, coordinator.WithPriority(priority))
+	}
+	if len(dependsOn) > 0 {
+		opts = append(opts, coordinator.WithDependencies(dependsOn...))
+	}
+
 	// Create task via coordinator
-	taskID, err := e.coord.CreateTask(title, description, agentRole)
+	taskID, err := e.coord.CreateTask(title, description, agentRole, opts...)
 	if err != nil {
 		return "", fmt.Errorf("failed to create task: %w", err)
 	}
 
-	return fmt.Sprintf("✅ Created task %s: %s (assigned to %s agent)", taskID, title, agentRole), nil
+	priorityLabel := "medium"
+	if priority == 2 {
+		priorityLabel = "high"
+	} else if priority == 0 {
+		priorityLabel = "low"
+	}
+
+	result := fmt.Sprintf("✅ Created task %s: %s (assigned to %s agent, priority: %s)", taskID, title, agentRole, priorityLabel)
+	if len(dependsOn) > 0 {
+		result += fmt.Sprintf(", depends on: %v", dependsOn)
+	}
+
+	return result, nil
 }
 
 // handleListTasks handles the list_tasks tool call

@@ -23,6 +23,7 @@ var (
 	FileLocksBucket = []byte("file_locks")
 	TasksBucket     = []byte("tasks")
 	AgentsBucket    = []byte("agents")
+	SessionsBucket  = []byte("sessions")
 	SequenceBucket  = []byte("sequences")
 )
 
@@ -39,7 +40,7 @@ func InitProjectStorage(projectRoot string) (Store, error) {
 	}
 
 	// Initialize database
-	dbPath := filepath.Join(smithDir, "smith.bolt.db")
+	dbPath := filepath.Join(smithDir, "smith.db")
 	db, err := initBoltDatabase(dbPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize database: %w", err)
@@ -71,6 +72,7 @@ func initBoltDatabase(dbPath string) (*BoltDB, error) {
 			FileLocksBucket,
 			TasksBucket,
 			AgentsBucket,
+			SessionsBucket,
 			SequenceBucket,
 		}
 		for _, bucket := range buckets {

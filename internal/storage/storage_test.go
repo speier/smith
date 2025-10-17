@@ -28,10 +28,10 @@ func TestInitProjectStorage(t *testing.T) {
 		t.Error(".smith directory was not created")
 	}
 
-	// Verify smith.bolt.db was created
-	dbPath := filepath.Join(smithDir, "smith.bolt.db")
+	// Verify smith.db was created
+	dbPath := filepath.Join(smithDir, "smith.db")
 	if _, err := os.Stat(dbPath); os.IsNotExist(err) {
-		t.Error("smith.bolt.db was not created")
+		t.Error("smith.db was not created")
 	}
 
 	// Verify config.yaml was created

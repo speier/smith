@@ -38,8 +38,6 @@ func TestGitignoreContent(t *testing.T) {
 	// Verify all required entries are present
 	required := []string{
 		"smith.db",
-		"smith.db-shm",
-		"smith.db-wal",
 		"config.yaml",
 	}
 
