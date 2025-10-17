@@ -1,6 +1,8 @@
 # golangci-lint configuration for Smith
 # Minimal config - focuses on the critical linters
 
+version: "1"
+
 run:
   timeout: 5m
 
