@@ -1,3 +1,22 @@
+// Package storage provides the storage abstraction layer for Smith's multi-agent coordination.
+//
+// Architecture:
+//   - Storage interfaces (EventStore, AgentStore, TaskStore, LockStore) define all operations
+//   - BBolt implementation provides lock-free concurrent access for multiple agents
+//   - Storage is fully swappable - implement the Store interface to use any backend
+//
+// Current Backend: BBolt (go.etcd.io/bbolt)
+//   - Embedded key-value database (same as etcd/Kubernetes)
+//   - Single-writer MVCC eliminates database lock contention
+//   - Pure Go, no CGo dependencies
+//   - Battle-tested in production systems
+//
+// Why not SQLite?
+//   - SQLITE_BUSY errors with concurrent agents (4+ agents hitting lock timeouts)
+//   - CGo dependency complicates cross-compilation
+//   - BBolt's simple key-value model fits our access patterns better
+//
+// To swap backends: Implement the Store interface and change InitProjectStorage()
 package storage
 
 import (

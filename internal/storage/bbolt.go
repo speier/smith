@@ -28,8 +28,9 @@ var (
 
 // Note: Task, Agent, Event, FileLock types are now defined in interfaces.go
 
-// InitProjectStorageBolt initializes the .smith directory and BBolt database
-func InitProjectStorageBolt(projectRoot string) (Store, error) {
+// InitProjectStorage initializes the .smith directory and BBolt database.
+// This is the primary storage backend using BBolt for lock-free concurrent access.
+func InitProjectStorage(projectRoot string) (Store, error) {
 	smithDir := filepath.Join(projectRoot, ".smith")
 
 	// Create .smith/ directory if it doesn't exist

@@ -35,7 +35,7 @@ func TestCompleteVisionFlow(t *testing.T) {
 	taskID1, err := coord.CreateTask(
 		"Implement user authentication",
 		"Add login/logout endpoints with JWT tokens",
-		"implementation",
+		string(eventbus.RoleImplementation), // "keymaker"
 	)
 	if err != nil {
 		t.Fatalf("failed to create task 1: %v", err)
@@ -45,7 +45,7 @@ func TestCompleteVisionFlow(t *testing.T) {
 	taskID2, err := coord.CreateTask(
 		"Add authentication tests",
 		"Write unit and integration tests for auth",
-		"testing",
+		string(eventbus.RoleTesting), // "sentinel"
 	)
 	if err != nil {
 		t.Fatalf("failed to create task 2: %v", err)
@@ -205,7 +205,7 @@ func TestMultipleAgentsConcurrent(t *testing.T) {
 		taskID, err := coord.CreateTask(
 			"Implementation task",
 			"Some implementation work",
-			"implementation",
+			string(eventbus.RoleImplementation),
 		)
 		if err != nil {
 			t.Fatalf("failed to create task %d: %v", i, err)
@@ -274,7 +274,7 @@ func TestAgentErrorHandling(t *testing.T) {
 	taskID, err := coord.CreateTask(
 		"Failing task",
 		"This will fail",
-		"implementation",
+		string(eventbus.RoleImplementation),
 	)
 	if err != nil {
 		t.Fatalf("failed to create task: %v", err)
@@ -350,7 +350,7 @@ func TestPlanningAgent(t *testing.T) {
 	taskID, err := coord.CreateTask(
 		"Plan authentication feature",
 		"Break down auth feature into implementation tasks",
-		"planning",
+		string(eventbus.RolePlanning),
 	)
 	if err != nil {
 		t.Fatalf("failed to create task: %v", err)
@@ -417,7 +417,7 @@ func TestReviewAgent(t *testing.T) {
 	taskID, err := coord.CreateTask(
 		"Review authentication code",
 		"Review JWT implementation for security issues",
-		"review",
+		string(eventbus.RoleReview),
 	)
 	if err != nil {
 		t.Fatalf("failed to create task: %v", err)
@@ -486,10 +486,10 @@ func TestAllAgentTypes(t *testing.T) {
 		description string
 		role        string
 	}{
-		{"Plan feature", "Break down feature", "planning"},
-		{"Implement feature", "Write code", "implementation"},
-		{"Test feature", "Write tests", "testing"},
-		{"Review code", "Review implementation", "review"},
+		{"Plan feature", "Break down feature", string(eventbus.RolePlanning)},
+		{"Implement feature", "Write code", string(eventbus.RoleImplementation)},
+		{"Test feature", "Write tests", string(eventbus.RoleTesting)},
+		{"Review code", "Review implementation", string(eventbus.RoleReview)},
 	}
 
 	for _, task := range tasks {

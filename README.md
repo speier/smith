@@ -13,7 +13,7 @@ Smith is an AI coding assistant that orchestrates multiple specialized agents wo
 **Key Features:**
 - **Multi-Agent Coordination** - Specialized agents work in parallel on different aspects of your code
 - **Interactive REPL** - Natural conversation interface powered by Bubble Tea
-- **SQLite-Based State** - Agents coordinate through a local database in `.smith/`
+- **BBolt Storage** - Lock-free coordination via embedded key-value store (same as etcd/Kubernetes)
 - **Safety Levels** - Control what agents can do (Low/Medium/High execution permissions)
 - **GitHub Copilot Integration** - Powered by GPT-4o for intelligent responses
 
@@ -49,26 +49,37 @@ go build -o smith .
 
 ## 🚀 Project Status
 
-**Current - v0.1.0:**
+**Current - v0.2.0:**
 
 ✅ Interactive REPL with Bubble Tea  
 ✅ GitHub Copilot integration (GPT-4o)  
-✅ SQLite coordination infrastructure  
+✅ BBolt-based coordination (lock-free, concurrent)  
+✅ Multi-agent spawning and coordination  
+✅ Specialized agent roles (Architect, Keymaker, Sentinel, Oracle)  
+✅ Agent-to-agent communication via event bus  
+✅ Task queue and parallel execution  
+✅ File locking system for safe concurrent edits  
 ✅ Safety levels and execution control  
-✅ Event bus and file locking system  
 
-🚧 **Next Steps:**
-- Multi-agent spawning and coordination
-- Specialized agent roles (planning, implementation, testing, review)
-- Agent-to-agent communication via event bus
-- Task queue and parallel execution
+🚧 **In Progress:**
+- Agent status dashboard in REPL
+- Task visualization and progress tracking
+- Agent memory/context sharing
+- Task dependencies and prioritization
+- Cost tracking for LLM API calls
+
+🎯 **Roadmap:**
+- Agent performance metrics
+- Configuration file support
+- Better error messages and diagnostics
+- Stress testing with 10+ concurrent agents
 
 ## 🎓 Technology Stack
 
 - **Go** - Performance and clean architecture
 - **GitHub Copilot** - GPT-4o powered intelligence
 - **Bubble Tea** - Modern terminal UI framework
-- **SQLite** - WAL mode coordination with concurrent access
+- **BBolt** - Embedded key-value database (powers etcd/Kubernetes), enables lock-free concurrent agent coordination
 
 ## 🤝 Contributing
 

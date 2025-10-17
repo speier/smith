@@ -20,9 +20,10 @@ type SQLiteCoordinator struct {
 	registry    *registry.Registry
 }
 
-// NewSQLite creates a new SQLite-based coordinator
+// NewSQLite creates a new BBolt-based coordinator
 func NewSQLite(projectPath string) (*SQLiteCoordinator, error) {
 	// Initialize storage (creates .smith/ directory, db, config, etc.)
+	// Using BBolt for lock-free concurrent access by multiple agents
 	store, err := storage.InitProjectStorage(projectPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize storage: %w", err)
