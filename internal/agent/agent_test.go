@@ -8,6 +8,7 @@ import (
 
 	"github.com/speier/smith/internal/coordinator"
 	"github.com/speier/smith/internal/eventbus"
+	"github.com/speier/smith/internal/storage"
 )
 
 // TestCompleteVisionFlow demonstrates the full vision:
@@ -24,7 +25,7 @@ func TestCompleteVisionFlow(t *testing.T) {
 	defer coord.Close()
 
 	// Get registry from coordinator
-	reg := coord.Registry()
+	reg := coord.GetRegistry()
 
 	// === STEP 1: User chats in REPL ===
 	// User: "implement user authentication and add tests"
@@ -147,25 +148,17 @@ func TestCompleteVisionFlow(t *testing.T) {
 	t.Logf("✅ Task 2 result: %s", task2.Result)
 
 	// === STEP 5: Verify events were published ===
-	rows, err := coord.DB().QueryContext(ctx, `
-		SELECT event_type, agent_id, task_id 
-		FROM events 
-		WHERE task_id IN (?, ?)
-		ORDER BY timestamp ASC
-	`, taskID1, taskID2)
+	allEvents, err := coord.DB().QueryEvents(ctx, storage.EventFilter{})
 	if err != nil {
 		t.Fatalf("failed to query events: %v", err)
 	}
-	defer rows.Close()
 
 	var events []string
-	for rows.Next() {
-		var eventType, agentID string
-		var taskID *string
-		if err := rows.Scan(&eventType, &agentID, &taskID); err != nil {
-			t.Fatalf("failed to scan event: %v", err)
+	for _, evt := range allEvents {
+		// Only include events for our tasks
+		if evt.TaskID != nil && (*evt.TaskID == taskID1 || *evt.TaskID == taskID2) {
+			events = append(events, evt.EventType)
 		}
-		events = append(events, eventType)
 	}
 
 	// Should have: task_created, task_claimed, task_completed for each task
@@ -204,7 +197,7 @@ func TestMultipleAgentsConcurrent(t *testing.T) {
 	}
 	defer coord.Close()
 
-	reg := coord.Registry()
+	reg := coord.GetRegistry()
 
 	// Create 5 implementation tasks
 	taskIDs := make([]string, 5)
@@ -275,7 +268,7 @@ func TestAgentErrorHandling(t *testing.T) {
 	}
 	defer coord.Close()
 
-	reg := coord.Registry()
+	reg := coord.GetRegistry()
 
 	// Create a task
 	taskID, err := coord.CreateTask(
@@ -351,7 +344,7 @@ func TestPlanningAgent(t *testing.T) {
 	}
 	defer coord.Close()
 
-	reg := coord.Registry()
+	reg := coord.GetRegistry()
 
 	// Create a planning task
 	taskID, err := coord.CreateTask(
@@ -418,7 +411,7 @@ func TestReviewAgent(t *testing.T) {
 	}
 	defer coord.Close()
 
-	reg := coord.Registry()
+	reg := coord.GetRegistry()
 
 	// Create a review task
 	taskID, err := coord.CreateTask(
@@ -485,7 +478,7 @@ func TestAllAgentTypes(t *testing.T) {
 	}
 	defer coord.Close()
 
-	reg := coord.Registry()
+	reg := coord.GetRegistry()
 
 	// Create tasks for each agent type
 	tasks := []struct {

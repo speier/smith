@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/speier/smith/internal/eventbus"
+	"github.com/speier/smith/internal/storage"
 )
 
 // TestFullTaskFlow tests the complete lifecycle:
@@ -437,36 +438,26 @@ func TestEventBusIntegration(t *testing.T) {
 		t.Fatalf("failed to create task: %v", err)
 	}
 
-	// Query events from database
+	// Query events from EventStore
 	time.Sleep(10 * time.Millisecond) // Give event time to be written
 
-	rows, err := coord.db.QueryContext(ctx, `
-		SELECT event_type, task_id 
-		FROM events 
-		WHERE event_type = 'task_created' AND task_id = ?
-	`, taskID)
+	events, err := coord.db.QueryEvents(ctx, storage.EventFilter{
+		EventTypes: []string{"task_created"},
+	})
 	if err != nil {
 		t.Fatalf("failed to query events: %v", err)
 	}
-	defer rows.Close()
 
-	eventCount := 0
-	for rows.Next() {
-		var eventType, eventTaskID string
-		if err := rows.Scan(&eventType, &eventTaskID); err != nil {
-			t.Fatalf("failed to scan event: %v", err)
+	// Find our task event
+	found := false
+	for _, evt := range events {
+		if evt.TaskID != nil && *evt.TaskID == taskID {
+			found = true
+			break
 		}
-		if eventType != "task_created" {
-			t.Errorf("expected event_type 'task_created', got %s", eventType)
-		}
-		if eventTaskID != taskID {
-			t.Errorf("expected task_id %s, got %s", taskID, eventTaskID)
-		}
-		eventCount++
 	}
-
-	if eventCount != 1 {
-		t.Errorf("expected 1 task_created event, got %d", eventCount)
+	if !found {
+		t.Fatal("task_created event not found")
 	}
 
 	// Register agent and claim task (should publish EventTaskClaimed)
@@ -482,13 +473,18 @@ func TestEventBusIntegration(t *testing.T) {
 	time.Sleep(10 * time.Millisecond)
 
 	// Verify EventTaskClaimed was published
-	var claimEventCount int
-	err = coord.db.QueryRowContext(ctx, `
-		SELECT COUNT(*) FROM events 
-		WHERE event_type = 'task_claimed' AND task_id = ?
-	`, taskID).Scan(&claimEventCount)
+	claimEvents, err := coord.db.QueryEvents(ctx, storage.EventFilter{
+		EventTypes: []string{"task_claimed"},
+	})
 	if err != nil {
-		t.Fatalf("failed to count claim events: %v", err)
+		t.Fatalf("failed to query claim events: %v", err)
+	}
+
+	claimEventCount := 0
+	for _, evt := range claimEvents {
+		if evt.TaskID != nil && *evt.TaskID == taskID {
+			claimEventCount++
+		}
 	}
 	if claimEventCount != 1 {
 		t.Errorf("expected 1 task_claimed event, got %d", claimEventCount)

@@ -9,30 +9,30 @@ import (
 	"github.com/speier/smith/internal/storage"
 )
 
-func setupTestDB(t *testing.T) (*storage.DB, func()) {
+func setupTestDB(t *testing.T) (storage.Store, func()) {
 	tmpDir, err := os.MkdirTemp("", "smith-eventbus-test-*")
 	if err != nil {
 		t.Fatalf("failed to create temp dir: %v", err)
 	}
 
-	db, err := storage.InitProjectStorage(tmpDir)
+	store, err := storage.InitProjectStorage(tmpDir)
 	if err != nil {
 		t.Fatalf("failed to init storage: %v", err)
 	}
 
 	cleanup := func() {
-		db.Close()
+		store.Close()
 		os.RemoveAll(tmpDir)
 	}
 
-	return db, cleanup
+	return store, cleanup
 }
 
 func TestPublishAndQuery(t *testing.T) {
-	db, cleanup := setupTestDB(t)
+	store, cleanup := setupTestDB(t)
 	defer cleanup()
 
-	bus := New(db.DB)
+	bus := New(store)
 	ctx := context.Background()
 
 	// Publish an event
@@ -69,10 +69,10 @@ func TestPublishAndQuery(t *testing.T) {
 }
 
 func TestPublishWithData(t *testing.T) {
-	db, cleanup := setupTestDB(t)
+	store, cleanup := setupTestDB(t)
 	defer cleanup()
 
-	bus := New(db.DB)
+	bus := New(store)
 	ctx := context.Background()
 
 	taskID := "task-456"
@@ -103,10 +103,10 @@ func TestPublishWithData(t *testing.T) {
 }
 
 func TestEventFiltering(t *testing.T) {
-	db, cleanup := setupTestDB(t)
+	store, cleanup := setupTestDB(t)
 	defer cleanup()
 
-	bus := New(db.DB)
+	bus := New(store)
 	ctx := context.Background()
 
 	// Publish multiple events
@@ -154,10 +154,10 @@ func TestEventFiltering(t *testing.T) {
 }
 
 func TestSubscribe(t *testing.T) {
-	db, cleanup := setupTestDB(t)
+	store, cleanup := setupTestDB(t)
 	defer cleanup()
 
-	bus := New(db.DB)
+	bus := New(store)
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 

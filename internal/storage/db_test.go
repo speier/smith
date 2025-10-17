@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -45,14 +46,31 @@ func TestInitProjectStorage(t *testing.T) {
 		t.Error(".gitignore was not created")
 	}
 
-	// Verify tables were created by querying them
-	tables := []string{"events", "file_locks", "task_assignments", "agents"}
-	for _, table := range tables {
-		var count int
-		err := db.QueryRow("SELECT COUNT(*) FROM " + table).Scan(&count)
-		if err != nil {
-			t.Errorf("table %s does not exist or is invalid: %v", table, err)
-		}
+	// Verify tables exist by using Store methods
+	ctx := context.Background()
+
+	// Test events table
+	_, err = db.QueryEvents(ctx, EventFilter{})
+	if err != nil {
+		t.Errorf("events table not accessible: %v", err)
+	}
+
+	// Test agents table
+	_, err = db.ListAgents(ctx, nil)
+	if err != nil {
+		t.Errorf("agents table not accessible: %v", err)
+	}
+
+	// Test tasks table
+	_, err = db.ListTasks(ctx, nil)
+	if err != nil {
+		t.Errorf("tasks table not accessible: %v", err)
+	}
+
+	// Test locks table
+	_, err = db.GetLocks(ctx)
+	if err != nil {
+		t.Errorf("locks table not accessible: %v", err)
 	}
 }
 

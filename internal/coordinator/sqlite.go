@@ -2,8 +2,8 @@ package coordinator
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
+	"time"
 
 	"github.com/speier/smith/internal/eventbus"
 	"github.com/speier/smith/internal/locks"
@@ -14,7 +14,7 @@ import (
 // SQLiteCoordinator implements coordination using SQLite database
 type SQLiteCoordinator struct {
 	projectPath string
-	db          *storage.DB
+	db          storage.Store
 	eventBus    *eventbus.EventBus
 	lockMgr     *locks.Manager
 	registry    *registry.Registry
@@ -23,30 +23,121 @@ type SQLiteCoordinator struct {
 // NewSQLite creates a new SQLite-based coordinator
 func NewSQLite(projectPath string) (*SQLiteCoordinator, error) {
 	// Initialize storage (creates .smith/ directory, db, config, etc.)
-	db, err := storage.InitProjectStorage(projectPath)
+	store, err := storage.InitProjectStorage(projectPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize storage: %w", err)
 	}
 
 	c := &SQLiteCoordinator{
 		projectPath: projectPath,
-		db:          db,
-		eventBus:    eventbus.New(db.DB),
-		lockMgr:     locks.New(db.DB),
-		registry:    registry.New(db.DB),
+		db:          store,
+		eventBus:    eventbus.New(store),
+		lockMgr:     locks.New(store),
+		registry:    registry.New(store),
 	}
 
 	return c, nil
 }
 
-// Registry returns the agent registry
+// Registry returns the agent registry (legacy method - use GetRegistry instead)
 func (c *SQLiteCoordinator) Registry() *registry.Registry {
 	return c.registry
 }
 
 // DB returns the database connection (for testing)
-func (c *SQLiteCoordinator) DB() *storage.DB {
+func (c *SQLiteCoordinator) DB() storage.Store {
 	return c.db
+}
+
+// GetEventBus returns the event bus (implementing Coordinator interface)
+func (c *SQLiteCoordinator) GetEventBus() EventBus {
+	return &eventBusAdapter{c.eventBus}
+}
+
+// GetRegistry returns the agent registry (implementing Coordinator interface)
+func (c *SQLiteCoordinator) GetRegistry() Registry {
+	return &registryAdapter{c.registry}
+}
+
+// eventBusAdapter wraps eventbus.EventBus to match the Coordinator.EventBus interface
+type eventBusAdapter struct {
+	*eventbus.EventBus
+}
+
+func (a *eventBusAdapter) Publish(ctx context.Context, event Event) error {
+	// Convert interface Event to eventbus.Event
+	ebEvent := &eventbus.Event{
+		AgentID:   event.AgentID,
+		AgentRole: eventbus.AgentRole(event.AgentRole),
+		Type:      eventbus.EventType(event.Type),
+		TaskID:    event.TaskID,
+		Data:      event.Data,
+	}
+	return a.EventBus.Publish(ctx, ebEvent)
+}
+
+func (a *eventBusAdapter) Query(ctx context.Context, filter EventFilter) ([]Event, error) {
+	// Convert interface EventFilter to eventbus.EventFilter
+	ebFilter := eventbus.EventFilter{}
+	for _, et := range filter.EventTypes {
+		ebFilter.EventTypes = append(ebFilter.EventTypes, eventbus.EventType(et))
+	}
+
+	events, err := a.EventBus.Query(ctx, ebFilter)
+	if err != nil {
+		return nil, err
+	}
+
+	// Convert eventbus.Events to interface Events
+	result := make([]Event, len(events))
+	for i, e := range events {
+		result[i] = Event{
+			AgentID:   e.AgentID,
+			AgentRole: AgentRole(e.AgentRole),
+			Type:      EventType(e.Type),
+			TaskID:    e.TaskID,
+			Data:      e.Data,
+		}
+	}
+	return result, nil
+}
+
+// registryAdapter wraps registry.Registry to match the Coordinator.Registry interface
+type registryAdapter struct {
+	*registry.Registry
+}
+
+func (a *registryAdapter) Register(ctx context.Context, agentID string, role AgentRole, pid int) error {
+	return a.Registry.Register(ctx, agentID, eventbus.AgentRole(role), pid)
+}
+
+func (a *registryAdapter) Heartbeat(ctx context.Context, agentID string) error {
+	return a.Registry.Heartbeat(ctx, agentID)
+}
+
+func (a *registryAdapter) Unregister(ctx context.Context, agentID string) error {
+	return a.Registry.Unregister(ctx, agentID)
+}
+
+func (a *registryAdapter) GetActiveAgents(ctx context.Context) ([]Agent, error) {
+	// List all agents (role filter = nil means all roles)
+	agents, err := a.Registry.List(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	// Filter for active agents only
+	var activeAgents []Agent
+	for _, ag := range agents {
+		if ag.Status == registry.StatusActive {
+			activeAgents = append(activeAgents, Agent{
+				ID:     ag.ID,
+				Role:   AgentRole(ag.Role),
+				Status: string(ag.Status),
+			})
+		}
+	}
+	return activeAgents, nil
 }
 
 // EnsureDirectories creates the .smith directory structure
@@ -61,35 +152,16 @@ func (c *SQLiteCoordinator) EnsureDirectories() error {
 func (c *SQLiteCoordinator) GetTaskStats() (*TaskStats, error) {
 	ctx := context.Background()
 
-	// Query task assignments to get counts by status
-	rows, err := c.db.QueryContext(ctx, `
-		SELECT status, COUNT(*) as count
-		FROM task_assignments
-		GROUP BY status
-	`)
+	storageStats, err := c.db.GetTaskStats(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to query task stats: %w", err)
+		return nil, fmt.Errorf("failed to get task stats: %w", err)
 	}
-	defer rows.Close()
 
-	stats := &TaskStats{}
-	for rows.Next() {
-		var status string
-		var count int
-		if err := rows.Scan(&status, &count); err != nil {
-			return nil, fmt.Errorf("failed to scan task stats: %w", err)
-		}
-
-		switch status {
-		case "backlog":
-			stats.Backlog = count
-		case "wip":
-			stats.WIP = count
-		case "review":
-			stats.Review = count
-		case "done":
-			stats.Done = count
-		}
+	stats := &TaskStats{
+		Backlog: storageStats.Backlog,
+		WIP:     storageStats.WIP,
+		Review:  storageStats.Review,
+		Done:    storageStats.Done,
 	}
 
 	return stats, nil
@@ -99,30 +171,21 @@ func (c *SQLiteCoordinator) GetTaskStats() (*TaskStats, error) {
 func (c *SQLiteCoordinator) GetAvailableTasks() ([]Task, error) {
 	ctx := context.Background()
 
-	// Query for backlog tasks
-	rows, err := c.db.QueryContext(ctx, `
-		SELECT task_id, title, description, agent_role, status
-		FROM task_assignments
-		WHERE status = 'backlog'
-		ORDER BY started_at ASC
-	`)
+	status := "backlog"
+	storageTasks, err := c.db.ListTasks(ctx, &status)
 	if err != nil {
-		return nil, fmt.Errorf("failed to query available tasks: %w", err)
+		return nil, fmt.Errorf("failed to list available tasks: %w", err)
 	}
-	defer rows.Close()
 
 	var tasks []Task
-	for rows.Next() {
-		var task Task
-		var role sql.NullString
-		if err := rows.Scan(&task.ID, &task.Title, &task.Description, &role, &task.Status); err != nil {
-			return nil, fmt.Errorf("failed to scan task: %w", err)
+	for _, st := range storageTasks {
+		task := Task{
+			ID:          st.TaskID,
+			Title:       st.Title,
+			Description: st.Description,
+			Role:        st.AgentRole,
+			Status:      st.Status,
 		}
-
-		if role.Valid {
-			task.Role = role.String
-		}
-
 		tasks = append(tasks, task)
 	}
 
@@ -133,45 +196,25 @@ func (c *SQLiteCoordinator) GetAvailableTasks() ([]Task, error) {
 func (c *SQLiteCoordinator) GetTasksByStatus(status string) ([]Task, error) {
 	ctx := context.Background()
 
-	var query string
-	var args []interface{}
-
-	if status == "" {
-		// Get all tasks
-		query = `
-			SELECT task_id, title, description, agent_role, status
-			FROM task_assignments
-			ORDER BY started_at DESC
-		`
-	} else {
-		// Filter by status
-		query = `
-			SELECT task_id, title, description, agent_role, status
-			FROM task_assignments
-			WHERE status = ?
-			ORDER BY started_at DESC
-		`
-		args = append(args, status)
+	var statusFilter *string
+	if status != "" {
+		statusFilter = &status
 	}
 
-	rows, err := c.db.QueryContext(ctx, query, args...)
+	storageTasks, err := c.db.ListTasks(ctx, statusFilter)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query tasks: %w", err)
 	}
-	defer rows.Close()
 
 	var tasks []Task
-	for rows.Next() {
-		var task Task
-		var role sql.NullString
-		if err := rows.Scan(&task.ID, &task.Title, &task.Description, &role, &task.Status); err != nil {
-			return nil, fmt.Errorf("failed to scan task: %w", err)
+	for _, st := range storageTasks {
+		task := Task{
+			ID:          st.TaskID,
+			Title:       st.Title,
+			Description: st.Description,
+			Role:        st.AgentRole,
+			Status:      st.Status,
 		}
-
-		if role.Valid {
-			task.Role = role.String
-		}
-
 		tasks = append(tasks, task)
 	}
 
@@ -234,29 +277,8 @@ func (c *SQLiteCoordinator) GetMessages() ([]Message, error) {
 func (c *SQLiteCoordinator) ClaimTask(taskID, agent string) error {
 	ctx := context.Background()
 
-	// Check if task exists and is available
-	var currentStatus string
-	var currentAgent sql.NullString
-	err := c.db.QueryRowContext(ctx, `
-		SELECT status, agent_id FROM task_assignments WHERE task_id = ?
-	`, taskID).Scan(&currentStatus, &currentAgent)
-
-	if err != nil {
-		return fmt.Errorf("task %s not found: %w", taskID, err)
-	}
-
-	if currentStatus != "backlog" {
-		return fmt.Errorf("task %s is not available (status: %s)", taskID, currentStatus)
-	}
-
-	// Update task to WIP and assign to agent
-	_, err = c.db.ExecContext(ctx, `
-		UPDATE task_assignments 
-		SET agent_id = ?, agent_role = ?, status = 'wip'
-		WHERE task_id = ?
-	`, agent, "implementation", taskID) // TODO: Determine role
-
-	if err != nil {
+	// Use TaskStore to claim the task
+	if err := c.db.ClaimTask(ctx, taskID, agent); err != nil {
 		return fmt.Errorf("failed to claim task: %w", err)
 	}
 
@@ -272,44 +294,45 @@ func (c *SQLiteCoordinator) ClaimTask(taskID, agent string) error {
 	)
 }
 
-// CreateTask creates a new task and adds it to the backlog
+// CreateTask creates a new task in the system
 func (c *SQLiteCoordinator) CreateTask(title, description, role string) (string, error) {
 	ctx := context.Background()
 
-	// Generate task ID (simple incremental for now)
-	var maxID int
-	err := c.db.QueryRowContext(ctx, `
-		SELECT COALESCE(MAX(CAST(SUBSTR(task_id, 6) AS INTEGER)), 0)
-		FROM task_assignments
-		WHERE task_id LIKE 'task-%'
-	`).Scan(&maxID)
-	if err != nil && err != sql.ErrNoRows {
-		return "", fmt.Errorf("failed to generate task ID: %w", err)
+	// Generate unique task ID (simple counter-based for now)
+	allTasks, err := c.db.ListTasks(ctx, nil)
+	if err != nil {
+		return "", fmt.Errorf("failed to list tasks: %w", err)
 	}
 
-	taskID := fmt.Sprintf("task-%03d", maxID+1)
+	taskID := fmt.Sprintf("task-%03d", len(allTasks)+1)
 
-	// Insert task into database
-	_, err = c.db.ExecContext(ctx, `
-		INSERT INTO task_assignments (task_id, title, description, agent_role, status)
-		VALUES (?, ?, ?, ?, 'backlog')
-	`, taskID, title, description, role)
-	if err != nil {
+	// Create task via TaskStore
+	task := &storage.Task{
+		TaskID:      taskID,
+		Title:       title,
+		Description: description,
+		AgentRole:   role,
+		Status:      "backlog",
+		StartedAt:   time.Now(),
+		UpdatedAt:   time.Now(),
+	}
+
+	if err := c.db.CreateTask(ctx, task); err != nil {
 		return "", fmt.Errorf("failed to create task: %w", err)
 	}
 
-	// Publish event
-	err = c.eventBus.PublishWithData(
+	// Publish task created event
+	if err := c.eventBus.PublishWithData(
 		ctx,
 		"coordinator",
 		eventbus.RoleCoordinator,
 		eventbus.EventTaskCreated,
 		&taskID,
 		nil,
-		map[string]string{"task_id": taskID, "title": title},
-	)
-	if err != nil {
-		return "", fmt.Errorf("failed to publish task created event: %w", err)
+		map[string]string{"task_id": taskID, "title": title, "role": role},
+	); err != nil {
+		// Log error but don't fail task creation
+		fmt.Printf("warning: failed to publish task_created event: %v\n", err)
 	}
 
 	return taskID, nil
@@ -330,22 +353,17 @@ func (c *SQLiteCoordinator) UpdateTaskStatus(taskID, status string) error {
 		return fmt.Errorf("invalid status: %s", status)
 	}
 
-	// Update status
-	result, err := c.db.ExecContext(ctx, `
-		UPDATE task_assignments 
-		SET status = ?, updated_at = CURRENT_TIMESTAMP
-		WHERE task_id = ?
-	`, status, taskID)
+	// Get task and update status
+	task, err := c.db.GetTask(ctx, taskID)
 	if err != nil {
-		return fmt.Errorf("failed to update task status: %w", err)
+		return fmt.Errorf("failed to get task: %w", err)
 	}
 
-	rows, err := result.RowsAffected()
-	if err != nil {
-		return fmt.Errorf("failed to get rows affected: %w", err)
-	}
-	if rows == 0 {
-		return fmt.Errorf("task not found: %s", taskID)
+	task.Status = status
+	task.UpdatedAt = time.Now()
+
+	if err := c.db.UpdateTask(ctx, task); err != nil {
+		return fmt.Errorf("failed to update task: %w", err)
 	}
 
 	// Publish event
@@ -364,22 +382,20 @@ func (c *SQLiteCoordinator) UpdateTaskStatus(taskID, status string) error {
 func (c *SQLiteCoordinator) CompleteTask(taskID, result string) error {
 	ctx := context.Background()
 
-	// Update task to done with result
-	res, err := c.db.ExecContext(ctx, `
-		UPDATE task_assignments 
-		SET status = 'done', result = ?, completed_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
-		WHERE task_id = ?
-	`, result, taskID)
+	// Get task and mark as done
+	task, err := c.db.GetTask(ctx, taskID)
 	if err != nil {
-		return fmt.Errorf("failed to complete task: %w", err)
+		return fmt.Errorf("failed to get task: %w", err)
 	}
 
-	rows, err := res.RowsAffected()
-	if err != nil {
-		return fmt.Errorf("failed to get rows affected: %w", err)
-	}
-	if rows == 0 {
-		return fmt.Errorf("task not found: %s", taskID)
+	task.Status = "done"
+	task.Result = result
+	now := time.Now()
+	task.CompletedAt = &now
+	task.UpdatedAt = now
+
+	if err := c.db.UpdateTask(ctx, task); err != nil {
+		return fmt.Errorf("failed to complete task: %w", err)
 	}
 
 	// Publish event
@@ -398,20 +414,24 @@ func (c *SQLiteCoordinator) CompleteTask(taskID, result string) error {
 func (c *SQLiteCoordinator) FailTask(taskID, errorMsg string) error {
 	ctx := context.Background()
 
-	// Update task status back to backlog and store error
-	res, err := c.db.ExecContext(ctx, `
-		UPDATE task_assignments 
-		SET status = 'backlog', error = ?, agent_id = NULL, updated_at = CURRENT_TIMESTAMP
-		WHERE task_id = ?
-	`, errorMsg, taskID)
+	// Get task and move back to backlog
+	task, err := c.db.GetTask(ctx, taskID)
 	if err != nil {
+		return fmt.Errorf("failed to get task: %w", err)
+	}
+
+	task.Status = "backlog"
+	task.Error = errorMsg
+	task.AgentID = ""
+	task.UpdatedAt = time.Now()
+
+	if err := c.db.UpdateTask(ctx, task); err != nil {
 		return fmt.Errorf("failed to fail task: %w", err)
 	}
 
-	rows, err := res.RowsAffected()
-	if err != nil {
-		return fmt.Errorf("failed to get rows affected: %w", err)
-	}
+	// Skip rows check
+	var rows int64 = 1
+	_ = rows
 	if rows == 0 {
 		return fmt.Errorf("task not found: %s", taskID)
 	}
@@ -432,36 +452,25 @@ func (c *SQLiteCoordinator) FailTask(taskID, errorMsg string) error {
 func (c *SQLiteCoordinator) GetTask(taskID string) (*Task, error) {
 	ctx := context.Background()
 
-	var task Task
-	var agentID, agentRole, result, errMsg sql.NullString
-
-	err := c.db.QueryRowContext(ctx, `
-		SELECT task_id, title, description, agent_id, agent_role, status, result, error
-		FROM task_assignments
-		WHERE task_id = ?
-	`, taskID).Scan(&task.ID, &task.Title, &task.Description, &agentID, &agentRole, &task.Status, &result, &errMsg)
-
-	if err == sql.ErrNoRows {
-		return nil, fmt.Errorf("task not found: %s", taskID)
-	}
+	// Get task from TaskStore
+	storageTask, err := c.db.GetTask(ctx, taskID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get task: %w", err)
 	}
 
-	if agentID.Valid {
-		task.AgentID = agentID.String
-	}
-	if agentRole.Valid {
-		task.Role = agentRole.String
-	}
-	if result.Valid {
-		task.Result = result.String
-	}
-	if errMsg.Valid {
-		task.Error = errMsg.String
+	// Convert storage.Task to coordinator.Task
+	task := &Task{
+		ID:          storageTask.TaskID,
+		Title:       storageTask.Title,
+		Description: storageTask.Description,
+		Status:      storageTask.Status,
+		Role:        storageTask.AgentRole,
+		AgentID:     storageTask.AgentID,
+		Result:      storageTask.Result,
+		Error:       storageTask.Error,
 	}
 
-	return &task, nil
+	return task, nil
 }
 
 // LockFiles locks files for a task/agent

@@ -2,11 +2,11 @@ package registry
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"time"
 
 	"github.com/speier/smith/internal/eventbus"
+	"github.com/speier/smith/internal/storage"
 )
 
 // AgentStatus represents the status of an agent
@@ -31,29 +31,26 @@ type Agent struct {
 
 // Registry manages agent registration and heartbeat tracking
 type Registry struct {
-	db *sql.DB
+	store storage.AgentStore
 }
 
 // New creates a new agent Registry
-func New(db *sql.DB) *Registry {
-	return &Registry{db: db}
+func New(store storage.AgentStore) *Registry {
+	return &Registry{store: store}
 }
 
 // Register registers a new agent
 func (r *Registry) Register(ctx context.Context, agentID string, role eventbus.AgentRole, pid int) error {
-	_, err := r.db.ExecContext(
-		ctx,
-		`INSERT INTO agents (agent_id, agent_role, status, pid)
-		 VALUES (?, ?, ?, ?)
-		 ON CONFLICT(agent_id) DO UPDATE SET
-			agent_role = excluded.agent_role,
-			status = excluded.status,
-			pid = excluded.pid,
-			started_at = CURRENT_TIMESTAMP,
-			last_heartbeat = CURRENT_TIMESTAMP`,
-		agentID, role, StatusActive, pid,
-	)
-	if err != nil {
+	agent := &storage.Agent{
+		ID:            agentID,
+		Role:          string(role),
+		Status:        string(StatusActive),
+		PID:           pid,
+		StartedAt:     time.Now(),
+		LastHeartbeat: time.Now(),
+	}
+
+	if err := r.store.RegisterAgent(ctx, agent); err != nil {
 		return fmt.Errorf("failed to register agent: %w", err)
 	}
 
@@ -62,12 +59,7 @@ func (r *Registry) Register(ctx context.Context, agentID string, role eventbus.A
 
 // Unregister removes an agent from the registry
 func (r *Registry) Unregister(ctx context.Context, agentID string) error {
-	_, err := r.db.ExecContext(
-		ctx,
-		"DELETE FROM agents WHERE agent_id = ?",
-		agentID,
-	)
-	if err != nil {
+	if err := r.store.UnregisterAgent(ctx, agentID); err != nil {
 		return fmt.Errorf("failed to unregister agent: %w", err)
 	}
 
@@ -76,22 +68,8 @@ func (r *Registry) Unregister(ctx context.Context, agentID string) error {
 
 // Heartbeat updates the last heartbeat timestamp for an agent
 func (r *Registry) Heartbeat(ctx context.Context, agentID string) error {
-	result, err := r.db.ExecContext(
-		ctx,
-		"UPDATE agents SET last_heartbeat = CURRENT_TIMESTAMP WHERE agent_id = ?",
-		agentID,
-	)
-	if err != nil {
+	if err := r.store.UpdateHeartbeat(ctx, agentID); err != nil {
 		return fmt.Errorf("failed to update heartbeat: %w", err)
-	}
-
-	rows, err := result.RowsAffected()
-	if err != nil {
-		return fmt.Errorf("failed to check affected rows: %w", err)
-	}
-
-	if rows == 0 {
-		return fmt.Errorf("agent not found: %s", agentID)
 	}
 
 	return nil
@@ -99,12 +77,13 @@ func (r *Registry) Heartbeat(ctx context.Context, agentID string) error {
 
 // UpdateStatus updates the status of an agent
 func (r *Registry) UpdateStatus(ctx context.Context, agentID string, status AgentStatus) error {
-	_, err := r.db.ExecContext(
-		ctx,
-		"UPDATE agents SET status = ? WHERE agent_id = ?",
-		status, agentID,
-	)
+	agent, err := r.store.GetAgent(ctx, agentID)
 	if err != nil {
+		return fmt.Errorf("failed to get agent: %w", err)
+	}
+
+	agent.Status = string(status)
+	if err := r.store.RegisterAgent(ctx, agent); err != nil {
 		return fmt.Errorf("failed to update status: %w", err)
 	}
 
@@ -113,12 +92,14 @@ func (r *Registry) UpdateStatus(ctx context.Context, agentID string, status Agen
 
 // AssignTask assigns a task to an agent
 func (r *Registry) AssignTask(ctx context.Context, agentID string, taskID string) error {
-	_, err := r.db.ExecContext(
-		ctx,
-		"UPDATE agents SET task_id = ?, status = ? WHERE agent_id = ?",
-		taskID, StatusActive, agentID,
-	)
+	agent, err := r.store.GetAgent(ctx, agentID)
 	if err != nil {
+		return fmt.Errorf("failed to get agent: %w", err)
+	}
+
+	agent.TaskID = &taskID
+	agent.Status = string(StatusActive)
+	if err := r.store.RegisterAgent(ctx, agent); err != nil {
 		return fmt.Errorf("failed to assign task: %w", err)
 	}
 
@@ -127,12 +108,14 @@ func (r *Registry) AssignTask(ctx context.Context, agentID string, taskID string
 
 // ClearTask clears the task assignment for an agent
 func (r *Registry) ClearTask(ctx context.Context, agentID string) error {
-	_, err := r.db.ExecContext(
-		ctx,
-		"UPDATE agents SET task_id = NULL, status = ? WHERE agent_id = ?",
-		StatusIdle, agentID,
-	)
+	agent, err := r.store.GetAgent(ctx, agentID)
 	if err != nil {
+		return fmt.Errorf("failed to get agent: %w", err)
+	}
+
+	agent.TaskID = nil
+	agent.Status = string(StatusIdle)
+	if err := r.store.RegisterAgent(ctx, agent); err != nil {
 		return fmt.Errorf("failed to clear task: %w", err)
 	}
 
@@ -141,84 +124,49 @@ func (r *Registry) ClearTask(ctx context.Context, agentID string) error {
 
 // Get retrieves an agent by ID
 func (r *Registry) Get(ctx context.Context, agentID string) (*Agent, error) {
-	var agent Agent
-	var taskID sql.NullString
-
-	err := r.db.QueryRowContext(
-		ctx,
-		`SELECT agent_id, agent_role, status, task_id, pid, started_at, last_heartbeat
-		 FROM agents WHERE agent_id = ?`,
-		agentID,
-	).Scan(
-		&agent.ID,
-		&agent.Role,
-		&agent.Status,
-		&taskID,
-		&agent.PID,
-		&agent.StartedAt,
-		&agent.LastHeartbeat,
-	)
-
-	if err == sql.ErrNoRows {
-		return nil, fmt.Errorf("agent not found: %s", agentID)
-	}
+	storageAgent, err := r.store.GetAgent(ctx, agentID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get agent: %w", err)
 	}
 
-	if taskID.Valid {
-		agent.TaskID = &taskID.String
+	agent := &Agent{
+		ID:            storageAgent.ID,
+		Role:          eventbus.AgentRole(storageAgent.Role),
+		Status:        AgentStatus(storageAgent.Status),
+		TaskID:        storageAgent.TaskID,
+		PID:           storageAgent.PID,
+		StartedAt:     storageAgent.StartedAt,
+		LastHeartbeat: storageAgent.LastHeartbeat,
 	}
 
-	return &agent, nil
+	return agent, nil
 }
 
 // List retrieves all agents, optionally filtered by role
 func (r *Registry) List(ctx context.Context, role *eventbus.AgentRole) ([]Agent, error) {
-	query := `SELECT agent_id, agent_role, status, task_id, pid, started_at, last_heartbeat
-	          FROM agents`
-	var args []interface{}
-
+	var roleStr *string
 	if role != nil {
-		query += " WHERE agent_role = ?"
-		args = append(args, *role)
+		r := string(*role)
+		roleStr = &r
 	}
 
-	query += " ORDER BY started_at DESC"
-
-	rows, err := r.db.QueryContext(ctx, query, args...)
+	storageAgents, err := r.store.ListAgents(ctx, roleStr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list agents: %w", err)
 	}
-	defer rows.Close()
 
 	var agents []Agent
-	for rows.Next() {
-		var agent Agent
-		var taskID sql.NullString
-
-		err := rows.Scan(
-			&agent.ID,
-			&agent.Role,
-			&agent.Status,
-			&taskID,
-			&agent.PID,
-			&agent.StartedAt,
-			&agent.LastHeartbeat,
-		)
-		if err != nil {
-			return nil, fmt.Errorf("failed to scan agent: %w", err)
+	for _, sa := range storageAgents {
+		agent := Agent{
+			ID:            sa.ID,
+			Role:          eventbus.AgentRole(sa.Role),
+			Status:        AgentStatus(sa.Status),
+			TaskID:        sa.TaskID,
+			PID:           sa.PID,
+			StartedAt:     sa.StartedAt,
+			LastHeartbeat: sa.LastHeartbeat,
 		}
-
-		if taskID.Valid {
-			agent.TaskID = &taskID.String
-		}
-
 		agents = append(agents, agent)
-	}
-
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("error iterating agents: %w", err)
 	}
 
 	return agents, nil
@@ -226,48 +174,32 @@ func (r *Registry) List(ctx context.Context, role *eventbus.AgentRole) ([]Agent,
 
 // FindDeadAgents finds agents that haven't sent a heartbeat within the timeout period
 func (r *Registry) FindDeadAgents(ctx context.Context, timeout time.Duration) ([]Agent, error) {
-	cutoff := time.Now().Add(-timeout)
-
-	rows, err := r.db.QueryContext(
-		ctx,
-		`SELECT agent_id, agent_role, status, task_id, pid, started_at, last_heartbeat
-		 FROM agents
-		 WHERE last_heartbeat < ? AND status != ?
-		 ORDER BY last_heartbeat ASC`,
-		cutoff, StatusDead,
-	)
+	// Mark agents as dead in storage first
+	_, err := r.store.MarkAgentDead(ctx, timeout)
 	if err != nil {
-		return nil, fmt.Errorf("failed to find dead agents: %w", err)
+		return nil, fmt.Errorf("failed to mark dead agents: %w", err)
 	}
-	defer rows.Close()
+
+	// Get all agents and filter for dead status
+	storageAgents, err := r.store.ListAgents(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list agents: %w", err)
+	}
 
 	var agents []Agent
-	for rows.Next() {
-		var agent Agent
-		var taskID sql.NullString
-
-		err := rows.Scan(
-			&agent.ID,
-			&agent.Role,
-			&agent.Status,
-			&taskID,
-			&agent.PID,
-			&agent.StartedAt,
-			&agent.LastHeartbeat,
-		)
-		if err != nil {
-			return nil, fmt.Errorf("failed to scan agent: %w", err)
+	for _, sa := range storageAgents {
+		if sa.Status == string(StatusDead) {
+			agent := Agent{
+				ID:            sa.ID,
+				Role:          eventbus.AgentRole(sa.Role),
+				Status:        AgentStatus(sa.Status),
+				TaskID:        sa.TaskID,
+				PID:           sa.PID,
+				StartedAt:     sa.StartedAt,
+				LastHeartbeat: sa.LastHeartbeat,
+			}
+			agents = append(agents, agent)
 		}
-
-		if taskID.Valid {
-			agent.TaskID = &taskID.String
-		}
-
-		agents = append(agents, agent)
-	}
-
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("error iterating dead agents: %w", err)
 	}
 
 	return agents, nil
@@ -280,19 +212,21 @@ func (r *Registry) MarkDead(ctx context.Context, agentID string) error {
 
 // CleanupDeadAgents removes agents marked as dead from the registry
 func (r *Registry) CleanupDeadAgents(ctx context.Context) (int, error) {
-	result, err := r.db.ExecContext(
-		ctx,
-		"DELETE FROM agents WHERE status = ?",
-		StatusDead,
-	)
+	// Get all dead agents
+	storageAgents, err := r.store.ListAgents(ctx, nil)
 	if err != nil {
-		return 0, fmt.Errorf("failed to cleanup dead agents: %w", err)
+		return 0, fmt.Errorf("failed to list agents: %w", err)
 	}
 
-	rows, err := result.RowsAffected()
-	if err != nil {
-		return 0, fmt.Errorf("failed to check affected rows: %w", err)
+	count := 0
+	for _, agent := range storageAgents {
+		if agent.Status == string(StatusDead) {
+			if err := r.store.UnregisterAgent(ctx, agent.ID); err != nil {
+				return count, fmt.Errorf("failed to unregister dead agent: %w", err)
+			}
+			count++
+		}
 	}
 
-	return int(rows), nil
+	return count, nil
 }

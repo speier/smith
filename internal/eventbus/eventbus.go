@@ -2,50 +2,42 @@ package eventbus
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
 	"fmt"
-	"strings"
 	"time"
+
+	"github.com/speier/smith/internal/storage"
 )
 
-// EventBus handles publishing and subscribing to events via SQLite
+// EventBus handles publishing and subscribing to events using storage abstraction
 type EventBus struct {
-	db *sql.DB
+	store storage.EventStore
 }
 
 // New creates a new EventBus instance
-func New(db *sql.DB) *EventBus {
-	return &EventBus{db: db}
+func New(store storage.EventStore) *EventBus {
+	return &EventBus{store: store}
 }
 
 // Publish publishes an event to the event bus
 func (eb *EventBus) Publish(ctx context.Context, event *Event) error {
-	query := `
-		INSERT INTO events (agent_id, agent_role, event_type, task_id, file_path, data)
-		VALUES (?, ?, ?, ?, ?, ?)
-	`
+	// Convert eventbus.Event to storage.Event
+	storageEvent := &storage.Event{
+		AgentID:   event.AgentID,
+		AgentRole: string(event.AgentRole),
+		EventType: string(event.Type),
+		TaskID:    event.TaskID,
+		FilePath:  event.FilePath,
+		Data:      event.Data,
+	}
 
-	result, err := eb.db.ExecContext(
-		ctx,
-		query,
-		event.AgentID,
-		event.AgentRole,
-		event.Type,
-		event.TaskID,
-		event.FilePath,
-		event.Data,
-	)
-	if err != nil {
+	if err := eb.store.SaveEvent(ctx, storageEvent); err != nil {
 		return fmt.Errorf("failed to publish event: %w", err)
 	}
 
-	// Get the inserted event ID
-	id, err := result.LastInsertId()
-	if err != nil {
-		return fmt.Errorf("failed to get event ID: %w", err)
-	}
-	event.ID = id
+	// Copy back the generated ID
+	event.ID = storageEvent.ID
+	event.Timestamp = storageEvent.Timestamp
 
 	return nil
 }
@@ -122,90 +114,55 @@ func (eb *EventBus) Subscribe(ctx context.Context, filter EventFilter, pollInter
 
 // Query queries events matching the filter
 func (eb *EventBus) Query(ctx context.Context, filter EventFilter) ([]Event, error) {
-	query := `
-		SELECT id, timestamp, agent_id, agent_role, event_type, task_id, file_path, data
-		FROM events
-		WHERE id > ?
-	`
-	args := []interface{}{filter.SinceID}
-	conditions := []string{}
-
-	if filter.AgentID != nil {
-		conditions = append(conditions, "agent_id = ?")
-		args = append(args, *filter.AgentID)
+	// Convert eventbus filter to storage filter
+	var eventTypes []string
+	for _, et := range filter.EventTypes {
+		eventTypes = append(eventTypes, string(et))
 	}
 
-	if filter.AgentRole != nil {
-		conditions = append(conditions, "agent_role = ?")
-		args = append(args, *filter.AgentRole)
+	storageFilter := storage.EventFilter{
+		AgentID:    filter.AgentID,
+		EventTypes: eventTypes,
+		TaskID:     filter.TaskID,
 	}
 
-	if len(filter.EventTypes) > 0 {
-		placeholders := make([]string, len(filter.EventTypes))
-		for i, et := range filter.EventTypes {
-			placeholders[i] = "?"
-			args = append(args, et)
-		}
-		conditions = append(conditions, fmt.Sprintf("event_type IN (%s)", strings.Join(placeholders, ",")))
-	}
-
-	if filter.TaskID != nil {
-		conditions = append(conditions, "task_id = ?")
-		args = append(args, *filter.TaskID)
-	}
-
-	if filter.FilePath != nil {
-		conditions = append(conditions, "file_path = ?")
-		args = append(args, *filter.FilePath)
-	}
-
-	if len(conditions) > 0 {
-		query += " AND " + strings.Join(conditions, " AND ")
-	}
-
-	query += " ORDER BY id ASC"
-
-	rows, err := eb.db.QueryContext(ctx, query, args...)
+	storageEvents, err := eb.store.QueryEvents(ctx, storageFilter)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query events: %w", err)
 	}
-	defer rows.Close()
 
+	// Convert storage.Event to eventbus.Event and apply additional filters
 	var events []Event
-	for rows.Next() {
-		var event Event
-		var taskID, filePath sql.NullString
-		var data sql.NullString
-
-		err := rows.Scan(
-			&event.ID,
-			&event.Timestamp,
-			&event.AgentID,
-			&event.AgentRole,
-			&event.Type,
-			&taskID,
-			&filePath,
-			&data,
-		)
-		if err != nil {
-			return nil, fmt.Errorf("failed to scan event: %w", err)
+	for _, se := range storageEvents {
+		// Apply SinceID filter (BBolt doesn't support this natively)
+		if filter.SinceID > 0 && se.ID <= filter.SinceID {
+			continue
 		}
 
-		if taskID.Valid {
-			event.TaskID = &taskID.String
+		// Apply AgentRole filter if specified
+		if filter.AgentRole != nil && se.AgentRole != string(*filter.AgentRole) {
+			continue
 		}
-		if filePath.Valid {
-			event.FilePath = &filePath.String
+
+		// Apply FilePath filter if specified
+		if filter.FilePath != nil {
+			if se.FilePath == nil || *se.FilePath != *filter.FilePath {
+				continue
+			}
 		}
-		if data.Valid {
-			event.Data = data.String
+
+		event := Event{
+			ID:        se.ID,
+			Timestamp: se.Timestamp,
+			AgentID:   se.AgentID,
+			AgentRole: AgentRole(se.AgentRole),
+			Type:      EventType(se.EventType),
+			TaskID:    se.TaskID,
+			FilePath:  se.FilePath,
+			Data:      se.Data,
 		}
 
 		events = append(events, event)
-	}
-
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("error iterating events: %w", err)
 	}
 
 	return events, nil
@@ -213,13 +170,18 @@ func (eb *EventBus) Query(ctx context.Context, filter EventFilter) ([]Event, err
 
 // GetLatestEventID returns the ID of the latest event
 func (eb *EventBus) GetLatestEventID(ctx context.Context) (int64, error) {
-	var id sql.NullInt64
-	err := eb.db.QueryRowContext(ctx, "SELECT MAX(id) FROM events").Scan(&id)
+	// Query all events and get the max ID (storage interface doesn't provide MAX)
+	events, err := eb.store.QueryEvents(ctx, storage.EventFilter{})
 	if err != nil {
-		return 0, fmt.Errorf("failed to get latest event ID: %w", err)
+		return 0, fmt.Errorf("failed to query events: %w", err)
 	}
-	if !id.Valid {
-		return 0, nil
+
+	var maxID int64
+	for _, event := range events {
+		if event.ID > maxID {
+			maxID = event.ID
+		}
 	}
-	return id.Int64, nil
+
+	return maxID, nil
 }

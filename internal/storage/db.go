@@ -18,7 +18,7 @@ type DB struct {
 
 // InitProjectStorage initializes the .smith directory and SQLite database for a project.
 // Creates the directory structure, database, and default files if they don't exist.
-func InitProjectStorage(projectRoot string) (*DB, error) {
+func InitProjectStorage(projectRoot string) (Store, error) {
 	smithDir := filepath.Join(projectRoot, ".smith")
 
 	// Create .smith/ directory if it doesn't exist
@@ -38,7 +38,8 @@ func InitProjectStorage(projectRoot string) (*DB, error) {
 		return nil, err
 	}
 
-	return db, nil
+	// Return wrapped Store interface
+	return NewSQLiteStore(db.DB), nil
 }
 
 // initDatabase creates and initializes the SQLite database with schema
@@ -53,9 +54,14 @@ func initDatabase(dbPath string) (*DB, error) {
 	sqlDB.SetMaxOpenConns(25) // Allow multiple concurrent agents
 	sqlDB.SetMaxIdleConns(5)
 
-	// Set busy timeout for better concurrency handling
-	if _, err := sqlDB.Exec("PRAGMA busy_timeout=5000"); err != nil {
+	// Set busy timeout for better concurrency handling (10 seconds for multiple agents)
+	if _, err := sqlDB.Exec("PRAGMA busy_timeout=10000"); err != nil {
 		return nil, fmt.Errorf("failed to set busy timeout: %w", err)
+	}
+
+	// Optimize for concurrent writes
+	if _, err := sqlDB.Exec("PRAGMA synchronous=NORMAL"); err != nil {
+		return nil, fmt.Errorf("failed to set synchronous mode: %w", err)
 	}
 
 	// Enable WAL mode for better concurrency

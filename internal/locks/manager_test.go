@@ -11,32 +11,32 @@ import (
 	"github.com/speier/smith/internal/storage"
 )
 
-func setupTestDB(t *testing.T) (*storage.DB, *registry.Registry, func()) {
+func setupTestDB(t *testing.T) (storage.Store, *registry.Registry, func()) {
 	tmpDir, err := os.MkdirTemp("", "smith-locks-test-*")
 	if err != nil {
 		t.Fatalf("failed to create temp dir: %v", err)
 	}
 
-	db, err := storage.InitProjectStorage(tmpDir)
+	store, err := storage.InitProjectStorage(tmpDir)
 	if err != nil {
 		t.Fatalf("failed to init storage: %v", err)
 	}
 
-	reg := registry.New(db.DB)
+	reg := registry.New(store)
 
 	cleanup := func() {
-		db.Close()
+		store.Close()
 		os.RemoveAll(tmpDir)
 	}
 
-	return db, reg, cleanup
+	return store, reg, cleanup
 }
 
 func TestAcquireAndRelease(t *testing.T) {
-	db, reg, cleanup := setupTestDB(t)
+	store, reg, cleanup := setupTestDB(t)
 	defer cleanup()
 
-	manager := New(db.DB)
+	manager := New(store)
 	ctx := context.Background()
 
 	// Register agent first
@@ -77,10 +77,10 @@ func TestAcquireAndRelease(t *testing.T) {
 }
 
 func TestLockConflict(t *testing.T) {
-	db, reg, cleanup := setupTestDB(t)
+	store, reg, cleanup := setupTestDB(t)
 	defer cleanup()
 
-	manager := New(db.DB)
+	manager := New(store)
 	ctx := context.Background()
 
 	// Register agents
@@ -111,10 +111,10 @@ func TestLockConflict(t *testing.T) {
 }
 
 func TestSameAgentReacquire(t *testing.T) {
-	db, reg, cleanup := setupTestDB(t)
+	store, reg, cleanup := setupTestDB(t)
 	defer cleanup()
 
-	manager := New(db.DB)
+	manager := New(store)
 	ctx := context.Background()
 
 	// Register agent
@@ -134,10 +134,10 @@ func TestSameAgentReacquire(t *testing.T) {
 }
 
 func TestReleaseAll(t *testing.T) {
-	db, reg, cleanup := setupTestDB(t)
+	store, reg, cleanup := setupTestDB(t)
 	defer cleanup()
 
-	manager := New(db.DB)
+	manager := New(store)
 	ctx := context.Background()
 
 	// Register agent
@@ -171,10 +171,10 @@ func TestReleaseAll(t *testing.T) {
 }
 
 func TestGetLockedFiles(t *testing.T) {
-	db, reg, cleanup := setupTestDB(t)
+	store, reg, cleanup := setupTestDB(t)
 	defer cleanup()
 
-	manager := New(db.DB)
+	manager := New(store)
 	ctx := context.Background()
 
 	// Register agent
@@ -201,10 +201,10 @@ func TestGetLockedFiles(t *testing.T) {
 }
 
 func TestGetAllLocks(t *testing.T) {
-	db, reg, cleanup := setupTestDB(t)
+	store, reg, cleanup := setupTestDB(t)
 	defer cleanup()
 
-	manager := New(db.DB)
+	manager := New(store)
 	ctx := context.Background()
 
 	// Register agents

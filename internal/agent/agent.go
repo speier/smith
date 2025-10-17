@@ -9,7 +9,6 @@ import (
 	"github.com/speier/smith/internal/coordinator"
 	"github.com/speier/smith/internal/engine"
 	"github.com/speier/smith/internal/eventbus"
-	"github.com/speier/smith/internal/registry"
 )
 
 // Agent represents a background worker that processes tasks
@@ -32,7 +31,7 @@ type BaseAgent struct {
 	ID           string
 	role         eventbus.AgentRole
 	coord        coordinator.Coordinator
-	registry     *registry.Registry
+	registry     coordinator.Registry // Now uses interface instead of concrete type
 	engine       *engine.Engine
 	pollInterval time.Duration
 	stopChan     chan struct{}
@@ -44,7 +43,7 @@ type Config struct {
 	AgentID      string
 	Role         eventbus.AgentRole
 	Coordinator  coordinator.Coordinator
-	Registry     *registry.Registry
+	Registry     coordinator.Registry // Now uses interface instead of concrete type
 	Engine       *engine.Engine
 	PollInterval time.Duration
 }
@@ -83,8 +82,8 @@ func (a *BaseAgent) Role() eventbus.AgentRole {
 // 3. Execute the task (implemented by specific agent types)
 // 4. Complete or fail the task
 func (a *BaseAgent) StartLoop(ctx context.Context, executor func(context.Context, *coordinator.Task) (string, error)) error {
-	// Register with the coordinator
-	if err := a.registry.Register(ctx, a.ID, a.role, 0); err != nil {
+	// Register with the coordinator (convert eventbus.AgentRole to coordinator.AgentRole)
+	if err := a.registry.Register(ctx, a.ID, coordinator.AgentRole(a.role), 0); err != nil {
 		return fmt.Errorf("failed to register agent: %w", err)
 	}
 

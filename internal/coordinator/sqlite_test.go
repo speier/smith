@@ -4,8 +4,10 @@ import (
 	"context"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/speier/smith/internal/eventbus"
+	"github.com/speier/smith/internal/storage"
 )
 
 func TestSQLiteCoordinator(t *testing.T) {
@@ -37,14 +39,19 @@ func TestSQLiteCoordinator(t *testing.T) {
 		t.Errorf("expected 0 backlog tasks, got %d", stats.Backlog)
 	}
 
-	// Add a task to the database
+	// Add a task via TaskStore
 	ctx := context.Background()
-	_, err = coord.db.ExecContext(ctx, `
-		INSERT INTO task_assignments (task_id, agent_id, agent_role, status)
-		VALUES ('task-1', NULL, NULL, 'backlog')
-	`)
-	if err != nil {
-		t.Fatalf("failed to insert test task: %v", err)
+	task := &storage.Task{
+		TaskID:      "task-1",
+		Title:       "Test Task",
+		Description: "Test Description",
+		AgentRole:   "testing",
+		Status:      "backlog",
+		StartedAt:   time.Now(),
+		UpdatedAt:   time.Now(),
+	}
+	if err := coord.db.CreateTask(ctx, task); err != nil {
+		t.Fatalf("failed to create test task: %v", err)
 	}
 
 	// Test ClaimTask

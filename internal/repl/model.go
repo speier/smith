@@ -1,7 +1,9 @@
 package repl
 
 import (
+	"context"
 	"fmt"
+	"log"
 	"os/exec"
 	"runtime"
 	"strings"
@@ -11,6 +13,7 @@ import (
 	"github.com/charmbracelet/bubbles/textarea"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/speier/smith/internal/agent"
 	"github.com/speier/smith/internal/config"
 	"github.com/speier/smith/internal/engine"
 	"github.com/speier/smith/internal/llm"
@@ -168,9 +171,12 @@ type BubbleModel struct {
 	autoLevel          string
 	projectPath        string
 	quitting           bool
-	streamingResponse  string // Current streaming response being built
-	isStreaming        bool   // Whether we're currently streaming a response
-	spinnerFrame       int    // Frame counter for loading spinner
+	agentCtx           context.Context
+	agentCancel        context.CancelFunc
+	agents             []agent.Agent // Background agents
+	streamingResponse  string        // Current streaming response being built
+	isStreaming        bool          // Whether we're currently streaming a response
+	spinnerFrame       int           // Frame counter for loading spinner
 	showCommandMenu    bool
 	commandMenuIndex   int
 	filteredCommands   []Command
@@ -302,6 +308,82 @@ func NewBubbleModel(projectPath string, initialPrompt string) (*BubbleModel, err
 		return nil, fmt.Errorf("creating engine: %w", err)
 	}
 
+	// Create agent context that will be cancelled when REPL quits
+	agentCtx, agentCancel := context.WithCancel(context.Background())
+
+	// Start background agents
+	coord := eng.GetCoordinator()
+
+	// Get registry through the interface (storage-agnostic)
+	reg := coord.GetRegistry()
+
+	// Create and start agents in background goroutines
+	// Stagger start times to reduce database contention
+	var agents []agent.Agent
+
+	// Implementation agent (Keymaker) - starts immediately
+	implAgent := agent.NewImplementationAgent(agent.Config{
+		AgentID:      "keymaker-001",
+		Coordinator:  coord,
+		Registry:     reg,
+		Engine:       eng,
+		PollInterval: 1 * time.Second, // Increased to reduce DB contention
+	})
+	agents = append(agents, implAgent)
+	go func() {
+		if err := implAgent.Start(agentCtx); err != nil && err != context.Canceled {
+			log.Printf("Implementation agent error: %v", err)
+		}
+	}()
+
+	// Testing agent (Sentinel) - starts after 250ms
+	testAgent := agent.NewTestingAgent(agent.Config{
+		AgentID:      "sentinel-001",
+		Coordinator:  coord,
+		Registry:     reg,
+		Engine:       eng,
+		PollInterval: 1 * time.Second,
+	})
+	agents = append(agents, testAgent)
+	go func() {
+		time.Sleep(250 * time.Millisecond) // Stagger start
+		if err := testAgent.Start(agentCtx); err != nil && err != context.Canceled {
+			log.Printf("Testing agent error: %v", err)
+		}
+	}()
+
+	// Review agent (Oracle) - starts after 500ms
+	reviewAgent := agent.NewReviewAgent(agent.Config{
+		AgentID:      "oracle-001",
+		Coordinator:  coord,
+		Registry:     reg,
+		Engine:       eng,
+		PollInterval: 1 * time.Second,
+	})
+	agents = append(agents, reviewAgent)
+	go func() {
+		time.Sleep(500 * time.Millisecond) // Stagger start
+		if err := reviewAgent.Start(agentCtx); err != nil && err != context.Canceled {
+			log.Printf("Review agent error: %v", err)
+		}
+	}()
+
+	// Planning agent (Architect) - starts after 750ms
+	planAgent := agent.NewPlanningAgent(agent.Config{
+		AgentID:      "architect-001",
+		Coordinator:  coord,
+		Registry:     reg,
+		Engine:       eng,
+		PollInterval: 1 * time.Second,
+	})
+	agents = append(agents, planAgent)
+	go func() {
+		time.Sleep(750 * time.Millisecond) // Stagger start
+		if err := planAgent.Start(agentCtx); err != nil && err != context.Canceled {
+			log.Printf("Planning agent error: %v", err)
+		}
+	}()
+
 	// Create textarea
 	ti := textarea.New()
 	ti.Placeholder = "What would you like to build?"
@@ -351,7 +433,13 @@ func NewBubbleModel(projectPath string, initialPrompt string) (*BubbleModel, err
 		showSettings:       false, // Don't auto-open
 		width:              80,    // Default width until we get WindowSizeMsg
 		height:             24,    // Default height
+		agentCtx:           agentCtx,
+		agentCancel:        agentCancel,
+		agents:             agents,
 	}
+
+	// Log agent startup
+	log.Printf("🤖 Started %d background agents", len(agents))
 
 	return model, nil
 }
@@ -553,6 +641,11 @@ func (m BubbleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case delayedQuitMsg:
+		// Stop background agents before quitting
+		if m.agentCancel != nil {
+			m.agentCancel()
+			log.Printf("🛑 Stopped %d background agents", len(m.agents))
+		}
 		// Time to quit
 		return m, tea.Quit
 
