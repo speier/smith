@@ -49,6 +49,7 @@ func init() {
 
 	// Disable auto-generated commands
 	rootCmd.CompletionOptions.DisableDefaultCmd = true
+	rootCmd.SetHelpCommand(&cobra.Command{Hidden: true})
 }
 
 func startREPL(initialPrompt string) {

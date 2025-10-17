@@ -219,8 +219,8 @@ var keys = keyMap{
 		key.WithHelp("ctrl+h", "help"),
 	),
 	Clear: key.NewBinding(
-		key.WithKeys("ctrl+l"),
-		key.WithHelp("ctrl+l", "clear"),
+		key.WithKeys("ctrl+n"),
+		key.WithHelp("ctrl+n", "new session"),
 	),
 	ScrollUp: key.NewBinding(
 		key.WithKeys("pgup", "ctrl+u"),
@@ -966,8 +966,24 @@ func (m BubbleModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 
 		case key.Matches(msg, keys.Clear):
+			// Start new session (Ctrl+N)
+			ctx := context.Background()
+			coord := m.engine.GetCoordinator()
+			sessionID, err := coord.CreateNewSession(ctx)
+			if err != nil {
+				m.messages = append(m.messages, Message{
+					Content:   fmt.Sprintf("❌ Failed to create new session: %v", err),
+					Type:      "error",
+					Timestamp: time.Now(),
+				})
+				return m, nil
+			}
 			m.messages = []Message{}
-			m.messages = append(m.messages, Message{Content: renderWelcome(), Type: "system", Timestamp: time.Now()})
+			m.messages = append(m.messages, Message{
+				Content:   fmt.Sprintf("🆕 Started new session: %s", sessionID),
+				Type:      "system",
+				Timestamp: time.Now(),
+			})
 			m.textarea.Reset()
 			return m, nil
 
@@ -1706,7 +1722,7 @@ func (m *BubbleModel) handleSlashCommand(cmd string) tea.Cmd {
 	case "/settings":
 		m.showSettings = true
 		m.settingsIndex = 0
-	case "/clear", "/c":
+	case "/new":
 		// Archive current session and start new one
 		ctx := context.Background()
 		coord := m.engine.GetCoordinator()
@@ -1901,7 +1917,7 @@ func renderHelp() string {
                    /allowlist add <cmd> - Add command to allowlist
                    /allowlist clear    - Clear allowlist
   /copy          - Copy last message to clipboard
-  /clear     /c  - Clear conversation
+  /new            - Start new session
   /help      /h  - Show this help
   /quit      /q  - Exit Smith
 
@@ -1910,7 +1926,7 @@ func renderHelp() string {
   Enter           - Send message
   Tab             - Focus input area
   Shift+Tab       - Cycle reasoning level (Low/Medium/High)
-  Ctrl+L          - Clear conversation
+  Ctrl+N          - Start new session
   Ctrl+H          - Show this help
   Ctrl+Y          - Copy last message
   Ctrl+C/Ctrl+D   - Quit Smith
@@ -2072,7 +2088,7 @@ func (m *BubbleModel) renderHelpPanel(base string) string {
 	content.WriteString(sectionStyle.Render("Basics") + "\n")
 	content.WriteString(keyStyle.Render("  Enter          ") + descStyle.Render("Send message") + "\n")
 	content.WriteString(keyStyle.Render("  Ctrl + C       ") + descStyle.Render("Quit") + "\n")
-	content.WriteString(keyStyle.Render("  Ctrl + L       ") + descStyle.Render("Clear conversation") + "\n")
+	content.WriteString(keyStyle.Render("  Ctrl + N       ") + descStyle.Render("Start new session") + "\n")
 	content.WriteString(keyStyle.Render("  Shift + Tab    ") + descStyle.Render("Cycle auto-level") + "\n")
 	content.WriteString(keyStyle.Render("  Esc            ") + descStyle.Render("Cancel/close menus") + "\n")
 	content.WriteString(keyStyle.Render("  ?              ") + descStyle.Render("Toggle this help") + "\n\n")
