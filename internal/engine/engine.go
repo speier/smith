@@ -10,7 +10,6 @@ import (
 
 	"github.com/speier/smith/internal/coordinator"
 	"github.com/speier/smith/internal/llm"
-	"github.com/speier/smith/internal/safety"
 )
 
 // Engine is the core Smith system
@@ -843,7 +842,7 @@ func (e *Engine) handleRunCommand(input map[string]interface{}) (string, error) 
 	}
 
 	// Safety check - validate command against auto-level rules
-	checkResult := safety.IsCommandAllowed(command, e.autoLevel)
+	checkResult := IsCommandAllowed(command, e.autoLevel)
 	if !checkResult.Allowed {
 		// Command blocked - request approval if callback is set
 		if e.approvalCallback != nil {
@@ -853,7 +852,7 @@ func (e *Engine) handleRunCommand(input map[string]interface{}) (string, error) 
 			}
 			// If approved and should be added to allowlist
 			if addToAllowlist {
-				safety.AddToSessionAllowlist(command)
+				AddToSessionAllowlist(command)
 			}
 			// Fall through to execute the approved command
 		} else {

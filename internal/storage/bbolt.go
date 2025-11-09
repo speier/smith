@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/speier/smith/internal/scaffold"
+	"github.com/speier/smith/internal/config"
 	"go.etcd.io/bbolt"
 )
 
@@ -47,7 +47,7 @@ func InitProjectStorage(projectRoot string) (Store, error) {
 	}
 
 	// Create default project files (config, .gitignore)
-	if err := scaffold.InitProjectFiles(smithDir); err != nil {
+	if err := config.InitProjectFiles(smithDir); err != nil {
 		return nil, err
 	}
 

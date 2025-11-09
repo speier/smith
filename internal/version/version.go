@@ -8,7 +8,7 @@ import (
 // Version is the current version of Smith
 // Can be overridden at build time with:
 // go build -ldflags "-X github.com/speier/smith/internal/version.Version=1.0.0"
-var Version = "dev"
+var Version = "0.0.0"
 
 // Get returns the current version with commit hash in format: "version (commit)"
 func Get() string {

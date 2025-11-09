@@ -1,6 +1,7 @@
 package llm
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/json"
 	"fmt"
@@ -346,15 +347,107 @@ func (c *CopilotProvider) Chat(messages []Message, tools []Tool) (*Response, err
 }
 
 func (c *CopilotProvider) ChatStream(messages []Message, tools []Tool, callback func(*Response) error) error {
-	// For now, just call the regular Chat method and send the full response
-	response, err := c.Chat(messages, tools)
-	if err != nil {
+	if err := c.EnsureAuth(); err != nil {
 		return err
 	}
 
-	// Send the full response as done
-	response.Done = true
-	return callback(response)
+	// Copilot uses OpenAI-compatible chat completions API with streaming
+	apiURL := "https://api.githubcopilot.com/chat/completions"
+
+	// Convert messages to OpenAI format
+	apiMessages := make([]map[string]string, len(messages))
+	for i, msg := range messages {
+		apiMessages[i] = map[string]string{
+			"role":    msg.Role,
+			"content": msg.Content,
+		}
+	}
+
+	payload := map[string]interface{}{
+		"messages": apiMessages,
+		"model":    "gpt-4o", // Copilot model
+		"stream":   true,     // Enable streaming
+	}
+
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("marshaling request: %w", err)
+	}
+
+	req, err := http.NewRequest("POST", apiURL, bytes.NewBuffer(body))
+	if err != nil {
+		return fmt.Errorf("creating request: %w", err)
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+c.auth.AccessToken)
+	req.Header.Set("User-Agent", "GitHubCopilotChat/0.26.7")
+	req.Header.Set("Editor-Version", "vscode/1.99.3")
+	req.Header.Set("Editor-Plugin-Version", "copilot-chat/0.26.7")
+	req.Header.Set("Accept", "text/event-stream")
+
+	resp, err := c.client.Do(req)
+	if err != nil {
+		return fmt.Errorf("api request: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK {
+		bodyBytes, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("api error (%d): %s", resp.StatusCode, string(bodyBytes))
+	}
+
+	// Read SSE (Server-Sent Events) stream
+	scanner := bufio.NewScanner(resp.Body)
+	for scanner.Scan() {
+		line := scanner.Text()
+
+		// SSE format: "data: {...}"
+		if !strings.HasPrefix(line, "data: ") {
+			continue
+		}
+
+		data := strings.TrimPrefix(line, "data: ")
+
+		// OpenAI sends "[DONE]" when stream is complete
+		if data == "[DONE]" {
+			break
+		}
+
+		// Parse JSON chunk
+		var chunk struct {
+			Choices []struct {
+				Delta struct {
+					Content string `json:"content"`
+				} `json:"delta"`
+			} `json:"choices"`
+		}
+
+		if err := json.Unmarshal([]byte(data), &chunk); err != nil {
+			// Skip malformed chunks
+			continue
+		}
+
+		// Send content chunk to callback
+		if len(chunk.Choices) > 0 && chunk.Choices[0].Delta.Content != "" {
+			if err := callback(&Response{
+				Content: chunk.Choices[0].Delta.Content,
+				Done:    false,
+			}); err != nil {
+				return err
+			}
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		return fmt.Errorf("reading stream: %w", err)
+	}
+
+	// Send final "done" signal
+	return callback(&Response{
+		Content: "",
+		Done:    true,
+	})
 }
 
 func (c *CopilotProvider) GetModels() ([]Model, error) {

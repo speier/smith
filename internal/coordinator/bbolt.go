@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/speier/smith/internal/eventbus"
-	"github.com/speier/smith/internal/locks"
 	"github.com/speier/smith/internal/registry"
 	"github.com/speier/smith/internal/storage"
 )
@@ -17,7 +16,7 @@ type BoltCoordinator struct {
 	projectPath      string
 	db               storage.Store
 	eventBus         *eventbus.EventBus
-	lockMgr          *locks.Manager
+	lockMgr          *Manager
 	registry         *registry.Registry
 	currentSessionID string // Active session ID
 }
@@ -31,15 +30,15 @@ func NewBolt(projectPath string) (*BoltCoordinator, error) {
 		return nil, fmt.Errorf("failed to initialize storage: %w", err)
 	}
 
-	c := &BoltCoordinator{
+	coord := &BoltCoordinator{
 		projectPath: projectPath,
 		db:          store,
 		eventBus:    eventbus.New(store),
-		lockMgr:     locks.New(store),
+		lockMgr:     NewLockManager(store),
 		registry:    registry.New(store),
 	}
 
-	return c, nil
+	return coord, nil
 }
 
 // Registry returns the agent registry (legacy method - use GetRegistry instead)

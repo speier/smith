@@ -2,14 +2,16 @@ package cli
 
 import (
 	"fmt"
-	"strings"
+	"os"
 
-	"github.com/speier/smith/internal/repl"
+	"github.com/speier/smith/internal/frontend"
+	"github.com/speier/smith/internal/session"
+	"github.com/speier/smith/internal/version"
 	"github.com/spf13/cobra"
 )
 
 var rootCmd = &cobra.Command{
-	Use:   "smith [prompt...]",
+	Use:   "smith [command]",
 	Short: "The Agent Replication System",
 	Long: `Smith - Inevitable. Multiplying. Building.
 
@@ -24,12 +26,18 @@ The Oracle (review) sees quality and predicts issues.
 
 Just chat naturally and watch the agents multiply to build your software.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		// If args provided, start REPL with initial prompt
-		var initialPrompt string
-		if len(args) > 0 {
-			initialPrompt = strings.Join(args, " ")
+		// Create session
+		sess := session.NewMockSession()
+
+		// Get terminal size for initial UI
+		width, height := 100, 40 // Default size, will auto-detect
+
+		// Create and run chat UI
+		ui := frontend.NewChatUI(sess, width, height)
+		if err := ui.Run(); err != nil {
+			fmt.Fprintf(os.Stderr, "Error running chat UI: %v\n", err)
+			os.Exit(1)
 		}
-		startREPL(initialPrompt)
 	},
 	DisableFlagParsing: false,
 	FParseErrWhitelist: cobra.FParseErrWhitelist{UnknownFlags: true},
@@ -48,22 +56,25 @@ func Execute() error {
 }
 
 func init() {
-	// Only exec command for non-interactive mode (like droid)
+	// Version from internal/version
+	rootCmd.Version = version.Get()
+
+	// Customize usage template to show single usage line
+	rootCmd.SetUsageTemplate(`Usage:
+  {{.CommandPath}} [command]
+
+Available Commands:{{range .Commands}}{{if (or .IsAvailableCommand (eq .Name "help"))}}
+  {{rpad .Name .NamePadding }} {{.Short}}{{end}}{{end}}
+
+Flags:
+{{.LocalFlags.FlagUsages | trimTrailingWhitespaces}}
+Use "{{.CommandPath}} [command] --help" for more information about a command.
+`)
+
+	// Add subcommands
 	rootCmd.AddCommand(execCmd)
 
 	// Disable auto-generated commands
 	rootCmd.CompletionOptions.DisableDefaultCmd = true
 	rootCmd.SetHelpCommand(&cobra.Command{Hidden: true})
-}
-
-func startREPL(initialPrompt string) {
-	r, err := repl.New(".")
-	if err != nil {
-		fmt.Printf("Error creating REPL: %v\n", err)
-		return
-	}
-
-	if err := r.Start(initialPrompt); err != nil {
-		fmt.Printf("Error: %v\n", err)
-	}
 }

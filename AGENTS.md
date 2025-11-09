@@ -2,6 +2,15 @@
 
 🚨 **CRITICAL: NEVER CREATE MARKDOWN FILES WITHOUT EXPLICIT USER REQUEST** 🚨
 
+🐚 **IMPORTANT: DON'T ASSUME BASH - USE PORTABLE SHELL COMMANDS!** 🐚
+
+> **Shell Commands:**
+> - ❌ NO bash-specific syntax (heredocs, `[[`, `source`, `&&`, etc.)
+> - ✅ ONLY POSIX-compliant commands that work in fish, bash, zsh, sh
+> - ✅ Check user's shell from context before writing commands
+> - ✅ When in doubt: use `printf`, `test`, separate lines, or Go code
+> - See Rule #5 below for details
+
 > **When you finish something:**
 > - ❌ DO NOT create SUMMARY.md, PROGRESS.md, STATUS.md, MIGRATION_PHASE2.md, etc.
 > - ✅ DO just say: "Done! Tests pass." and STOP
@@ -36,6 +45,12 @@
 - ❌ No example files or templates without explicit request
 - ❌ No checklists, progress trackers, or status reports
 - ❌ No documentation about what you just built
+- ❌ **NO README.md files inside packages** (internal/*, pkg/*)
+
+**If documentation is TRULY mandatory:**
+- ✅ Put it in `docs/` folder, not in code packages
+- ✅ Use descriptive names: `docs/session-architecture.md` not `internal/session/README.md`
+- ✅ But still: **ASK FIRST** before creating any .md file
 
 **THE ONLY EXCEPTION - User explicitly says:**
 1. ✅ "Create a README" / "Document this feature"
@@ -65,19 +80,34 @@ Focus on making the code work. Documentation comes **ONLY when user explicitly r
 - ❌ "Done! I've created MIGRATION_STATUS.md to track progress"
 
 ### Rule #5: Shell Commands Must Be Portable
-**NEVER use shell-specific features** - team members use different shells (bash, zsh, fish, etc.)
+**NEVER use shell-specific features** - contributors use different shells (bash, zsh, fish, sh, etc.)
+
+**⚠️ CRITICAL: Don't assume bash is available!** 
+- Check user's shell from context (terminal output, environment info)
+- Use POSIX-compliant commands that work in ALL shells
+- Test commands work in sh/bash/zsh/fish before suggesting them
+- When in doubt, ask or use Go code instead
 
 **Shell-Specific Features to AVOID:**
 - ❌ Heredocs (`<< EOF`) - fish doesn't support them
 - ❌ Bash arrays (`arr=(1 2 3)`) - not portable
 - ❌ Process substitution (`<(command)`) - bash/zsh only
-- ❌ Bash-specific syntax (`[[`, `source`, etc.)
+- ❌ Bash-specific syntax (`[[`, `source`, `&&` in same line, etc.)
+- ❌ Command substitution in command position - fish requires different syntax
 
 **Use PORTABLE alternatives:**
 - ✅ `printf "line1\nline2\n" > file` instead of heredocs
 - ✅ `echo "content" > file` for simple content
 - ✅ Temporary files instead of process substitution
 - ✅ POSIX-compliant syntax (`[`, `.` instead of `source`)
+- ✅ Separate commands with `;` or multiple lines
+- ✅ Use `test -d` or `test -f` instead of `[[ ]]`
+
+**Fish Shell Specifics:**
+- ❌ `$(command)` in command position - fish doesn't allow this
+- ✅ Use `set var (command)` and then `$var` for command substitution
+- ❌ `command1 && command2` - works but prefer separate lines
+- ✅ `if test -d dir; then mv dir dest; end` for conditionals
 
 **Example - WRONG:**
 ```bash
@@ -189,12 +219,13 @@ golangci-lint run ./...
 ### When User Asks to Build/Test
 1. **PREFER `go test ./...` over building** - Run tests to validate changes
 2. **ALL TESTS MUST PASS 100%** - No failing tests are acceptable
-3. Only build when specifically asked or tests don't exist yet
-4. Use `go build` directly in terminal (no wrapper scripts)
-5. Run the binary directly for manual testing
-6. Report results
-7. **DO NOT** create wrapper scripts unless explicitly requested
-8. **DO NOT** automatically build after making code changes - just run tests
+3. **During development: Use `go run .` instead of building** - User often runs directly without building
+4. Only build when specifically asked or for production/release
+5. Use `go build` directly in terminal (no wrapper scripts)
+6. Run the binary directly for manual testing when needed
+7. Report results
+8. **DO NOT** create wrapper scripts unless explicitly requested
+9. **DO NOT** automatically build after making code changes - just run tests or `go run .`
 
 ### When User Asks for Documentation
 1. Wait for explicit request: "create a README" or "document this feature"

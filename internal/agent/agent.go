@@ -1,14 +1,13 @@
 package agent
 
 import (
-	"context"
-	"fmt"
-	"log"
-	"time"
+"context"
+"fmt"
+"time"
 
 	"github.com/speier/smith/internal/coordinator"
-	"github.com/speier/smith/internal/engine"
-	"github.com/speier/smith/internal/eventbus"
+"github.com/speier/smith/internal/engine"
+"github.com/speier/smith/internal/eventbus"
 )
 
 // Agent represents a background worker that processes tasks
@@ -87,7 +86,7 @@ func (a *BaseAgent) StartLoop(ctx context.Context, executor func(context.Context
 		return fmt.Errorf("failed to register agent: %w", err)
 	}
 
-	log.Printf("[%s] Agent started, polling every %v", a.ID, a.pollInterval)
+	// Agent started (logging removed to avoid TUI contamination)
 
 	ticker := time.NewTicker(a.pollInterval)
 	defer ticker.Stop()
@@ -95,23 +94,23 @@ func (a *BaseAgent) StartLoop(ctx context.Context, executor func(context.Context
 	for {
 		select {
 		case <-ctx.Done():
-			log.Printf("[%s] Context cancelled, stopping agent", a.ID)
+			// Agent stopping due to context cancellation (logging removed)
 			return ctx.Err()
 
 		case <-a.stopChan:
-			log.Printf("[%s] Stop signal received, stopping agent", a.ID)
+			// Agent stopping due to stop signal (logging removed)
 			return nil
 
 		case <-ticker.C:
 			// Heartbeat
 			if err := a.registry.Heartbeat(ctx, a.ID); err != nil {
-				log.Printf("[%s] Heartbeat failed: %v", a.ID, err)
+				// Heartbeat failed (logging removed to avoid TUI contamination)
 			}
 
 			// Poll for available tasks
 			tasks, err := a.coord.GetAvailableTasks()
 			if err != nil {
-				log.Printf("[%s] Failed to get tasks: %v", a.ID, err)
+				// Failed to get tasks (logging removed)
 				continue
 			}
 
@@ -130,23 +129,23 @@ func (a *BaseAgent) StartLoop(ctx context.Context, executor func(context.Context
 			// Claim the first available task
 			task := myTasks[0]
 			if err := a.coord.ClaimTask(task.ID, a.ID); err != nil {
-				log.Printf("[%s] Failed to claim task %s: %v", a.ID, task.ID, err)
+				// Failed to claim task (logging removed)
 				continue
 			}
 
-			log.Printf("[%s] Claimed task %s: %s", a.ID, task.ID, task.Title)
+			// Task claimed successfully (logging removed)
 
 			// Get full task details
 			fullTask, err := a.coord.GetTask(task.ID)
 			if err != nil {
-				log.Printf("[%s] Failed to get task details: %v", a.ID, err)
+				// Failed to get task details (logging removed)
 				continue
 			}
 
 			// Query recent tasks for context (agent memory)
 			recentTasks, err := a.coord.GetRecentTasks(ctx, string(a.role), 5)
 			if err != nil {
-				log.Printf("[%s] Failed to get recent tasks for context: %v", a.ID, err)
+				// Failed to get recent tasks for context (logging removed)
 				// Non-critical, continue without context
 				recentTasks = nil
 			}
@@ -169,7 +168,7 @@ func (a *BaseAgent) StartLoop(ctx context.Context, executor func(context.Context
 			// Execute the task
 			result, err := executor(ctx, fullTask)
 			if err != nil {
-				log.Printf("[%s] Task %s failed: %v", a.ID, task.ID, err)
+				// Task failed (logging removed to avoid TUI contamination)
 
 				// Extract learnings from error if possible
 				learnings := a.extractLearnings(err.Error())
@@ -184,7 +183,7 @@ func (a *BaseAgent) StartLoop(ctx context.Context, executor func(context.Context
 				}
 
 				if failErr := a.coord.FailTask(task.ID, err.Error(), opts...); failErr != nil {
-					log.Printf("[%s] Failed to mark task as failed: %v", a.ID, failErr)
+					// Failed to mark task as failed (logging removed)
 				}
 				continue
 			}
@@ -194,7 +193,7 @@ func (a *BaseAgent) StartLoop(ctx context.Context, executor func(context.Context
 			approaches := a.extractApproaches(result)
 
 			// Complete the task with learnings
-			log.Printf("[%s] Task %s completed: %s", a.ID, task.ID, result)
+			// Task completed successfully (logging removed to avoid TUI contamination)
 
 			opts := []coordinator.TaskOption{}
 			if learnings != "" {
@@ -205,7 +204,7 @@ func (a *BaseAgent) StartLoop(ctx context.Context, executor func(context.Context
 			}
 
 			if err := a.coord.CompleteTask(task.ID, result, opts...); err != nil {
-				log.Printf("[%s] Failed to complete task: %v", a.ID, err)
+				// Failed to complete task (logging removed)
 			}
 		}
 	}
@@ -324,6 +323,6 @@ func (a *BaseAgent) Stop() error {
 		return fmt.Errorf("failed to unregister: %w", err)
 	}
 
-	log.Printf("[%s] Agent stopped", a.ID)
+	// Agent stopped (logging removed)
 	return nil
 }
