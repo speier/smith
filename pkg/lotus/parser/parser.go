@@ -267,6 +267,36 @@ func applyStylesToNode(node *layout.Node, styles map[string]map[string]string) {
 		}
 	}
 
+	// Apply multi-class selectors (e.g., ".message.system")
+	// Check all selectors in styles to see if they match this node's classes
+	for selector, props := range styles {
+		if strings.HasPrefix(selector, ".") && strings.Contains(selector, ".") {
+			// This is a multi-class selector like ".message.system"
+			// Extract all class names from the selector
+			selectorClasses := strings.Split(selector[1:], ".") // Remove leading "." and split
+
+			// Check if node has ALL the classes in the selector
+			allMatch := true
+			for _, selectorClass := range selectorClasses {
+				found := false
+				for _, nodeClass := range node.Classes {
+					if nodeClass == selectorClass {
+						found = true
+						break
+					}
+				}
+				if !found {
+					allMatch = false
+					break
+				}
+			}
+
+			if allMatch && len(selectorClasses) > 1 {
+				applyProperties(node, props)
+			}
+		}
+	}
+
 	// Apply ID selector
 	if node.ID != "" {
 		if props, ok := styles["#"+node.ID]; ok {

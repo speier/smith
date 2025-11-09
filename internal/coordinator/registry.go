@@ -41,6 +41,4 @@ func NewAgentRegistry(store storage.AgentStore) *AgentRegistry {
 
 // Unregister removes an agent from the registry
 
-var agents []Agent
-
 // FindDeadAgents finds agents that haven't sent a heartbeat within the timeout period

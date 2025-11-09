@@ -2,10 +2,14 @@ package terminal
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 
+	"github.com/mattn/go-runewidth"
 	"github.com/speier/smith/pkg/lotus/layout"
 )
+
+var ansiRegex = regexp.MustCompile(`\x1b\[[0-9;]*m`)
 
 // Render renders the node tree to terminal using ANSI codes
 func Render(root *layout.Node) string {
@@ -103,26 +107,37 @@ func renderText(node *layout.Node, buf *strings.Builder) {
 	}
 
 	color := getANSIColor(node.Styles.Color)
-	bgColor := getANSIBgColor(node.Styles.BgColor)
-
-	// Calculate text position based on alignment
+	bgColor := getANSIBgColor(node.Styles.BgColor) // Calculate text position based on alignment
 	x := node.X
 	text := node.Content
 	availableWidth := node.Width
 
-	if node.Parent != nil && node.Parent.Styles.Border {
-		availableWidth = node.Width - 2
-		x++
+	// Account for parent's padding (not border, layout already handles that)
+	if node.Parent != nil {
+		availableWidth -= node.Parent.Styles.PaddingLeft + node.Parent.Styles.PaddingRight
 	}
 
-	switch node.Styles.TextAlign {
+	// Use parent's text-align if node doesn't have one set explicitly (inheritance)
+	// Text nodes default to "left", so inherit from parent if still at default
+	textAlign := node.Styles.TextAlign
+	if (textAlign == "" || textAlign == "left") && node.Parent != nil && node.Parent.Styles.TextAlign != "" && node.Parent.Styles.TextAlign != "left" {
+		textAlign = node.Parent.Styles.TextAlign
+	}
+
+	switch textAlign {
 	case "center":
-		padding := (availableWidth - len(text)) / 2
+		// Strip ANSI codes before calculating width for accurate centering
+		plainText := ansiRegex.ReplaceAllString(text, "")
+		textWidth := runewidth.StringWidth(plainText)
+		padding := (availableWidth - textWidth) / 2
 		if padding > 0 {
 			x += padding
 		}
 	case "right":
-		padding := availableWidth - len(text)
+		// Strip ANSI codes before calculating width
+		plainText := ansiRegex.ReplaceAllString(text, "")
+		textWidth := runewidth.StringWidth(plainText)
+		padding := availableWidth - textWidth
 		if padding > 0 {
 			x += padding
 		}
@@ -170,6 +185,7 @@ func getANSIColor(color string) string {
 
 	// Simple color mapping (could be expanded)
 	colorMap := map[string]string{
+		"10":      "\033[92m", // terminal color 10 = bright green
 		"#0f0":    "\033[92m", // bright green
 		"#0ff":    "\033[96m", // bright cyan
 		"#00ff00": "\033[92m", // bright green

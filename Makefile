@@ -1,13 +1,13 @@
-.PHONY: build run test clean
-
-build:
-	go build -o smith .
+.PHONY: run test build clean
 
 run:
 	go run .
 
 test:
 	go test -v ./...
+
+build:
+	go build -o smith .
 
 clean:
 	rm -f smith

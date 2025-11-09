@@ -70,6 +70,10 @@ func (ui *ChatUI) Run() error {
 
 	// Set up key handler
 	term.OnKey(func(event terminal.KeyEvent) bool {
+		// Handle Ctrl+C to exit
+		if event.IsCtrlC() || event.IsCtrlD() {
+			return false // Stop the loop
+		}
 		ui.handleKey(event)
 		return true // Continue the loop
 	})
@@ -80,16 +84,12 @@ func (ui *ChatUI) Run() error {
 
 // handleKey processes keyboard input
 func (ui *ChatUI) handleKey(event terminal.KeyEvent) {
-	// Don't process input while streaming (except Ctrl+C to exit)
+	// Don't process input while streaming
 	if ui.streaming {
 		return
 	}
 
-	// Handle control keys
-	if event.IsCtrlC() {
-		return // Ctrl+C exits, handled by terminal
-	}
-
+	// Handle enter key
 	if event.IsEnter() {
 		ui.handleSubmit()
 		return
@@ -313,6 +313,17 @@ func (ui *ChatUI) render() string {
 	}
 	var wrapped []wrappedMsg
 
+	// If no history, show welcome banner (like original REPL)
+	if len(history) == 0 {
+		welcomeText := GetWelcomeBanner()
+		// Don't wrap - welcome banner is already formatted with ASCII art and centering
+		lines := strings.Split(welcomeText, "\n")
+		wrapped = append(wrapped, wrappedMsg{
+			role:  "system",
+			lines: lines,
+		})
+	}
+
 	for _, msg := range history {
 		lines := wrapText(msg.Content, messageWidth)
 		wrapped = append(wrapped, wrappedMsg{
@@ -413,22 +424,16 @@ func (ui *ChatUI) render() string {
 		}
 	}
 
-	// Show scroll indicator
-	scrollInfo := ""
-	if maxScroll > 0 {
-		scrollInfo = fmt.Sprintf(" [%d/%d]", ui.messageScroll, maxScroll)
-	}
-
+	// Build markup
 	markup := fmt.Sprintf(`
 		<box id="root">
-			<box id="header">Smith Agent • Press Ctrl+C to exit%s</box>
 			<box id="messages">%s</box>
 			<box id="input-container">
 				<box id="input-label">> </box>
 				<box id="input-text">%s</box>
 			</box>
 		</box>
-	`, scrollInfo, messageBoxes, inputDisplay)
+	`, messageBoxes, inputDisplay)
 
 	return lotus.New(markup, smithCSS, ui.width, ui.height).RenderToTerminal()
 }
@@ -502,18 +507,10 @@ const smithCSS = `
 		width: 100%;
 	}
 
-	#header {
-		height: 3;
-		color: #0f0;
-		border: 1px solid;
-		border-style: rounded;
-		text-align: center;
-	}
-
 	#messages {
 		flex: 1;
 		padding: 0;
-		color: #0f0;
+		color: 10;
 		display: flex;
 		flex-direction: column;
 		border: 1px solid;
@@ -524,18 +521,24 @@ const smithCSS = `
 		height: 1;
 		margin: 0;
 		padding: 0 1 0 1;
+		width: 100%;
+	}
+
+	.message.system {
+		text-align: center;
+		color: 10;
 	}
 
 	.message.user {
-		color: #0f0;
+		color: 10;
 	}
 
 	.message.assistant {
-		color: #0d0;
+		color: 10;
 	}
 
 	.message.streaming {
-		color: #0b0;
+		color: 10;
 	}
 
 	#input-container {

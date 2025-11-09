@@ -40,8 +40,14 @@ func needsAltScreenForNoScroll() bool {
 	return termProgram == "vscode"
 }
 
-// Size returns the terminal dimensions
+// Size returns the terminal dimensions (always checks current size)
 func (s *Screen) Size() (int, int) {
+	// Always get current terminal size
+	width, height, err := term.GetSize(int(os.Stdin.Fd()))
+	if err == nil {
+		s.width = width
+		s.height = height
+	}
 	return s.width, s.height
 }
 

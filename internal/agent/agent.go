@@ -1,13 +1,13 @@
 package agent
 
 import (
-"context"
-"fmt"
-"time"
+	"context"
+	"fmt"
+	"time"
 
 	"github.com/speier/smith/internal/coordinator"
-"github.com/speier/smith/internal/engine"
-"github.com/speier/smith/internal/eventbus"
+	"github.com/speier/smith/internal/engine"
+	"github.com/speier/smith/internal/eventbus"
 )
 
 // Agent represents a background worker that processes tasks
@@ -103,9 +103,7 @@ func (a *BaseAgent) StartLoop(ctx context.Context, executor func(context.Context
 
 		case <-ticker.C:
 			// Heartbeat
-			if err := a.registry.Heartbeat(ctx, a.ID); err != nil {
-				// Heartbeat failed (logging removed to avoid TUI contamination)
-			}
+			_ = a.registry.Heartbeat(ctx, a.ID)
 
 			// Poll for available tasks
 			tasks, err := a.coord.GetAvailableTasks()
@@ -182,9 +180,7 @@ func (a *BaseAgent) StartLoop(ctx context.Context, executor func(context.Context
 					opts = append(opts, coordinator.WithBlockers(blockers...))
 				}
 
-				if failErr := a.coord.FailTask(task.ID, err.Error(), opts...); failErr != nil {
-					// Failed to mark task as failed (logging removed)
-				}
+				_ = a.coord.FailTask(task.ID, err.Error(), opts...)
 				continue
 			}
 
@@ -203,9 +199,7 @@ func (a *BaseAgent) StartLoop(ctx context.Context, executor func(context.Context
 				opts = append(opts, coordinator.WithTriedApproaches(approaches...))
 			}
 
-			if err := a.coord.CompleteTask(task.ID, result, opts...); err != nil {
-				// Failed to complete task (logging removed)
-			}
+			_ = a.coord.CompleteTask(task.ID, result, opts...)
 		}
 	}
 }

@@ -38,6 +38,10 @@ Just chat naturally and watch the agents multiply to build your software.`,
 			fmt.Fprintf(os.Stderr, "Error running chat UI: %v\n", err)
 			os.Exit(1)
 		}
+
+		// Clean exit with simple goodbye message
+		fmt.Print("\033[2J\033[H") // Clear screen
+		fmt.Println("\n" + frontend.GetGoodbyeBanner())
 	},
 	DisableFlagParsing: false,
 	FParseErrWhitelist: cobra.FParseErrWhitelist{UnknownFlags: true},
