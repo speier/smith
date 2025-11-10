@@ -7,44 +7,56 @@ import (
 
 	"github.com/speier/smith/internal/session"
 	"github.com/speier/smith/pkg/lotus"
-	"github.com/speier/smith/pkg/lotus/terminal"
+	"github.com/speier/smith/pkg/lotus/components"
+
+	// "github.com/speier/smith/pkg/lotus/engine" // TODO: Update to use Element API
+	"github.com/speier/smith/pkg/lotus/tty"
 )
 
 // ChatUI represents the main chat interface
 type ChatUI struct {
-	session       session.Session
-	input         string
-	cursorPos     int
-	width         int
-	height        int
-	cursorBlink   bool
-	inputScroll   int
-	messageScroll int             // Scroll offset for message history
-	streaming     bool            // Agent is currently streaming a response
-	streamBuf     strings.Builder // Buffer for streaming response
+	session   session.Session
+	input     *components.TextInput
+	inputBox  *components.InputBox
+	messages  *components.MessageList
+	width     int
+	height    int
+	streaming bool            // Agent is currently streaming a response
+	streamBuf strings.Builder // Buffer for streaming response
+	term      *tty.Terminal
+
+	// Rendering optimization: cache the Lotus UI and only rebuild when content changes
+	cachedUI        *lotus.UI
+	lastMsgCount    int    // Track when messages change
+	lastInput       string // Track when input changes (for full re-render)
+	needsFullRender bool   // Force full render on next frame
+	didFullRebuild  bool   // Track if last render was a full rebuild (needs screen clear)
 }
 
 // NewChatUI creates a new chat UI
 func NewChatUI(sess session.Session, width, height int) *ChatUI {
+	input := components.NewTextInput("chat-input") // TODO: Update to new API
+	msgList := components.NewMessageList("chat-messages")
+	msgList.SetDimensions(width-2, height-6)
+
 	return &ChatUI{
-		session:       sess,
-		input:         "",
-		cursorPos:     0,
-		width:         width,
-		height:        height,
-		cursorBlink:   true,
-		inputScroll:   0,
-		messageScroll: 0,
+		session:  sess,
+		input:    input,
+		inputBox: components.NewInputBox("> ", input),
+		messages: msgList,
+		width:    width,
+		height:   height,
 	}
 }
 
 // Run starts the chat UI event loop
 func (ui *ChatUI) Run() error {
 	// Create terminal
-	term, err := terminal.New()
+	term, err := tty.New()
 	if err != nil {
 		return fmt.Errorf("failed to create terminal: %w", err)
 	}
+	ui.term = term
 
 	// Get terminal size
 	ui.width, ui.height = term.Size()
@@ -57,19 +69,39 @@ func (ui *ChatUI) Run() error {
 		return ui.render()
 	})
 
-	// Set up tick handler for cursor blinking
-	term.OnTick(500*time.Millisecond, func() {
-		ui.cursorBlink = !ui.cursorBlink
+	// Position cursor after rendering - now automatic via focus management!
+	term.OnPostRender(func() {
+		if ui.cachedUI != nil {
+			ui.cachedUI.UpdateCursor(term)
+		}
+	})
+
+	// Set up ticker for streaming updates (refresh while agent is responding)
+	term.OnTick(50*time.Millisecond, func() {
+		// Only trigger renders when actively streaming
+		// When not streaming, renders happen on keypress/events only
+		if !ui.streaming {
+			return // Skip tick when idle - saves CPU and allows cursor to blink
+		}
+		// Tick handler is called every 50ms to update streaming content smoothly
+		// The render will be triggered automatically after this callback
 	})
 
 	// Handle terminal resize
 	term.OnResize(func(width, height int) {
 		ui.width = width
 		ui.height = height
+		// Use Lotus's fast Reflow instead of full rebuild
+		if ui.cachedUI != nil {
+			ui.cachedUI.Reflow(width, height)
+		} else {
+			// First render or cache was cleared
+			ui.needsFullRender = true
+		}
 	})
 
 	// Set up key handler
-	term.OnKey(func(event terminal.KeyEvent) bool {
+	term.OnKey(func(event tty.KeyEvent) bool {
 		// Handle Ctrl+C to exit
 		if event.IsCtrlC() || event.IsCtrlD() {
 			return false // Stop the loop
@@ -83,75 +115,51 @@ func (ui *ChatUI) Run() error {
 }
 
 // handleKey processes keyboard input
-func (ui *ChatUI) handleKey(event terminal.KeyEvent) {
+func (ui *ChatUI) handleKey(event tty.KeyEvent) {
 	// Don't process input while streaming
 	if ui.streaming {
 		return
 	}
 
-	// Handle enter key
+	// Handle enter key (app-level)
 	if event.IsEnter() {
 		ui.handleSubmit()
 		return
 	}
 
-	if event.IsBackspace() {
-		ui.deleteChar()
-		return
-	}
-
-	// Handle escape sequences (special keys)
-	if event.Key == terminal.KeyEscape && event.Code != "" {
+	// Handle up/down for message scrolling (app-level)
+	if event.Key == tty.KeyEscape && event.Code != "" {
 		switch event.Code {
-		case terminal.SeqLeft:
-			ui.moveCursorLeft()
-		case terminal.SeqRight:
-			ui.moveCursorRight()
-		case terminal.SeqUp:
+		case tty.SeqUp:
 			ui.scrollMessagesUp()
-		case terminal.SeqDown:
+			return
+		case tty.SeqDown:
 			ui.scrollMessagesDown()
-		case terminal.SeqHome, terminal.SeqHome2:
-			ui.moveCursorHome()
-		case terminal.SeqEnd, terminal.SeqEnd2:
-			ui.moveCursorEnd()
-		case terminal.SeqDelete:
-			ui.deleteCharForward()
-		case terminal.SeqCtrlLeft, terminal.SeqAltLeft:
-			ui.moveCursorWordLeft()
-		case terminal.SeqCtrlRight, terminal.SeqAltRight:
-			ui.moveCursorWordRight()
-		case terminal.SeqCmdLeft:
-			ui.moveCursorHome()
-		case terminal.SeqCmdRight:
-			ui.moveCursorEnd()
+			return
 		}
-		return
 	}
 
-	// Handle printable characters
-	if event.IsPrintable() {
-		ui.insertChar(event.Char)
+	// Route all other keys to focused component automatically!
+	if ui.cachedUI != nil {
+		ui.cachedUI.HandleKey(event)
 	}
 }
 
 // handleSubmit sends the message to the agent
 func (ui *ChatUI) handleSubmit() {
-	if ui.input == "" {
+	if ui.input.Value == "" {
 		return
 	}
 
-	message := ui.input
-	ui.input = ""
-	ui.cursorPos = 0
-	ui.inputScroll = 0
+	message := ui.input.Value
+	ui.input.Clear()
 
 	// Start streaming
 	ui.streaming = true
 	ui.streamBuf.Reset()
 
-	// Reset scroll to show new message
-	ui.messageScroll = 999999 // Will auto-clamp to bottom
+	// Reset scroll to show new message (auto-scroll)
+	ui.messages.ScrollToBottom()
 
 	// Send message asynchronously
 	go func() {
@@ -159,6 +167,7 @@ func (ui *ChatUI) handleSubmit() {
 		if err != nil {
 			ui.streamBuf.WriteString(fmt.Sprintf("Error: %v", err))
 			ui.streaming = false
+			ui.needsFullRender = true // Force rebuild to show error
 			return
 		}
 
@@ -168,395 +177,163 @@ func (ui *ChatUI) handleSubmit() {
 		}
 
 		ui.streaming = false
+		ui.needsFullRender = true // Force rebuild when streaming completes
 	}()
-}
-
-// Input manipulation methods
-func (ui *ChatUI) insertChar(ch string) {
-	ui.input = ui.input[:ui.cursorPos] + ch + ui.input[ui.cursorPos:]
-	ui.cursorPos++
-	ui.adjustScroll()
-}
-
-func (ui *ChatUI) deleteChar() {
-	if ui.cursorPos > 0 {
-		ui.input = ui.input[:ui.cursorPos-1] + ui.input[ui.cursorPos:]
-		ui.cursorPos--
-		ui.adjustScroll()
-	}
-}
-
-func (ui *ChatUI) deleteCharForward() {
-	if ui.cursorPos < len(ui.input) {
-		ui.input = ui.input[:ui.cursorPos] + ui.input[ui.cursorPos+1:]
-	}
-}
-
-func (ui *ChatUI) moveCursorLeft() {
-	if ui.cursorPos > 0 {
-		ui.cursorPos--
-		ui.adjustScroll()
-	}
-}
-
-func (ui *ChatUI) moveCursorRight() {
-	if ui.cursorPos < len(ui.input) {
-		ui.cursorPos++
-		ui.adjustScroll()
-	}
-}
-
-func (ui *ChatUI) moveCursorHome() {
-	ui.cursorPos = 0
-	ui.inputScroll = 0
-}
-
-func (ui *ChatUI) moveCursorEnd() {
-	ui.cursorPos = len(ui.input)
-	ui.adjustScroll()
-}
-
-func (ui *ChatUI) moveCursorWordLeft() {
-	if ui.cursorPos == 0 {
-		return
-	}
-
-	// Skip spaces
-	for ui.cursorPos > 0 && ui.input[ui.cursorPos-1] == ' ' {
-		ui.cursorPos--
-	}
-
-	// Move to word start
-	for ui.cursorPos > 0 && ui.input[ui.cursorPos-1] != ' ' {
-		ui.cursorPos--
-	}
-
-	ui.adjustScroll()
-}
-
-func (ui *ChatUI) moveCursorWordRight() {
-	if ui.cursorPos >= len(ui.input) {
-		return
-	}
-
-	// Skip spaces
-	for ui.cursorPos < len(ui.input) && ui.input[ui.cursorPos] == ' ' {
-		ui.cursorPos++
-	}
-
-	// Move to word end
-	for ui.cursorPos < len(ui.input) && ui.input[ui.cursorPos] != ' ' {
-		ui.cursorPos++
-	}
-
-	ui.adjustScroll()
-}
-
-func (ui *ChatUI) adjustScroll() {
-	visibleWidth := ui.width - 10
-	if visibleWidth < 10 {
-		visibleWidth = 10
-	}
-
-	if ui.cursorPos-ui.inputScroll >= visibleWidth {
-		ui.inputScroll = ui.cursorPos - visibleWidth + 1
-	}
-
-	if ui.cursorPos < ui.inputScroll {
-		ui.inputScroll = ui.cursorPos
-	}
 }
 
 // Message scrolling methods
 func (ui *ChatUI) scrollMessagesUp() {
-	if ui.messageScroll > 0 {
-		ui.messageScroll--
-	}
+	ui.messages.ScrollUp()
 }
 
 func (ui *ChatUI) scrollMessagesDown() {
-	ui.messageScroll++
-	// Will be clamped in render
+	ui.messages.ScrollDown()
 }
 
-func (ui *ChatUI) getVisibleInput() (visible string, cursorOffset int) {
-	visibleWidth := ui.width - 10
-	if visibleWidth < 10 {
-		visibleWidth = 10
-	}
-
-	endPos := ui.inputScroll + visibleWidth
-	if endPos > len(ui.input) {
-		endPos = len(ui.input)
-	}
-
-	visible = ui.input[ui.inputScroll:endPos]
-	cursorOffset = ui.cursorPos - ui.inputScroll
-	return
+// UpdateSize updates the UI dimensions and input width
+func (ui *ChatUI) UpdateSize(width, height int) {
+	ui.width = width
+	ui.height = height
+	ui.input.Width = width - 10 // Update input width
+	ui.messages.Width = width - 2
+	ui.messages.Height = height - 6
+	ui.needsFullRender = true
 }
 
 // render generates the UI markup and renders it
+// Smart caching: Only re-parse HTML when messages change, not on every keystroke
 func (ui *ChatUI) render() string {
 	// Build message history with wrapping
 	history := ui.session.GetHistory()
-
-	// Calculate message area dimensions
-	messageWidth := ui.width - 4 // Account for borders and padding
-	if messageWidth < 20 {
-		messageWidth = 20
+	currentMsgCount := len(history)
+	if ui.streaming {
+		currentMsgCount++ // Count streaming message
 	}
 
-	// Wrap all messages and count total lines
-	type wrappedMsg struct {
-		role  string
-		lines []string
-	}
-	var wrapped []wrappedMsg
+	// Check if we need a full re-render
+	needsRebuild := ui.cachedUI == nil ||
+		ui.needsFullRender ||
+		currentMsgCount != ui.lastMsgCount ||
+		ui.streaming // ALWAYS rebuild while streaming (content changes every tick)
 
-	// If no history, show welcome banner (like original REPL)
+	if needsRebuild {
+		// Full rebuild - parse HTML/CSS, build layout
+		ui.cachedUI = ui.buildFullUI(history)
+		ui.lastMsgCount = currentMsgCount
+		ui.lastInput = ui.input.Value
+		ui.needsFullRender = false
+		ui.didFullRebuild = true // Mark that we did a full rebuild
+	} else if ui.input.Value != ui.lastInput {
+		// Input changed but messages didn't - update just the input node
+		// TODO: ui.updateInputNode() - needs Element API update
+		ui.needsFullRender = true // Force full render for now
+		ui.lastInput = ui.input.Value
+		ui.didFullRebuild = false // Fast path - no rebuild
+	} else {
+		// Nothing changed - reusing cached UI
+		ui.didFullRebuild = false
+	}
+
+	// Render the (possibly cached) UI to ANSI
+	return ui.cachedUI.RenderToTerminal(ui.didFullRebuild)
+}
+
+// buildFullUI creates a new Lotus UI from scratch (slow but complete)
+func (ui *ChatUI) buildFullUI(history []session.Message) *lotus.UI {
+	// Clear and rebuild message list
+	ui.messages.Clear()
+	ui.messages.IsStreaming = ui.streaming
+
+	// If no history, show welcome banner
 	if len(history) == 0 {
 		welcomeText := GetWelcomeBanner()
-		// Don't wrap - welcome banner is already formatted with ASCII art and centering
-		lines := strings.Split(welcomeText, "\n")
-		wrapped = append(wrapped, wrappedMsg{
-			role:  "system",
-			lines: lines,
-		})
+		ui.messages.AddMessage("system", welcomeText)
 	}
 
+	// Add history messages
 	for _, msg := range history {
-		lines := wrapText(msg.Content, messageWidth)
-		wrapped = append(wrapped, wrappedMsg{
-			role:  msg.Role,
-			lines: lines,
-		})
+		ui.messages.AddMessage(msg.Role, msg.Content)
 	}
 
 	// If streaming, add partial response
 	if ui.streaming {
 		partial := ui.streamBuf.String()
 		if partial != "" {
-			lines := wrapText(partial, messageWidth)
-			wrapped = append(wrapped, wrappedMsg{
-				role:  "assistant",
-				lines: lines,
-			})
+			ui.messages.AddMessage("assistant", partial)
 		}
 	}
 
-	// Calculate total lines needed
-	totalLines := 0
-	for _, msg := range wrapped {
-		totalLines += len(msg.lines) + 1 // +1 for spacing
-	}
-
-	// Calculate visible area
-	maxVisibleLines := ui.height - 8
-	if maxVisibleLines < 3 {
-		maxVisibleLines = 3
-	}
-
-	// Clamp scroll
-	maxScroll := totalLines - maxVisibleLines
-	if maxScroll < 0 {
-		maxScroll = 0
-	}
-	if ui.messageScroll > maxScroll {
-		ui.messageScroll = maxScroll
-	}
-	if ui.messageScroll < 0 {
-		ui.messageScroll = 0
-	}
-
-	// Auto-scroll to bottom if not manually scrolled
-	atBottom := ui.messageScroll >= maxScroll
-	if atBottom && !ui.streaming {
-		ui.messageScroll = maxScroll
-	}
-
-	// Build visible messages
-	messageBoxes := ""
-	currentLine := 0
-	visibleStart := ui.messageScroll
-	visibleEnd := ui.messageScroll + maxVisibleLines
-
-	for _, msg := range wrapped {
-		for _, line := range msg.lines {
-			if currentLine >= visibleStart && currentLine < visibleEnd {
-				class := "message " + msg.role
-				if ui.streaming && msg.role == "assistant" {
-					class += " streaming"
-				}
-				// Prefix user messages with "| "
-				prefix := ""
-				if msg.role == "user" {
-					prefix = "| "
-				}
-				messageBoxes += fmt.Sprintf(`<box class="%s">%s%s</box>`, class, prefix, line)
-			}
-			currentLine++
-		}
-		// Add spacing line
-		if currentLine >= visibleStart && currentLine < visibleEnd {
-			messageBoxes += `<box class="message"></box>`
-		}
-		currentLine++
-	}
-
-	// Build input with cursor
-	visibleInput, cursorOffset := ui.getVisibleInput()
-	inputDisplay := ""
-	if len(visibleInput) == 0 {
-		if ui.cursorBlink {
-			inputDisplay = "|"
-		} else {
-			inputDisplay = " "
-		}
-	} else {
-		for i, ch := range visibleInput {
-			if i == cursorOffset && ui.cursorBlink {
-				inputDisplay = "|"
-			}
-			inputDisplay += string(ch)
-		}
-		if cursorOffset >= len(visibleInput) && ui.cursorBlink {
-			inputDisplay += "|"
-		}
-	}
-
-	// Build markup
+	// Build markup using components
 	markup := fmt.Sprintf(`
 		<box id="root">
 			<box id="messages">%s</box>
-			<box id="input-container">
-				<box id="input-label">> </box>
-				<box id="input-text">%s</box>
-			</box>
+			%s
 		</box>
-	`, messageBoxes, inputDisplay)
+	`, ui.messages.Render(), ui.inputBox.Render())
 
-	return lotus.New(markup, smithCSS, ui.width, ui.height).RenderToTerminal()
+	css := `
+		#root {
+			display: flex;
+			flex-direction: column;
+			height: 100%;
+			width: 100%;
+		}
+
+		#messages {
+			flex: 1;
+			padding: 0;
+			display: flex;
+			flex-direction: column;
+			border: 1px solid;
+			border-style: single;
+		}
+	` + ui.messages.GetCSS() + ui.inputBox.GetCSS()
+
+	lotusUI := lotus.New(markup, css, ui.width, ui.height)
+
+	// Register input component and set focus for automatic cursor management
+	lotusUI.RegisterComponent("input-text", ui.input)
+	lotusUI.SetFocus("input-text")
+
+	return lotusUI
 }
 
-// wrapText wraps text to fit within the given width
-func wrapText(text string, width int) []string {
-	if width < 10 {
-		width = 10
+// updateInputNode updates just the input text node (fast - no HTML parsing)
+// TODO: Update to use Element API instead of legacy engine.Node
+/*
+func (ui *ChatUI) updateInputNode() {
+	if ui.cachedUI == nil {
+		return
 	}
 
-	var lines []string
-	words := strings.Fields(text)
-	if len(words) == 0 {
-		return []string{""}
+	// Find the input text box by ID
+	inputBox := ui.cachedUI.FindByID("input-text")
+	if inputBox == nil {
+		return
 	}
 
-	currentLine := ""
-	for _, word := range words {
-		// If word itself is longer than width, split it
-		if len(word) > width {
-			if currentLine != "" {
-				lines = append(lines, currentLine)
-				currentLine = ""
-			}
-			// Split long word
-			for len(word) > width {
-				lines = append(lines, word[:width])
-				word = word[width:]
-			}
-			if len(word) > 0 {
-				currentLine = word
-			}
-			continue
-		}
+	// Update its content using component
+	inputDisplay := ui.input.GetDisplay()
 
-		// Try adding word to current line
-		testLine := currentLine
-		if testLine != "" {
-			testLine += " "
-		}
-		testLine += word
+	// The actual text is in the first child (type="text" node)
+	if len(inputBox.Children) > 0 && inputBox.Children[0].Type == "text" {
+		// Just update the existing text node's content
+		inputBox.Children[0].Content = inputDisplay
+	} else {
+		// No child text node - create one with proper layout
+		textNode := engine.NewNode("text")
+		textNode.Content = inputDisplay
+		textNode.Parent = inputBox
 
-		if len(testLine) <= width {
-			currentLine = testLine
-		} else {
-			// Start new line
-			if currentLine != "" {
-				lines = append(lines, currentLine)
-			}
-			currentLine = word
-		}
+		// Copy layout from parent (position text inside the box)
+		textNode.X = inputBox.X
+		textNode.Y = inputBox.Y
+		textNode.Width = inputBox.Width
+		textNode.Height = inputBox.Height
+
+		inputBox.Children = []*engine.Node{textNode}
 	}
-
-	if currentLine != "" {
-		lines = append(lines, currentLine)
-	}
-
-	if len(lines) == 0 {
-		return []string{""}
-	}
-
-	return lines
 }
+*/
 
-// smithCSS defines the Matrix-themed styling
-const smithCSS = `
-	#root {
-		display: flex;
-		flex-direction: column;
-		height: 100%;
-		width: 100%;
-	}
-
-	#messages {
-		flex: 1;
-		padding: 0;
-		color: 10;
-		display: flex;
-		flex-direction: column;
-		border: 1px solid;
-		border-style: single;
-	}
-
-	.message {
-		height: 1;
-		margin: 0;
-		padding: 0 1 0 1;
-		width: 100%;
-	}
-
-	.message.system {
-		text-align: center;
-		color: 10;
-	}
-
-	.message.user {
-		color: 10;
-	}
-
-	.message.assistant {
-		color: 10;
-	}
-
-	.message.streaming {
-		color: 10;
-	}
-
-	#input-container {
-		height: 3;
-		border: 1px solid;
-		border-style: single;
-		display: flex;
-		flex-direction: row;
-	}
-
-	#input-label {
-		width: 3;
-		color: #0f0;
-		padding: 0 0 0 1;
-	}
-
-	#input-text {
-		flex: 1;
-		color: #0f0;
-	}
-`
+// PositionCursor positions the cursor after rendering is complete

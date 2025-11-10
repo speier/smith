@@ -49,9 +49,9 @@ func TestUI(t *testing.T) {
 		t.Errorf("expected header height 3, got %d", header.Height)
 	}
 
-	output := ui.RenderToTerminal()
+	output := ui.RenderToTerminal(true) // Clear screen for test
 	if output == "" {
-		t.Error("RenderToTerminal() produced empty output")
+		t.Error("RenderToTerminal(true) produced empty output")
 	}
 }
 

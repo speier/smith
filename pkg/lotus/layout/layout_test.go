@@ -2,11 +2,13 @@ package layout
 
 import (
 	"testing"
+
+	"github.com/speier/smith/pkg/lotus/core"
 )
 
 func TestBasicLayout(t *testing.T) {
-	root := NewNode("box")
-	child := NewNode("box")
+	root := core.NewNode("box")
+	child := core.NewNode("box")
 	root.Children = append(root.Children, child)
 
 	Layout(root, 100, 40)
@@ -20,22 +22,22 @@ func TestBasicLayout(t *testing.T) {
 }
 
 func TestFlexColumn(t *testing.T) {
-	root := NewNode("box")
-	root.Styles = &ComputedStyle{
+	root := core.NewNode("box")
+	root.Styles = &core.ComputedStyle{
 		Display: "flex",
 		FlexDir: "column",
 	}
 
-	header := NewNode("box")
-	header.Styles = &ComputedStyle{Height: "5"}
+	header := core.NewNode("box")
+	header.Styles = &core.ComputedStyle{Height: "5"}
 
-	content := NewNode("box")
-	content.Styles = &ComputedStyle{Flex: "1"}
+	content := core.NewNode("box")
+	content.Styles = &core.ComputedStyle{Flex: "1"}
 
-	footer := NewNode("box")
-	footer.Styles = &ComputedStyle{Height: "3"}
+	footer := core.NewNode("box")
+	footer.Styles = &core.ComputedStyle{Height: "3"}
 
-	root.Children = []*Node{header, content, footer}
+	root.Children = []*core.Node{header, content, footer}
 
 	Layout(root, 100, 40)
 

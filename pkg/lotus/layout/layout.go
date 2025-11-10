@@ -3,10 +3,12 @@ package layout
 import (
 	"strconv"
 	"strings"
+
+	"github.com/speier/smith/pkg/lotus/core"
 )
 
 // Layout computes positions and sizes for all nodes
-func Layout(root *Node, width, height int) {
+func Layout(root *core.Node, width, height int) {
 	// Set root dimensions
 	root.X = 0
 	root.Y = 0
@@ -17,7 +19,7 @@ func Layout(root *Node, width, height int) {
 	layoutChildren(root)
 }
 
-func layoutChildren(node *Node) {
+func layoutChildren(node *core.Node) {
 	// Calculate available space for children (account for padding and border)
 	innerX := node.X + node.Styles.PaddingLeft
 	innerY := node.Y + node.Styles.PaddingTop
@@ -44,7 +46,7 @@ func layoutChildren(node *Node) {
 	}
 }
 
-func layoutBlock(parent *Node, x, y, width, height int) {
+func layoutBlock(parent *core.Node, x, y, width, height int) {
 	currentY := y
 	for _, child := range parent.Children {
 		// Compute child dimensions
@@ -66,7 +68,7 @@ func layoutBlock(parent *Node, x, y, width, height int) {
 	}
 }
 
-func layoutFlexColumn(parent *Node, x, y, width, height int) {
+func layoutFlexColumn(parent *core.Node, x, y, width, height int) {
 	// Calculate total fixed height and count flexible children
 	var totalFixed int
 	var totalFlexGrow float64
@@ -77,6 +79,8 @@ func layoutFlexColumn(parent *Node, x, y, width, height int) {
 		if flexVal > 0 {
 			// Flexible child - will get remaining space
 			totalFlexGrow += flexVal
+			// But still account for flex child's margins in totalFixed
+			totalFixed += child.Styles.MarginTop + child.Styles.MarginBottom
 		} else {
 			// Fixed child - use explicit height (not "auto")
 			if child.Styles.Height != "auto" && child.Styles.Height != "" {
@@ -91,11 +95,6 @@ func layoutFlexColumn(parent *Node, x, y, width, height int) {
 
 	// Remaining space for flexible children
 	remainingHeight := height - totalFixed
-
-	// Debug: Uncomment to trace layout
-	// fmt.Printf("layoutFlexColumn: height=%d, totalFixed=%d, remaining=%d, totalFlexGrow=%.1f\n",
-	//     height, totalFixed, remainingHeight, totalFlexGrow)
-
 	// Layout each child
 	currentY := y
 	for _, child := range parent.Children {
@@ -130,7 +129,7 @@ func layoutFlexColumn(parent *Node, x, y, width, height int) {
 	}
 }
 
-func layoutFlexRow(parent *Node, x, y, width, height int) {
+func layoutFlexRow(parent *core.Node, x, y, width, height int) {
 	// Calculate total fixed width and flexible children
 	var totalFixed int
 	var totalFlexGrow float64

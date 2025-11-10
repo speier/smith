@@ -4,11 +4,11 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/speier/smith/pkg/lotus/layout"
+	"github.com/speier/smith/pkg/lotus/core"
 )
 
 // Parse parses simple HTML-like markup into a node tree
-func Parse(markup string) *layout.Node {
+func Parse(markup string) *core.Node {
 	p := &parser{
 		input: strings.TrimSpace(markup),
 		pos:   0,
@@ -21,7 +21,7 @@ type parser struct {
 	pos   int
 }
 
-func (p *parser) parse() *layout.Node {
+func (p *parser) parse() *core.Node {
 	p.skipWhitespace()
 	if p.pos >= len(p.input) {
 		return nil
@@ -34,7 +34,7 @@ func (p *parser) parse() *layout.Node {
 	return p.parseElement()
 }
 
-func (p *parser) parseElement() *layout.Node {
+func (p *parser) parseElement() *core.Node {
 	// Skip '<'
 	p.pos++
 
@@ -45,7 +45,18 @@ func (p *parser) parseElement() *layout.Node {
 
 	// Parse tag name
 	tagName := p.parseIdentifier()
-	node := layout.NewNode(tagName)
+	node := core.NewNode(tagName)
+
+	// Set display:flex for flex container tags
+	switch tagName {
+	case "vstack", "hstack", "hbox":
+		node.Styles.Display = "flex"
+		if tagName == "vstack" {
+			node.Styles.FlexDir = "column"
+		} else {
+			node.Styles.FlexDir = "row"
+		}
+	}
 
 	// Parse attributes
 	for p.pos < len(p.input) {
@@ -68,6 +79,41 @@ func (p *parser) parseElement() *layout.Node {
 				node.ID = attrValue
 			case "class":
 				node.Classes = strings.Split(attrValue, " ")
+			case "direction":
+				// Map direction attribute to flex styles
+				node.Styles.Display = "flex"
+				if attrValue == "column" {
+					node.Styles.FlexDir = "column"
+				} else {
+					node.Styles.FlexDir = "row"
+				}
+				node.Attributes[attrName] = attrValue
+			case "flex":
+				// Map flex attribute to style
+				node.Styles.Flex = attrValue
+				node.Attributes[attrName] = attrValue
+			case "border":
+				// Map border attribute to style (any non-empty value means border=true)
+				node.Styles.Border = attrValue != "" && attrValue != "none"
+				node.Attributes[attrName] = attrValue
+			case "border-style":
+				// Map border-style attribute
+				node.Styles.BorderChar = attrValue
+				node.Attributes[attrName] = attrValue
+			case "padding":
+				// Map padding attribute
+				parsePadding(node, attrValue)
+				node.Attributes[attrName] = attrValue
+			case "margin":
+				// Map margin attribute
+				parseMargin(node, attrValue)
+				node.Attributes[attrName] = attrValue
+			case "width", "height":
+				// Store dimension attributes (will be applied by CSS or layout)
+				node.Attributes[attrName] = attrValue
+			case "color", "background":
+				// Store color attributes
+				node.Attributes[attrName] = attrValue
 			default:
 				node.Attributes[attrName] = attrValue
 			}
@@ -113,7 +159,7 @@ func (p *parser) parseElement() *layout.Node {
 	return node
 }
 
-func (p *parser) parseText() *layout.Node {
+func (p *parser) parseText() *core.Node {
 	start := p.pos
 	for p.pos < len(p.input) && p.input[p.pos] != '<' {
 		p.pos++
@@ -124,7 +170,7 @@ func (p *parser) parseText() *layout.Node {
 		return nil
 	}
 
-	node := layout.NewNode("text")
+	node := core.NewNode("text")
 	node.Content = text
 	return node
 }
@@ -250,11 +296,11 @@ func ParseCSS(css string) map[string]map[string]string {
 }
 
 // ApplyStyles applies CSS styles to the node tree
-func ApplyStyles(root *layout.Node, styles map[string]map[string]string) {
+func ApplyStyles(root *core.Node, styles map[string]map[string]string) {
 	applyStylesToNode(root, styles)
 }
 
-func applyStylesToNode(node *layout.Node, styles map[string]map[string]string) {
+func applyStylesToNode(node *core.Node, styles map[string]map[string]string) {
 	// Apply type selector
 	if props, ok := styles[node.Type]; ok {
 		applyProperties(node, props)
@@ -310,7 +356,7 @@ func applyStylesToNode(node *layout.Node, styles map[string]map[string]string) {
 	}
 }
 
-func applyProperties(node *layout.Node, props map[string]string) {
+func applyProperties(node *core.Node, props map[string]string) {
 	for key, value := range props {
 		switch key {
 		case "width":
@@ -351,7 +397,7 @@ func applyProperties(node *layout.Node, props map[string]string) {
 	}
 }
 
-func parsePadding(node *layout.Node, value string) {
+func parsePadding(node *core.Node, value string) {
 	parts := strings.Fields(value)
 	switch len(parts) {
 	case 1:
@@ -375,7 +421,7 @@ func parsePadding(node *layout.Node, value string) {
 	}
 }
 
-func parseMargin(node *layout.Node, value string) {
+func parseMargin(node *core.Node, value string) {
 	parts := strings.Fields(value)
 	switch len(parts) {
 	case 1:
