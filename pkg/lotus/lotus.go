@@ -72,9 +72,9 @@ package lotus
 import (
 	"fmt"
 
-	_ "github.com/speier/smith/pkg/lotus/devtools" // Register DevTools factory
 	"github.com/speier/smith/pkg/lotus/components"
 	"github.com/speier/smith/pkg/lotus/core"
+	_ "github.com/speier/smith/pkg/lotus/devtools" // Register DevTools factory
 	"github.com/speier/smith/pkg/lotus/layout"
 	"github.com/speier/smith/pkg/lotus/reconciler"
 	"github.com/speier/smith/pkg/lotus/runtime"

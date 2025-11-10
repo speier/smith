@@ -16,7 +16,6 @@ func init() {
 	})
 }
 
-
 // DevTools provides an in-app debug console (like browser DevTools)
 type DevTools struct {
 	messageList *components.MessageList

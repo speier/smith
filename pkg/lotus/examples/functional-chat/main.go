@@ -37,11 +37,11 @@ func ChatApp() lotus.RenderFunc {
 				lotus.NewComponentElement(messageList),
 			),
 
-		// Input
-		lotus.PanelBox("input-box",
-			lotus.NewComponentElement(input),
-		).Height(3),
-	).Render()
+			// Input
+			lotus.PanelBox("input-box",
+				lotus.NewComponentElement(input),
+			).Height(3),
+		).Render()
 	}
 }
 
