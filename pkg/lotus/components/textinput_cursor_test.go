@@ -32,6 +32,7 @@ func TestTextInput_CursorStyles(t *testing.T) {
 			input := NewTextInput().
 				WithPlaceholder("Test").
 				WithCursorStyle(tt.style)
+			input.Focused = true // Set focused to test cursor rendering
 
 			// Verify cursor style is set
 			if input.CursorStyle != tt.style {
@@ -76,6 +77,7 @@ func TestTextInput_CursorStyles(t *testing.T) {
 
 func TestTextInput_CursorStyleWithText(t *testing.T) {
 	input := NewTextInput().WithCursorStyle(CursorBlock)
+	input.Focused = true // Set focused to test cursor rendering
 	input.InsertChar("H")
 	input.InsertChar("i")
 
@@ -96,6 +98,7 @@ func TestTextInput_CursorStyleWithText(t *testing.T) {
 
 func TestTextInput_CursorStyleBar(t *testing.T) {
 	input := NewTextInput().WithCursorStyle(CursorBar)
+	input.Focused = true // Set focused to test cursor rendering
 	input.InsertChar("H")
 	input.InsertChar("i")
 

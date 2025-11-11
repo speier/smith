@@ -240,6 +240,7 @@ func TestTextInput_EnterStillSubmits(t *testing.T) {
 
 func TestTextInput_MultiLineRendering(t *testing.T) {
 	input := NewTextInput().WithWidth(20)
+	input.Focused = true // Set focused to test cursor rendering
 	input.Value = "Line 1\nLine 2"
 	input.CursorPos = 0
 

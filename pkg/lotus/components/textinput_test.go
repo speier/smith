@@ -568,6 +568,7 @@ func TestTextInput_WithPlaceholder(t *testing.T) {
 
 func TestTextInput_RenderWithPlaceholder(t *testing.T) {
 	input := NewTextInput().WithPlaceholder("Say something...")
+	input.Focused = true // Set focused to test cursor rendering
 
 	// Test 1: Empty input should render cursor + placeholder in HStack
 	elem := input.Render()
@@ -679,10 +680,11 @@ func TestTextInput_RenderWithPlaceholder(t *testing.T) {
 
 func TestTextInput_PlaceholderWithPrompt(t *testing.T) {
 	input := NewTextInput().WithPlaceholder("Type here...")
+	input.Focused = true // Set focused to test cursor rendering
 
 	elem := input.Render()
 	hstack := elem.Children[0]
-	
+
 	// Should have 3 children: prompt, T (underlined), ype here...
 	if len(hstack.Children) != 3 {
 		t.Fatalf("Expected 3 children, got %d", len(hstack.Children))

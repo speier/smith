@@ -1,386 +1,234 @@
-# Lotus 🪷# Lotus 🪷
+# Lotus 🪷
 
+**React for Terminal UIs** - Build beautiful terminal applications with React-like components and flexbox layout.
 
+[![Go Reference](https://pkg.go.dev/badge/github.com/speier/smith/pkg/lotus.svg)](https://pkg.go.dev/github.com/speier/smith/pkg/lotus)
+[![Go Report Card](https://goreportcard.com/badge/github.com/speier/smith)](https://goreportcard.com/report/github.com/speier/smith)
 
-**React for Terminal UIs** - Build beautiful terminal applications with React-like components and flexbox layout.**React for Terminal UIs** - Build beautiful terminal applications with React-like components and flexbox layout.
+Lotus brings modern web development to the terminal:
 
+- ⚛️ **React-like Components** - Familiar component-based architecture
+- 📐 **Flexbox Layout** - CSS-style flexbox (inspired by Yoga)
+- 🎨 **Clean Architecture** - Modular pipeline: vdom → style → layout → render
+- 🪶 **Lightweight & Fast** - Pure Go, minimal dependencies
+- 🔧 **Extractable Modules** - Use vdom, layout, or render independently
 
+## Architecture
 
-[![Go Reference](https://pkg.go.dev/badge/github.com/speier/smith/pkg/lotus.svg)](https://pkg.go.dev/github.com/speier/smith/pkg/lotus)[![Go Reference](https://pkg.go.dev/badge/github.com/speier/smith/pkg/lotus.svg)](https://pkg.go.dev/github.com/speier/smith/pkg/lotus)
-
-[![Go Report Card](https://goreportcard.com/badge/github.com/speier/smith)](https://goreportcard.com/report/github.com/speier/smith)[![Go Report Card](https://goreportcard.com/badge/github.com/speier/smith)](https://goreportcard.com/report/github.com/speier/smith)
-
-
-
-Lotus brings modern web development to the terminal:Lotus brings modern web development to the terminal:
-
-
-
-- ⚛️ **React-like Components** - Familiar component-based architecture- ⚛️ **React-like Components** - Familiar component-based architecture
-
-- 📐 **Flexbox Layout** - CSS flexbox engine (inspired by Yoga)- 📐 **Flexbox Layout** - CSS-style flexbox (inspired by Yoga)
-
-- 🎨 **Clean Architecture** - Modular pipeline: vdom → style → layout → render- 🎨 **Clean Architecture** - Modular pipeline: vdom → style → layout → render
-
-- 🪶 **Lightweight & Fast** - Pure Go, zero dependencies- 🪶 **Lightweight & Fast** - Pure Go, zero dependencies
-
-- 🔧 **Extractable Modules** - Use vdom, layout, or render independently- � **Extractable Modules** - Use vdom, layout, or render independently
-
-
-
-## Architecture## Architecture
-
-
-
-Lotus uses a clean separation of concerns:Lotus uses a clean separation of concerns:
-
-
-
-``````
-
-vdom (Virtual DOM)       - React-like element treesvdom (Virtual DOM)
-
-  ↓  ↓
-
-style (CSS resolution)   - Compute final stylesstyle (CSS resolution)
-
-  ↓  ↓
-
-layout (Flexbox math)    - Yoga-inspired layout enginelayout (Flexbox math - Yoga-inspired)
-
-  ↓  ↓
-
-render (ANSI output)     - Terminal renderingrender (ANSI terminal output)
-
-``````
-
-
-
-Each module is independently usable and testable.Each module is independently usable and testable.
-
-
-
-## Quick Start## Quick Start
-
-
-
-```go```go
-
-package mainpackage main
-
-
-
-import (import (
-
-	"github.com/speier/smith/pkg/lotus"	"github.com/speier/smith/pkg/lotus"
-
-	"github.com/speier/smith/pkg/lotus/vdom"	"github.com/speier/smith/pkg/lotus/vdom"
-
-))
-
-
-
-type ChatApp struct {type ChatApp struct {
-
-	messages []string	messages []string
-
-}}
-
-
-
-func (app *ChatApp) Render() *vdom.Element {func (app *ChatApp) Render() *vdom.Element {
-
-	return vdom.VStack(	return vdom.VStack(
-
-		vdom.Box(vdom.Text("💬 Chat Room")).		vdom.Box(vdom.Text("💬 Chat Room")).
-
-			WithStyle("height", "3").			WithStyle("height", "3").
-
-			WithStyle("border", "1px solid blue"),			WithStyle("border", "1px solid blue"),
-
-				
-
-		vdom.Box(vdom.Text("Messages here...")).		vdom.Box(vdom.Text("Messages here...")).
-
-			WithStyle("flex", "1"),			WithStyle("flex", "1"),
-
-				
-
-		vdom.Box(vdom.Text("Type here...")).		vdom.Box(vdom.Text("Type here...")).
-
-			WithStyle("height", "3"),			WithStyle("height", "3"),
-
-	)	)
-
-}}
-
-
-
-func main() {func main() {
-
-	app := &ChatApp{messages: []string{"Welcome!"}}	app := &ChatApp{
-
-	lotus.Run("chat", app)		messages: []string{"Welcome!"},
-
-}	}
-
-```	lotus.Run("chat", app)
-
-}
-
-## Installation```
-
-
-
-```bashThat's it! No message passing, no update functions, just declarative UI.
-
-go get github.com/speier/smith/pkg/lotus
-
-```## Three Ways to Build
-
-
-
-## Core ConceptsLotus gives you flexibility - pick the style that fits your use case:
-
-
-
-### Virtual DOM (`pkg/lotus/vdom`)### 1. JSX-like Markup (Simple & Quick)
-
-
-
-Create UI trees with React-like helpers:```go
-
-markup := `
-
-```go	<box direction="column">
-
-import "github.com/speier/smith/pkg/lotus/vdom"		<text>Hello World</text>
-
-	</box>
-
-// Vertical stack`
-
-ui := vdom.VStack(ui := lotus.NewUI(markup, "", width, height)
-
-	vdom.Text("Title"),```
-
-	vdom.Box(vdom.Text("Content")).
-
-		WithStyle("flex", "1").### 2. React Helpers (Recommended)
-
-		WithStyle("border", "1px solid"),
-
-)```go
-
-func (app *App) Render() *lotus.Element {
-
-// Horizontal stack	return lotus.VStack(
-
-row := vdom.HStack(		lotus.Text("Title"),
-
-	vdom.Text("Left").WithStyle("width", "50%"),		lotus.HStack(
-
-	vdom.Text("Right").WithStyle("width", "50%"),			lotus.Text("Left"),
-
-)			lotus.Text("Right"),
-
-```		),
-
-		lotus.NewTextInput("input"),
-
-### Flexbox Layout (`pkg/lotus/layout2`)	).Render()
-
-}
-
-CSS-like flexbox properties:```
-
-
-
-```go### 3. Type-Safe Builders (Advanced)
-
-vdom.Box(...).
-
-	WithStyle("flex", "1").           // flex-grow```go
-
-	WithStyle("width", "50%").        // percentage widthelem := lotus.Box("container",
-
-	WithStyle("height", "10").        // fixed height	lotus.Text("Hello"),
-
-	WithStyle("border", "1px solid"). // borders).Direction(lotus.Column).
-
-	WithStyle("padding", "1")         // padding  Color("#00ff00").
-
-```  Padding("2").
-
-  Render()
-
-### Low-Level API (`pkg/lotus/lotus2`)```
-
-
-
-Use the pipeline directly for custom rendering:All three produce the same Virtual DOM tree and get the same performance optimizations!
-
-
-
-```go## Features
-
-import (
-
-	"github.com/speier/smith/pkg/lotus/lotus2"## Features
-
-	"github.com/speier/smith/pkg/lotus/vdom"
-
-)### Core
-
-- ⚡ **Virtual DOM Diffing** - Only update what changed (200x speedup)
-
-element := vdom.HStack(- 🎨 **Flexbox Layout** - Modern CSS-like layout engine
-
-	vdom.Box(vdom.Text("App")).WithStyle("width", "70%"),- 🎯 **Automatic Focus Management** - Tab through components automatically
-
-	vdom.Box(vdom.Text("Panel")).WithStyle("width", "30%"),- 🔄 **Auto Terminal Resize** - Handles window size changes gracefully
-
-)- 📦 **Component System** - Reusable, composable UI components
-
-
-
-output := lotus2.RenderWithoutCSS(element, 160, 40)### Built-in Components
-
-fmt.Print(output)- `TextInput` - Full-featured text input with editing, cursor, scrolling
-
-```- `MessageList` - Scrollable message display
-
-- `InputBox` - Label + input combination
-
-## Built-in Components- `Panel` - Bordered containers
-
-- `Header` - Styled headers
-
-- **TextInput** - Full-featured text input with editing- `ProgressBar` - Progress visualization
-
-- **MessageList** - Scrollable message display- `Menu` - Interactive menus
-
-- **Panel** - Bordered containers- `Dialog` - Modal dialogs
-
-- **ProgressBar** - Progress visualization- `Tabs` - Tabbed interfaces
-
-- **Tabs** - Tabbed interfaces
-
-### Performance
-
-## Examples- **245ns** - Text update with Virtual DOM diffing
-
-- **152ns** - Complex tree diffing (10 elements)
-
-See `examples/chat-tui/` for a complete working example with:- **0 allocations** - CSS parsing when cached
-
-- Component composition- **48-192 bytes/frame** - Minimal memory footprint
-
-- Event handling
-
-- Auto-scrolling messages## Installation
-
-- Text input with submit
-
-```bash
-
-## Module Overviewgo get github.com/speier/smith/pkg/lotus
+Lotus uses a clean separation of concerns:
 
 ```
+vdom (Virtual DOM) → style (CSS) → layout (Flexbox) → render (ANSI)
+```
 
-### `vdom/` - Virtual DOM
-
-Pure element tree representation. No dependencies.## Examples
+Each module is independently usable and testable.
 
 
 
-### `style/` - CSS Resolution### Simple Text Display
-
-Computes final styles from element + CSS rules.
+## Quick Start
 
 ```go
+package main
 
-### `layout2/` - Flexbox Enginefunc (app *App) Render() *lotus.Element {
+import (
+	"github.com/speier/smith/pkg/lotus"
+	"github.com/speier/smith/pkg/lotus/components"
+)
 
-Pure flexbox math. Takes styled elements → layout boxes with positions.	return lotus.Text("Hello, World!").Render()
-
+type ChatApp struct {
+	messages []string
 }
 
-### `render/` - ANSI Renderer```
-
-Converts layout boxes to ANSI terminal escape codes.
-
-### Interactive Form
-
-### `lotus2/` - Clean API
-
-Convenience wrapper: `Render(element, css, width, height) → string````go
-
-type FormApp struct {
-
-## Performance	nameInput  *lotus.TextInput
-
-	emailInput *lotus.TextInput
-
-- **Pure functions** - No mutations in layout engine}
-
-- **Independent modules** - Each testable in isolation
-
-- **Flexbox math** - Yoga-inspired layout calculationsfunc NewFormApp() *FormApp {
-
-- **Clean pipeline** - No wasteful conversions	return &FormApp{
-
-		nameInput:  lotus.NewTextInput("name"),
-
-## License		emailInput: lotus.NewTextInput("email"),
-
-	}
-
-MIT}
-
-
-func (app *FormApp) Render() *lotus.Element {
+func (app *ChatApp) Render() *lotus.Element {
 	return lotus.VStack(
-		lotus.NewInputBox("Name:", app.nameInput),
-		lotus.NewInputBox("Email:", app.emailInput),
-		lotus.Text("Press Tab to switch fields"),
-	).Render()
+		lotus.Box(
+			lotus.Text("💬 Chat Room"),
+		),
+		lotus.Box(
+			lotus.Text("Messages here..."),
+		),
+	)
 }
 
 func main() {
-	lotus.Run("form", NewFormApp())
+	app := &ChatApp{
+		messages: []string{"Welcome!"},
+	}
+	lotus.Run(app)
 }
 ```
 
-### Dashboard with Layout
+That's it! No message passing, no update functions, just declarative UI.
+
+## Installation
+
+```bash
+go get github.com/speier/smith/pkg/lotus
+```
+
+
+
+## Core Concepts
+
+### Virtual DOM
+
+Create UI trees with React-like helpers:
+
+```go
+import "github.com/speier/smith/pkg/lotus"
+
+// Vertical stack
+ui := lotus.VStack(
+	lotus.Text("Title"),
+	lotus.Box(
+		lotus.Text("Content"),
+	),
+)
+
+// Horizontal stack
+row := lotus.HStack(
+	lotus.Text("Left"),
+	lotus.Text("Right"),
+)
+```
+
+### Markup Strings
+
+Quick prototyping with markup syntax:
+
+```go
+markup := `
+	<box direction="column">
+		<text>Hello World</text>
+	</box>
+`
+lotus.Run(markup)
+```
+
+### Components
+
+Build reusable components with state:
+
+```go
+import "github.com/speier/smith/pkg/lotus/components"
+
+input := components.NewTextInput().
+	WithPlaceholder("Type here...").
+	WithOnSubmit(func(value string) {
+		// Handle submission
+	})
+```
+
+### Flexbox Layout
+
+CSS-like flexbox properties via inline styles:
+
+```go
+elem := lotus.Box(
+	lotus.Text("Content"),
+)
+elem.Styles = map[string]string{
+	"flex":    "1",
+	"width":   "50%",
+	"height":  "10",
+	"padding": "1",
+}
+```
+
+## Features
+
+### Core
+- ⚡ **Virtual DOM Diffing** - Only update what changed
+- 🎨 **Flexbox Layout** - Modern CSS-like layout engine
+- 🎯 **Automatic Focus Management** - Tab through components automatically
+- 🔄 **Auto Terminal Resize** - Handles window size changes gracefully
+- 📦 **Component System** - Reusable, composable UI components
+
+### Built-in Components
+- `TextInput` - Full-featured text input with editing, cursor, scrolling
+- `TextBox` - Multi-line text display with auto-scroll
+- `ProgressBar` - Progress visualization
+- `Tabs` - Tabbed interfaces
+- `Select` - Dropdown selection
+- `Checkbox` - Toggle checkboxes
+- `Radio` - Radio button groups
+- `Modal` - Modal dialogs
+- `ScrollView` - Scrollable containers
+
+### Performance
+- **245ns** - Text update with Virtual DOM diffing
+- **152ns** - Complex tree diffing (10 elements)
+- **0 allocations** - CSS parsing when cached
+- **48-192 bytes/frame** - Minimal memory footprint
+
+## Examples
+
+### Simple Text Display
+
+```go
+func (app *App) Render() *lotus.Element {
+	return lotus.Text("Hello, World!")
+}
+```
+
+### Interactive Form
+
+```go
+import "github.com/speier/smith/pkg/lotus/components"
+
+type FormApp struct {
+	nameInput  *components.TextInput
+	emailInput *components.TextInput
+}
+
+func NewFormApp() *FormApp {
+	return &FormApp{
+		nameInput:  components.NewTextInput(),
+		emailInput: components.NewTextInput(),
+	}
+}
+
+func (app *FormApp) Render() *lotus.Element {
+	return lotus.VStack(
+		lotus.Text("Name:"),
+		app.nameInput.Render(),
+		lotus.Text("Email:"),
+		app.emailInput.Render(),
+		lotus.Text("Press Tab to switch fields"),
+	)
+}
+
+func main() {
+	lotus.Run(NewFormApp())
+}
+```
+
+### Dashboard Layout
 
 ```go
 func (app *DashboardApp) Render() *lotus.Element {
 	return lotus.VStack(
 		// Header
-		lotus.NewHeader("📊 Dashboard"),
+		lotus.Text("📊 Dashboard"),
 		
 		// Main content - horizontal split
 		lotus.HStack(
-			// Sidebar
-			lotus.NewPanel("menu", lotus.VStack(
+			// Sidebar (30% width)
+			lotus.VStack(
 				lotus.Text("📁 Files"),
 				lotus.Text("⚙️ Settings"),
-				lotus.Text("❓ Help"),
-			)),
+			),
 			
 			// Main area
 			lotus.VStack(
-				lotus.Text("Welcome to the dashboard!"),
-				lotus.NewProgressBar("progress").
-					WithProgress(0.75),
+				lotus.Text("Welcome!"),
 			),
 		),
-	).Render()
+	)
 }
 ```
 
-See `examples/chat-tui/` and `examples/composition/` for complete applications.
+See `examples/chat/` for a complete chat application.
 
 ## API Reference
 
@@ -389,72 +237,67 @@ See `examples/chat-tui/` and `examples/composition/` for complete applications.
 ```go
 // App interface - implement Render() to describe your UI
 type App interface {
-	Render() *Element
+	Render() *lotus.Element
 }
 
-// Run your app
-lotus.Run("app-id", app)
-
-// Or with custom config
-lotus.RunWith(lotus.TerminalConfig{
-	ContextID: "app-id",
-	App:       app,
-})
+// Run your app (accepts App, *Element, or markup string)
+lotus.Run(app)
 ```
 
 ### Layout Helpers
 
 ```go
-// Vertical stack (column)
+// Vertical stack (flex-direction: column)
 lotus.VStack(children...)
 
-// Horizontal stack (row)  
+// Horizontal stack (flex-direction: row)
 lotus.HStack(children...)
 
-// Bordered panel
-lotus.PanelBox("id", children...)
+// Box container
+lotus.Box(children...)
 
-// Custom box with ID
-lotus.Box("id", children...)
-```
-
-### Text & Content
-
-```go
-// Simple text
+// Text node
 lotus.Text("content")
 
-// Markdown rendering
-lotus.Markdown("# Title\n\nParagraph", width)
+// Markup parsing
+lotus.Markup("<box><text>Hello</text></box>")
 ```
 
 ### Components
 
-All components follow the same pattern:
+All components are in `github.com/speier/smith/pkg/lotus/components`:
 
 ```go
-input := lotus.NewTextInput("input-id").
-	WithWidth(50).
-	WithPlaceholder("Enter text...").
+input := components.NewTextInput().
+	WithPlaceholder("Type here...").
 	WithOnSubmit(func(value string) {
 		// Handle submission
 	})
+
+textbox := components.NewTextBox().
+	WithAutoScroll(true)
+
+progress := components.NewProgressBar(50).
+	SetValue(0.75)
+
+tabs := components.NewTabs().
+	AddTab("Tab 1", content1).
+	AddTab("Tab 2", content2)
 ```
 
 ### Styling
 
-Components support inline styling:
+Elements support inline styling via the `Styles` map:
 
 ```go
-elem := lotus.VStack(
-	lotus.Text("Title"),
-).Render()
-
-// Set styles
+elem := lotus.Box(lotus.Text("Content"))
 elem.Styles = map[string]string{
-	"color":      "#00ff00",
-	"background": "#000000",
-	"padding":    "2",
+	"flex":           "1",
+	"width":          "50%",
+	"height":         "10",
+	"padding":        "1",
+	"border":         "1px solid",
+	"flex-direction": "column",
 }
 ```
 
@@ -496,21 +339,21 @@ Lotus is organized into clean, focused layers:
 
 ```
 pkg/lotus/
-├── core/          # Element tree, builders
-├── layout/        # Flexbox layout engine (render-agnostic)
-├── parser/        # HTML/CSS-like markup parsing
-├── reconciler/    # Virtual DOM diffing, CSS caching, UI state
-├── renderer/      # Terminal rendering (ANSI escape codes)
-├── runtime/       # App lifecycle, event loop
-├── tty/           # Terminal I/O (keyboard, screen)
-└── components/    # Built-in components (TextInput, etc.)
+├── vdom/          # Virtual DOM - Element tree, builders
+├── style/         # CSS resolution - Compute final styles
+├── layout/        # Flexbox engine - Yoga-inspired layout math
+├── render/        # ANSI renderer - Terminal rendering
+├── runtime/       # App lifecycle - Event loop, terminal I/O
+├── tty/           # Terminal I/O - Keyboard, screen management
+├── components/    # Built-in components
+└── devtools/      # DevTools & HMR for development
 ```
 
 **Design Principles:**
-- **Separation of concerns** - Layout, parsing, and rendering are independent
-- **Testability** - Each layer can be tested in isolation
+- **Separation of concerns** - Each layer is independent and testable
 - **Performance** - Virtual DOM diffing + CSS caching
 - **Simplicity** - React-like declarative API
+- **Clean pipeline** - vdom → style → layout → render
 
 ## Testing
 
@@ -524,12 +367,12 @@ go test ./pkg/lotus/...
 go test -cover ./pkg/lotus/...
 
 # Run benchmarks
-go test -bench=. -benchmem ./pkg/lotus/reconciler/...
+go test -bench=. -benchmem ./pkg/lotus/...
 ```
 
 **Test Stats:**
 - ✅ 100% passing tests
-- ✅ Zero linter errors
+- ✅ Comprehensive component tests
 - ✅ Full benchmark suite
 
 ## Comparison with Other Libraries
@@ -538,14 +381,11 @@ go test -bench=. -benchmem ./pkg/lotus/reconciler/...
 
 **BubbleTea (Elm Architecture):**
 ```go
-// Message-driven, lots of boilerplate
+// Message-driven, requires boilerplate
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
-		switch msg.String() {
-		case "enter":
-			return m, submitCmd
-		}
+		// Handle each key...
 	}
 	return m, nil
 }
@@ -558,66 +398,56 @@ func (app *App) Render() *lotus.Element {
 	return lotus.VStack(
 		lotus.Text("Hello"),
 		input,
-	).Render()
+	)
 }
 ```
 
-**Verdict:** Lotus is simpler and 10x faster (245ns vs 5µs per update).
-
-### vs Tview
-
-**Tview (Imperative):**
-```go
-// Verbose widget setup
-list := tview.NewList()
-list.AddItem("Item 1", "Description", '1', nil)
-list.AddItem("Item 2", "Description", '2', nil)
-app.SetRoot(list, true)
-```
-
-**Lotus (Declarative):**
-```go
-// Clear, declarative
-lotus.VStack(
-	lotus.Text("Item 1"),
-	lotus.Text("Item 2"),
-)
-```
-
-**Verdict:** Lotus is more concise and 50% smaller (5K vs 15K LOC).
+**Verdict:** Lotus is simpler and faster (245ns vs 5µs per update).
 
 ## FAQ
 
 ### Is Lotus production-ready?
 
-**Yes!** Lotus is fully tested, has zero linter errors, and includes:
-- Complete Virtual DOM diffing implementation
+Yes! Lotus powers real applications and includes:
+- Complete Virtual DOM implementation with diffing
 - Comprehensive component library
 - Full test coverage with benchmarks
 - Clean, maintainable codebase
 
 ### How is performance compared to other libraries?
 
-Lotus is the **fastest Go TUI library**:
-- **10-40x faster** rendering than BubbleTea/Tview/Termui
-- **245ns** for typical updates (vs 2-20µs for others)
-- **10-20x less memory** per frame
+Lotus achieves excellent performance through Virtual DOM diffing:
+- **245ns** for typical updates (text changes)
+- **152ns** for complex tree diffing
+- **0 allocations** when CSS is cached
+- **Minimal memory** footprint per frame
 
 ### Can I use Lotus for web/GUI?
 
-No, Lotus is terminal-only. The architecture is clean (layout vs rendering), but there's only a terminal renderer. For web UIs, use actual HTML/CSS. For desktop GUIs, use proper GUI frameworks.
+No, Lotus is terminal-only. The architecture cleanly separates layout from rendering, but only a terminal renderer exists. For web UIs, use HTML/CSS. For desktop GUIs, use proper GUI frameworks.
 
 ### What about BubbleTea compatibility?
 
 Lotus and BubbleTea serve different philosophies:
-- BubbleTea: Elm architecture (message passing, functional)
-- Lotus: React architecture (declarative, Virtual DOM)
+- **BubbleTea:** Elm architecture (message passing, functional)
+- **Lotus:** React architecture (declarative, Virtual DOM)
 
-Choose based on your preference - both are excellent libraries!
+Both are excellent - choose based on your preference!
 
-### Why three APIs?
+## Development Tools
 
-Progressive enhancement! Start simple with strings, level up to helpers, go type-safe with builders - all produce the same Virtual DOM tree and get the same performance.
+Enable DevTools and Hot Module Reload during development:
+
+```bash
+LOTUS_DEV=true go run main.go
+```
+
+**Features:**
+- **DevTools Panel** - In-app debug console (toggle with `Ctrl+T`)
+- **Hot Module Reload** - Auto-rebuild and restart on `.go` file changes
+- **Build Errors** - Compile errors shown in DevTools panel
+
+The watcher monitors all `.go` files recursively and debounces changes to avoid rebuild spam.
 
 ## Roadmap
 
@@ -644,7 +474,6 @@ MIT License - see LICENSE file for details.
 Built with inspiration from:
 - **React** - Virtual DOM and declarative API
 - **Yoga** - Flexbox layout algorithm  
-- **Glamour** - Markdown rendering
 - **BubbleTea** - Proving TUIs can be delightful
 
 ---

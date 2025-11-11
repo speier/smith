@@ -36,10 +36,11 @@ type TextInput struct {
 	ID string // Component ID for registration (React key) - MUST be set for state preservation
 
 	// Internal state (private to component)
-	Value       string // Current input text (may contain newlines for multi-line)
-	CursorPos   int    // Cursor position in the full text (0-indexed, counts newlines)
-	Scroll      int    // Horizontal scroll offset (for single-line scrolling)
-	desiredCol  int    // Desired column for vertical navigation (preserved across up/down)
+	Value      string // Current input text (may contain newlines for multi-line)
+	CursorPos  int    // Cursor position in the full text (0-indexed, counts newlines)
+	Scroll     int    // Horizontal scroll offset (for single-line scrolling)
+	desiredCol int    // Desired column for vertical navigation (preserved across up/down)
+	Focused    bool   // Whether this component has focus (set by runtime)
 
 	// Cursor state (testable!)
 	CursorStyle   CursorStyle   // Visual style of cursor
@@ -70,7 +71,8 @@ func NewTextInput(id ...string) *TextInput {
 		Value:         "",
 		CursorPos:     0,
 		Scroll:        0,
-		Width:         50, // Default width
+		Width:         50,    // Default width
+		Focused:       false, // Will be set by focus manager
 		CursorStyle:   CursorBlock,
 		CursorBlink:   true,
 		CursorVisible: true,
@@ -150,25 +152,49 @@ func (t *TextInput) applyCursorStyle(textElem *vdom.Element) *vdom.Element {
 		return textElem.WithStyle("text-decoration", "underline")
 	case CursorBar:
 		// Bar cursor: render a vertical bar before the character
-		// Note: This is handled differently - we'll prefix with "|" 
+		// Note: This is handled differently - we'll prefix with "|"
 		return textElem
 	default:
 		return textElem
 	}
 }
 
+// renderUnfocused renders the input without cursor (when not focused)
+func (t *TextInput) renderUnfocused() *vdom.Element {
+	// Render same structure but without cursor styling
+	text := ""
+	if len(t.Value) > 0 {
+		text = t.Value
+	} else if t.Placeholder != "" {
+		text = t.Placeholder
+	}
+
+	return vdom.Box(
+		vdom.HStack(
+			vdom.Text("> "),
+			vdom.Text(text),
+		),
+	).WithID(t.ID).
+		WithStyle("padding", "0 1")
+}
+
 // Render returns the Element for this component (React-like render)
 func (t *TextInput) Render() *vdom.Element {
+	// If not focused, render without cursor
+	if !t.Focused {
+		return t.renderUnfocused()
+	}
+
 	// Always show prompt "> " followed by content
 	if len(t.Value) == 0 && t.Placeholder != "" {
 		// Empty with placeholder: show first char with cursor styling (inverse/underline) + rest
 		// This makes the character visible "through" the cursor
-		
+
 		// If placeholder has at least one character, show styled first char + rest
 		if len(t.Placeholder) > 0 {
 			firstChar := string(t.Placeholder[0])
 			restOfPlaceholder := t.Placeholder[1:]
-			
+
 			// Build cursor element based on style
 			var cursorElements []interface{}
 			if t.CursorStyle == CursorBar {
@@ -189,20 +215,20 @@ func (t *TextInput) Render() *vdom.Element {
 					// Underline on placeholder: gray text with underline
 					styledChar = styledChar.WithStyle("color", "#808080").WithStyle("text-decoration", "underline")
 				}
-				
+
 				cursorElements = []interface{}{
 					vdom.Text("> "),
 					styledChar,
 					vdom.Text(restOfPlaceholder).WithStyle("color", "#808080"),
 				}
 			}
-			
+
 			return vdom.Box(
 				vdom.HStack(cursorElements...),
 			).WithID(t.ID).
 				WithStyle("padding", "0 1")
 		}
-		
+
 		// Placeholder is empty, just show prompt + cursor
 		cursorChar := t.GetCursorChar()
 		return vdom.Box(
@@ -216,7 +242,7 @@ func (t *TextInput) Render() *vdom.Element {
 
 	// With text: show prompt + text with inverse video cursor (supports multi-line)
 	visible, cursorOffset := t.GetVisible()
-	
+
 	// Split visible text into: before cursor, cursor char, after cursor
 	var beforeCursor, cursorChar, afterCursor string
 	if cursorOffset >= len(visible) {
@@ -231,7 +257,7 @@ func (t *TextInput) Render() *vdom.Element {
 			afterCursor = visible[cursorOffset+1:]
 		}
 	}
-	
+
 	// For multi-line content, render as VStack with prompt on first line
 	lines := t.getLines()
 	if len(lines) > 1 {
@@ -259,7 +285,7 @@ func (t *TextInput) Render() *vdom.Element {
 	// Single line: prompt + before + cursor + after
 	var textElements []interface{}
 	textElements = append(textElements, vdom.Text("> "))
-	
+
 	if t.CursorStyle == CursorBar {
 		// Bar cursor: show "|" before the cursor character
 		if beforeCursor != "" {
@@ -280,7 +306,7 @@ func (t *TextInput) Render() *vdom.Element {
 			textElements = append(textElements, vdom.Text(afterCursor))
 		}
 	}
-	
+
 	return vdom.Box(
 		vdom.HStack(textElements...),
 	).WithID(t.ID).
@@ -744,6 +770,11 @@ func (t *TextInput) GetCursorOffset() int {
 // Returns true if this component can receive focus
 func (t *TextInput) IsFocusable() bool {
 	return !t.Disabled
+}
+
+// SetFocusState sets whether this component has focus (called by runtime)
+func (t *TextInput) SetFocusState(focused bool) {
+	t.Focused = focused
 }
 
 // IsNode implements vdom.Node interface

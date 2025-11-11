@@ -36,7 +36,7 @@ type HMRManager interface {
 }
 
 // Global factories (set by devtools package to avoid import cycle)
-var devToolsFactory func() DevToolsProvider                                     //nolint:unused // Set by devtools package init()
+var devToolsFactory func() DevToolsProvider                    //nolint:unused // Set by devtools package init()
 var hmrFactory func(App, DevToolsProvider) (HMRManager, error) //nolint:unused // Set by devtools package init()
 
 // SetDevToolsFactory registers the DevTools constructor
@@ -47,6 +47,87 @@ func SetDevToolsFactory(factory func() DevToolsProvider) {
 // SetHMRFactory registers the HMR constructor
 func SetHMRFactory(factory func(App, DevToolsProvider) (HMRManager, error)) {
 	hmrFactory = factory
+}
+
+// focusManager tracks which component has keyboard focus
+type focusManager struct {
+	focusables []Focusable
+	focusIndex int
+}
+
+func newFocusManager() *focusManager {
+	return &focusManager{
+		focusables: make([]Focusable, 0),
+		focusIndex: 0,
+	}
+}
+
+func (fm *focusManager) collectFocusables(element *vdom.Element) {
+	if element == nil {
+		return
+	}
+
+	// Check if this element wraps a focusable component
+	if element.Component != nil {
+		if focusable, ok := element.Component.(Focusable); ok {
+			if focusable.IsFocusable() {
+				fm.focusables = append(fm.focusables, focusable)
+			}
+		}
+	}
+
+	// Recurse into children
+	for _, child := range element.Children {
+		fm.collectFocusables(child)
+	}
+}
+
+func (fm *focusManager) rebuild(element *vdom.Element) {
+	fm.focusables = make([]Focusable, 0)
+	fm.collectFocusables(element)
+
+	// Ensure focusIndex is valid
+	if fm.focusIndex >= len(fm.focusables) {
+		fm.focusIndex = 0
+	}
+
+	// Update focused state on all components
+	fm.updateFocusedState()
+}
+
+func (fm *focusManager) updateFocusedState() {
+	focused := fm.getFocused()
+
+	// Update all focusables - use a setter interface to avoid import cycles
+	for _, f := range fm.focusables {
+		isFocused := (f == focused)
+
+		// Try to set focus via a common interface
+		type FocusStateSetter interface {
+			SetFocusState(bool)
+		}
+		if setter, ok := f.(FocusStateSetter); ok {
+			setter.SetFocusState(isFocused)
+		}
+	}
+}
+
+func (fm *focusManager) next() {
+	if len(fm.focusables) == 0 {
+		return
+	}
+	fm.focusIndex = (fm.focusIndex + 1) % len(fm.focusables)
+	fm.updateFocusedState()
+}
+
+func (fm *focusManager) getFocused() Focusable {
+	if len(fm.focusables) == 0 {
+		return nil
+	}
+	if fm.focusIndex < 0 || fm.focusIndex >= len(fm.focusables) {
+		return nil
+	}
+	return fm.focusables[fm.focusIndex]
 }
 
 // elementApp wraps a static Element to satisfy App interface
@@ -93,28 +174,31 @@ func Run(app any, data ...any) error {
 
 	width, height := term.Size()
 
+	// Initialize focus manager
+	focusMgr := newFocusManager()
+
 	// Initialize DevTools and HMR if LOTUS_DEV=true
 	var devTools DevToolsProvider
 	var hmrManager HMRManager
 	var hmrRestart bool // Flag to trigger restart after clean exit
 	var hmrStatePath string
-	
+
 	if os.Getenv("LOTUS_DEV") == "true" && devToolsFactory != nil {
 		devTools = devToolsFactory()
-		
+
 		// Set callback to trigger re-render when logs are added (BEFORE HMR starts)
 		if dt, ok := devTools.(interface{ SetOnLogAdded(func()) }); ok {
 			dt.SetOnLogAdded(func() {
 				term.RequestRender() // Trigger re-render
 			})
 		}
-		
+
 		// Create HMR manager if factory exists
 
 		if hmrFactory != nil {
 			if hmr, err := hmrFactory(appInstance, devTools); err == nil {
 				hmrManager = hmr
-				
+
 				// Set exit handler to trigger clean exit and restart
 				hmrManager.SetExitHandler(func() {
 					// Signal restart after terminal cleanup
@@ -123,7 +207,7 @@ func Run(app any, data ...any) error {
 					// Cancel input to trigger clean exit
 					term.CancelInput()
 				})
-				
+
 				if err := hmrManager.Start(); err != nil {
 					// Log but don't fail
 					if devTools != nil {
@@ -136,7 +220,14 @@ func Run(app any, data ...any) error {
 
 	// Set up rendering using clean pipeline: vdom → style → layout → render
 	term.OnRender(func() string {
+		// First render to collect components
 		element := appInstance.Render()
+
+		// Rebuild focus list and update component states
+		focusMgr.rebuild(element)
+
+		// Re-render to reflect updated focus states
+		element = appInstance.Render()
 
 		// Wrap with DevTools overlay if enabled
 		if devTools != nil && devTools.IsEnabled() {
@@ -171,6 +262,13 @@ func Run(app any, data ...any) error {
 			return false
 		}
 
+		// Tab key - cycle focus to next component
+		if event.Key == '\t' {
+			focusMgr.next()
+			term.RequestRender() // Trigger re-render to show focus change
+			return true
+		}
+
 		// Ctrl+T toggles DevTools visibility
 		if devTools != nil && event.Key == 20 { // Ctrl+T
 			if devTools.IsEnabled() {
@@ -196,9 +294,19 @@ func Run(app any, data ...any) error {
 			}
 		}
 
-		// Auto-discover focusable components in the element tree
+		// Route event to the currently focused component
+		focused := focusMgr.getFocused()
+		if focused != nil {
+			if focused.HandleKeyEvent(event) {
+				term.RequestRender() // Trigger re-render after focused component handles event
+				return true
+			}
+		}
+
+		// If no focused component handled it, try global handlers in the tree
 		element := appInstance.Render()
-		if handleEventInTree(element, event) {
+		if handleEventInTreeGlobal(element, event, focusMgr) {
+			term.RequestRender() // Trigger re-render after global handler handles event
 			return true
 		}
 
@@ -210,12 +318,12 @@ func Run(app any, data ...any) error {
 
 	// Start (blocks until exit)
 	err = term.Start()
-	
+
 	// Cleanup HMR on exit
 	if hmrManager != nil {
 		_ = hmrManager.Stop()
 	}
-	
+
 	// If HMR restart was requested, exec the new binary
 	if hmrRestart {
 		// Terminal is now cleanly restored (thanks to defers in Start())
@@ -224,7 +332,7 @@ func Run(app any, data ...any) error {
 			return fmt.Errorf("HMR restart failed: %w (original error: %v)", execErr, err)
 		}
 	}
-	
+
 	return err
 }
 
@@ -233,7 +341,7 @@ func execRestart(statePath string) error {
 	// This is a bit hacky but we need to import devtools package
 	// For now, inline the exec logic here
 	binaryPath := "/tmp/lotus-hmr-app"
-	
+
 	// Verify the new binary exists
 	if _, err := os.Stat(binaryPath); err != nil {
 		return fmt.Errorf("rebuilt binary not found: %w", err)
@@ -251,18 +359,30 @@ func execRestart(statePath string) error {
 	return syscall.Exec(binaryPath, []string{binaryPath}, env)
 }
 
-// handleEventInTree traverses the element tree to find and route keyboard events to focusable components
-func handleEventInTree(element *vdom.Element, event tty.KeyEvent) bool {
+// handleEventInTreeGlobal handles global keyboard events (for components that should receive events regardless of focus)
+// For example, Tabs component should handle Left/Right arrows even when a child input has focus
+func handleEventInTreeGlobal(element *vdom.Element, event tty.KeyEvent, focusMgr *focusManager) bool {
 	if element == nil {
 		return false
 	}
 
-	// Check if this element wraps a focusable component
+	// Check if this element wraps a component that wants global events
+	// For now, only non-focusable components get a chance (like Tabs wrapper)
 	if element.Component != nil {
 		if focusable, ok := element.Component.(Focusable); ok {
-			if focusable.IsFocusable() {
-				// Route event to this component
+			// Skip if this is a focusable component (those are handled via focus manager)
+			if !focusable.IsFocusable() {
+				// Non-focusable component - give it a chance to handle global events
 				if focusable.HandleKeyEvent(event) {
+					return true
+				}
+			}
+			// Focused components already handled above, skip them here
+		} else {
+			// Component doesn't implement Focusable but might handle keys
+			// (e.g., wrapper components like Tabs that delegate focus to children)
+			if handler, ok := element.Component.(interface{ HandleKeyEvent(tty.KeyEvent) bool }); ok {
+				if handler.HandleKeyEvent(event) {
 					return true
 				}
 			}
@@ -271,7 +391,7 @@ func handleEventInTree(element *vdom.Element, event tty.KeyEvent) bool {
 
 	// Recurse into children
 	for _, child := range element.Children {
-		if handleEventInTree(child, event) {
+		if handleEventInTreeGlobal(child, event, focusMgr) {
 			return true
 		}
 	}
@@ -295,7 +415,7 @@ func SaveAppState(app App, path string) error {
 	// Traverse the element tree and collect state from stateful components
 	element := app.Render()
 	components := collectStatefulComponents(element)
-	
+
 	if len(components) > 0 {
 		componentStates := make(map[string]interface{})
 		for _, comp := range components {
@@ -335,7 +455,7 @@ func LoadAppState(app App, path string) error {
 	if componentStates, ok := state["components"].(map[string]interface{}); ok {
 		element := app.Render()
 		components := collectStatefulComponents(element)
-		
+
 		for _, comp := range components {
 			if comp.GetID() != "" {
 				if compState, exists := componentStates[comp.GetID()]; exists {
@@ -359,7 +479,7 @@ func CollectStatefulComponents(element *vdom.Element) []Stateful {
 // collectStatefulComponents traverses the element tree and collects stateful components
 func collectStatefulComponents(element *vdom.Element) []Stateful {
 	var components []Stateful
-	
+
 	if element == nil {
 		return components
 	}

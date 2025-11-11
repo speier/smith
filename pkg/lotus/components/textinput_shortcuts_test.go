@@ -41,10 +41,10 @@ func TestTextInput_DeleteToEnd(t *testing.T) {
 
 func TestTextInput_DeleteWordBackward(t *testing.T) {
 	tests := []struct {
-		name          string
-		initialValue  string
-		initialCursor int
-		expectedValue string
+		name           string
+		initialValue   string
+		initialCursor  int
+		expectedValue  string
 		expectedCursor int
 	}{
 		{
@@ -177,6 +177,7 @@ func TestTextInput_KeyboardShortcuts(t *testing.T) {
 
 func TestTextInput_PromptAlwaysVisible(t *testing.T) {
 	input := NewTextInput().WithPlaceholder("Type here...")
+	input.Focused = true // Set focused to test cursor rendering
 
 	// Empty - should show prompt + inverse T + ype here...
 	elem := input.Render()
