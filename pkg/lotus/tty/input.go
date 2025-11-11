@@ -42,14 +42,19 @@ const (
 	SeqHome2      = "[1~"
 	SeqEnd        = "[F"
 	SeqEnd2       = "[4~"
-	SeqCtrlLeft   = "[1;5D" // Ctrl+Left (word jump left)
-	SeqCtrlRight  = "[1;5C" // Ctrl+Right (word jump right)
-	SeqAltLeft    = "[1;3D" // Alt+Left (word jump left on some terminals)
-	SeqAltRight   = "[1;3C" // Alt+Right (word jump right on some terminals)
-	SeqCmdLeft    = "[1;9D" // Cmd+Left on Mac (beginning of line)
-	SeqCmdRight   = "[1;9C" // Cmd+Right on Mac (end of line)
-	SeqShiftLeft  = "[1;2D" // Shift+Left (for future selection support)
-	SeqShiftRight = "[1;2C" // Shift+Right (for future selection support)
+	SeqCtrlLeft      = "[1;5D" // Ctrl+Left (word jump left)
+	SeqCtrlRight     = "[1;5C" // Ctrl+Right (word jump right)
+	SeqAltLeft       = "[1;3D" // Alt+Left (word jump left on some terminals)
+	SeqAltRight      = "[1;3C" // Alt+Right (word jump right on some terminals)
+	SeqCmdLeft       = "[1;9D" // Cmd+Left on Mac (beginning of line)
+	SeqCmdRight      = "[1;9C" // Cmd+Right on Mac (end of line)
+	SeqCmdBackspace  = "[3;9~"  // Cmd+Backspace on Mac (delete to beginning)
+	SeqCtrlBackspace = "[3;5~"  // Ctrl+Backspace (delete word backward)
+	SeqCtrlU         = "\x15"   // Ctrl+U (delete to beginning of line)
+	SeqCtrlK         = "\x0b"   // Ctrl+K (delete to end of line)
+	SeqShiftEnter    = "[13;2~" // Shift+Enter (multi-line: insert newline)
+	SeqShiftLeft     = "[1;2D"  // Shift+Left (for future selection support)
+	SeqShiftRight    = "[1;2C"  // Shift+Right (for future selection support)
 )
 
 // IsCtrlC checks if the key is Ctrl+C
@@ -175,6 +180,21 @@ func (r *InputReader) ReadKey() (*KeyEvent, error) {
 			r.inEscapeSeq = false
 			r.escapeBuffer = r.escapeBuffer[:0]
 			return &KeyEvent{Key: KeyEscape, Code: SeqCmdRight}, nil
+		}
+		if seq == SeqCmdBackspace {
+			r.inEscapeSeq = false
+			r.escapeBuffer = r.escapeBuffer[:0]
+			return &KeyEvent{Key: KeyEscape, Code: SeqCmdBackspace}, nil
+		}
+		if seq == SeqCtrlBackspace {
+			r.inEscapeSeq = false
+			r.escapeBuffer = r.escapeBuffer[:0]
+			return &KeyEvent{Key: KeyEscape, Code: SeqCtrlBackspace}, nil
+		}
+		if seq == SeqShiftEnter {
+			r.inEscapeSeq = false
+			r.escapeBuffer = r.escapeBuffer[:0]
+			return &KeyEvent{Key: KeyEscape, Code: SeqShiftEnter}, nil
 		}
 
 		// Arrow keys and Home/End

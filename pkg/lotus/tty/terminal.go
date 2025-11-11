@@ -49,6 +49,7 @@ type Terminal struct {
 	useAltScreen   bool
 	lastWidth      int
 	lastHeight     int
+	renderChan     chan bool // Channel to request renders externally
 }
 
 // New creates a new Terminal instance
@@ -72,6 +73,7 @@ func New() (*Terminal, error) {
 		useAltScreen: true, // Try with simpler alt screen sequence
 		lastWidth:    width,
 		lastHeight:   height,
+		renderChan:   make(chan bool, 10), // Buffered to avoid blocking
 	}, nil
 }
 
@@ -133,6 +135,19 @@ func (t *Terminal) MoveCursor(row, col int) {
 	t.screen.MoveCursor(row, col)
 }
 
+// ForceCleanup forcefully restores terminal to normal mode (for HMR restart)
+func (t *Terminal) ForceCleanup() {
+	t.screen.Restore()
+	_ = t.input.Close()
+}
+
+// CancelInput cancels the input reader, causing Start() to exit cleanly
+func (t *Terminal) CancelInput() {
+	if t.input != nil {
+		t.input.Cancel()
+	}
+}
+
 // Start initializes the terminal and starts the event loop
 func (t *Terminal) Start() error {
 	// Setup terminal
@@ -147,8 +162,8 @@ func (t *Terminal) Start() error {
 	} else {
 		t.screen.Clear()
 	}
-	// Show cursor at startup - it will stay visible and blink naturally
-	t.screen.ShowCursor()
+	// Hide terminal cursor - we render our own cursor characters
+	t.screen.HideCursor()
 
 	// Initial render
 	t.render()
@@ -235,9 +250,22 @@ func (t *Terminal) Start() error {
 			}
 			t.render()
 
+		case <-t.renderChan:
+			// External render request (e.g., from HMR/DevTools)
+			t.render()
+
 		case err := <-errChan:
 			return err
 		}
+	}
+}
+
+// RequestRender requests a render from external sources (non-blocking)
+func (t *Terminal) RequestRender() {
+	select {
+	case t.renderChan <- true:
+	default:
+		// Channel full, render already pending
 	}
 }
 

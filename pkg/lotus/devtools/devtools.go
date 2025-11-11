@@ -5,8 +5,8 @@ import (
 	"time"
 
 	"github.com/speier/smith/pkg/lotus/components"
-	"github.com/speier/smith/pkg/lotus/core"
 	"github.com/speier/smith/pkg/lotus/runtime"
+	"github.com/speier/smith/pkg/lotus/vdom"
 )
 
 func init() {
@@ -16,23 +16,32 @@ func init() {
 	})
 }
 
+// DevToolsPosition defines where the DevTools panel is displayed
+type DevToolsPosition string
+
+const (
+	DevToolsRight  DevToolsPosition = "right"
+	DevToolsBottom DevToolsPosition = "bottom"
+	DevToolsLeft   DevToolsPosition = "left"
+)
+
 // DevTools provides an in-app debug console (like browser DevTools)
 type DevTools struct {
-	messageList *components.MessageList
-	enabled     bool
+	textbox    *components.TextBox
+	enabled    bool
+	position   DevToolsPosition
+	onLogAdded func() // Callback to trigger re-render
 }
 
 // New creates a new DevTools instance
 func New() *DevTools {
 	dt := &DevTools{
-		messageList: components.NewMessageList("devtools"),
-		enabled:     true,
+		textbox:  components.NewTextBox().WithAutoScroll(true),
+		enabled:  true,
+		position: DevToolsRight, // Default to right side like browser DevTools
 	}
 
-	// Configure for debug display
-	dt.messageList.AutoScroll = true
-
-	dt.Log("🛠️  DevTools initialized")
+	dt.Log("🛠️ DevTools initialized")
 
 	return dt
 }
@@ -46,27 +55,32 @@ func (dt *DevTools) Log(format string, args ...interface{}) {
 	timestamp := time.Now().Format("15:04:05.000")
 	msg := fmt.Sprintf(format, args...)
 
-	dt.messageList.AddMessage("debug", fmt.Sprintf("[%s] %s", timestamp, msg))
+	dt.textbox.AppendLine(fmt.Sprintf("[%s] %s", timestamp, msg))
+
+	// Trigger re-render if callback is set
+	if dt.onLogAdded != nil {
+		dt.onLogAdded()
+	}
 }
 
-// GetID returns the component ID
-func (dt *DevTools) GetID() string {
-	return "devtools-panel"
+// SetOnLogAdded sets a callback to trigger when logs are added
+func (dt *DevTools) SetOnLogAdded(callback func()) {
+	dt.onLogAdded = callback
 }
 
 // Render returns the DevTools panel as an Element for integration
-func (dt *DevTools) Render() *core.Element {
+func (dt *DevTools) Render() *vdom.Element {
 	if !dt.enabled {
 		return nil
 	}
 
-	return core.NewComponentElement(dt.messageList)
+	return vdom.Box(dt.textbox)
 }
 
 // Enable turns DevTools on
 func (dt *DevTools) Enable() {
 	dt.enabled = true
-	dt.Log("🛠️  DevTools enabled")
+	dt.Log("🛠️ DevTools enabled")
 }
 
 // Disable turns DevTools off
@@ -79,7 +93,27 @@ func (dt *DevTools) IsEnabled() bool {
 	return dt.enabled
 }
 
-// SetDimensions sets the width and height for the MessageList
-func (dt *DevTools) SetDimensions(width, height int) {
-	dt.messageList.SetDimensions(width, height)
+// GetPosition returns the current DevTools panel position
+func (dt *DevTools) GetPosition() string {
+	return string(dt.position)
+}
+
+// SetPosition sets the DevTools panel position
+func (dt *DevTools) SetPosition(pos DevToolsPosition) {
+	dt.position = pos
+	dt.Log("📍 DevTools position: %s", pos)
+}
+
+// CyclePosition cycles through available positions (right → bottom → left → right)
+func (dt *DevTools) CyclePosition() {
+	switch dt.position {
+	case DevToolsRight:
+		dt.SetPosition(DevToolsBottom)
+	case DevToolsBottom:
+		dt.SetPosition(DevToolsLeft)
+	case DevToolsLeft:
+		dt.SetPosition(DevToolsRight)
+	default:
+		dt.SetPosition(DevToolsRight)
+	}
 }

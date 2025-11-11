@@ -1,0 +1,71 @@
+package vdom
+
+// Builder provides React-like helper functions for creating elements
+// This makes the API nicer: Box(...) instead of NewElement("box", ...)
+
+// Box creates a box container element (like <div>)
+// Accepts string (auto-wrapped as Text), *Element, or Component
+func Box(children ...any) *Element {
+	elements := make([]*Element, 0, len(children))
+	for _, child := range children {
+		if elem := toElement(child); elem != nil {
+			elements = append(elements, elem)
+		}
+	}
+	return NewElement("box", Props{}, elements...)
+}
+
+// Text creates a text element
+func Text(text string) *Element {
+	return NewText(text)
+}
+
+// VStack creates a vertical stack (flex-direction: column)
+// Accepts string (auto-wrapped as Text), *Element, or Component
+func VStack(children ...any) *Element {
+	elements := make([]*Element, 0, len(children))
+	for _, child := range children {
+		if elem := toElement(child); elem != nil {
+			elements = append(elements, elem)
+		}
+	}
+	return NewElement("box", Props{
+		Styles: map[string]string{
+			"display":        "flex",
+			"flex-direction": "column",
+		},
+	}, elements...)
+}
+
+// HStack creates a horizontal stack (flex-direction: row)
+// Accepts string (auto-wrapped as Text), *Element, or Component
+func HStack(children ...any) *Element {
+	elements := make([]*Element, 0, len(children))
+	for _, child := range children {
+		if elem := toElement(child); elem != nil {
+			elements = append(elements, elem)
+		}
+	}
+	return NewElement("box", Props{
+		Styles: map[string]string{
+			"display":        "flex",
+			"flex-direction": "row",
+		},
+	}, elements...)
+}
+
+// toElement converts any value to an Element
+// Handles: string (auto-wrap as Text), Node (Element or Component), *Element
+func toElement(v any) *Element {
+	switch val := v.(type) {
+	case string:
+		// Auto-wrap strings as Text nodes
+		return Text(val)
+	case *Element:
+		return val
+	case Node:
+		return ToElement(val)
+	default:
+		return nil
+	}
+}

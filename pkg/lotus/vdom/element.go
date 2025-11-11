@@ -1,0 +1,313 @@
+// Package vdom provides a Virtual DOM implementation for terminal UIs.
+//
+// This package is standalone and has no dependencies on layout, rendering, or styling.
+// It represents the declarative UI tree structure similar to React's Virtual DOM.
+//
+// The Element tree is immutable after creation - it describes WHAT to render,
+// not HOW or WHERE.
+package vdom
+
+// Element represents a virtual DOM node (like React.createElement())
+// This is a pure data structure with no side effects.
+type Element struct {
+	// Type identifies the element kind
+	Type ElementType
+
+	// ID for component identification and diffing
+	ID string
+
+	// Tag name for box elements ("box", "text", etc.)
+	Tag string
+
+	// Props are attributes/properties for this element
+	Props Props
+
+	// Children are nested elements
+	Children []*Element
+
+	// Component reference (if Type == ComponentElement)
+	Component Component
+
+	// Text content (if Type == TextElement)
+	Text string
+}
+
+// ElementType identifies what kind of element this is
+type ElementType int
+
+const (
+	// BoxElement is a container element (like <div>)
+	BoxElement ElementType = iota
+
+	// TextElement contains text content (like text node)
+	TextElement
+
+	// ComponentElement wraps a reusable component
+	ComponentElement
+)
+
+// Props holds element properties (attributes + inline styles)
+type Props struct {
+	// Attributes are semantic properties (id, class, etc.)
+	Attributes map[string]string
+
+	// Styles are inline CSS-like properties
+	Styles map[string]string
+
+	// Classes for CSS selectors
+	Classes []string
+}
+
+// Component is anything that can render itself to an Element
+type Component interface {
+	// Render returns the element tree for this component
+	Render() *Element
+}
+
+// Node represents anything that can be part of the virtual DOM tree
+// Both elements and components satisfy this interface
+type Node interface {
+	IsNode()
+}
+
+// IsNode marks Element as a Node
+func (e *Element) IsNode() {}
+
+// ToElement converts a Node to an Element
+// For components, it preserves the component reference in Element.Component
+// so that event handlers can find focusable components
+func ToElement(n Node) *Element {
+	switch v := n.(type) {
+	case *Element:
+		return v
+	case Component:
+		// Render the component to get its element tree
+		rendered := v.Render()
+		// Preserve the component reference (React-like)
+		if rendered != nil {
+			rendered.Component = v
+			rendered.Type = ComponentElement
+		}
+		return rendered
+	default:
+		return nil
+	}
+}
+
+// NewElement creates a new box element
+func NewElement(tag string, props Props, children ...*Element) *Element {
+	if props.Attributes == nil {
+		props.Attributes = make(map[string]string)
+	}
+	if props.Styles == nil {
+		props.Styles = make(map[string]string)
+	}
+
+	return &Element{
+		Type:     BoxElement,
+		Tag:      tag,
+		Props:    props,
+		Children: children,
+	}
+}
+
+// NewText creates a text element
+func NewText(text string) *Element {
+	return &Element{
+		Type: TextElement,
+		Text: text,
+	}
+}
+
+// WithID sets the element ID (for chaining)
+func (e *Element) WithID(id string) *Element {
+	e.ID = id
+	return e
+}
+
+// WithProp sets a property (for chaining)
+func (e *Element) WithProp(key, value string) *Element {
+	if e.Props.Attributes == nil {
+		e.Props.Attributes = make(map[string]string)
+	}
+	e.Props.Attributes[key] = value
+	return e
+}
+
+// WithStyle sets an inline style (for chaining)
+func (e *Element) WithStyle(key, value string) *Element {
+	if e.Props.Styles == nil {
+		e.Props.Styles = make(map[string]string)
+	}
+	e.Props.Styles[key] = value
+	return e
+}
+
+// Typed style methods for type safety and better autocomplete
+
+// BorderStyle represents the visual style of borders
+type BorderStyle string
+
+const (
+	BorderStyleSingle  BorderStyle = "single"  // ┌─┐ Default box drawing
+	BorderStyleRounded BorderStyle = "rounded" // ╭─╮ Smooth corners
+	BorderStyleDouble  BorderStyle = "double"  // ╔═╗ Double lines
+	BorderStyleNone    BorderStyle = "none"    // No border
+)
+
+// AlignSelf represents cross-axis alignment for flex items
+type AlignSelf string
+
+const (
+	AlignSelfStretch   AlignSelf = "stretch"    // Fill cross-axis (default)
+	AlignSelfFlexStart AlignSelf = "flex-start" // Align to start
+	AlignSelfFlexEnd   AlignSelf = "flex-end"   // Align to end
+	AlignSelfCenter    AlignSelf = "center"     // Center on cross-axis
+)
+
+// TextAlign represents horizontal text alignment
+type TextAlign string
+
+const (
+	TextAlignLeft   TextAlign = "left"   // Left-aligned (default)
+	TextAlignCenter TextAlign = "center" // Centered
+	TextAlignRight  TextAlign = "right"  // Right-aligned
+)
+
+// WithBorderStyle sets the border style with type safety
+func (e *Element) WithBorderStyle(style BorderStyle) *Element {
+	return e.WithStyle("border-style", string(style))
+}
+
+// WithFlexGrow sets flex-grow for flexible sizing
+func (e *Element) WithFlexGrow(grow int) *Element {
+	if grow < 0 {
+		grow = 0
+	}
+	return e.WithStyle("flex-grow", intToString(grow))
+}
+
+// WithFlexShrink sets flex-shrink
+func (e *Element) WithFlexShrink(shrink int) *Element {
+	if shrink < 0 {
+		shrink = 0
+	}
+	return e.WithStyle("flex-shrink", intToString(shrink))
+}
+
+// WithAlignSelf sets cross-axis alignment
+func (e *Element) WithAlignSelf(align AlignSelf) *Element {
+	return e.WithStyle("align-self", string(align))
+}
+
+// WithColor sets text color
+func (e *Element) WithColor(color string) *Element {
+	return e.WithStyle("color", color)
+}
+
+// WithBgColor sets background color
+func (e *Element) WithBgColor(color string) *Element {
+	return e.WithStyle("background-color", color)
+}
+
+// WithWidth sets width (number of cells or percentage)
+func (e *Element) WithWidth(width string) *Element {
+	return e.WithStyle("width", width)
+}
+
+// WithHeight sets height (number of lines)
+func (e *Element) WithHeight(height string) *Element {
+	return e.WithStyle("height", height)
+}
+
+// WithPadding sets padding on all sides
+func (e *Element) WithPadding(padding string) *Element {
+	return e.WithStyle("padding", padding)
+}
+
+// WithMargin sets margin on all sides
+func (e *Element) WithMargin(margin string) *Element {
+	return e.WithStyle("margin", margin)
+}
+
+// WithTextAlign sets text alignment
+func (e *Element) WithTextAlign(align TextAlign) *Element {
+	return e.WithStyle("text-align", string(align))
+}
+
+// intToString converts int to string
+func intToString(n int) string {
+	// Fast path for common values
+	switch n {
+	case 0:
+		return "0"
+	case 1:
+		return "1"
+	case 2:
+		return "2"
+	case 3:
+		return "3"
+	case 4:
+		return "4"
+	default:
+		// For larger values, build string manually
+		if n < 0 {
+			return "-" + intToString(-n)
+		}
+		if n < 10 {
+			return string(rune('0' + n))
+		}
+		// Multi-digit: recursively build
+		return intToString(n/10) + string(rune('0'+n%10))
+	}
+}
+
+// Clone creates a shallow copy of the element
+func (e *Element) Clone() *Element {
+	clone := &Element{
+		Type:      e.Type,
+		ID:        e.ID,
+		Tag:       e.Tag,
+		Component: e.Component,
+		Text:      e.Text,
+	}
+
+	// Clone props
+	clone.Props.Attributes = make(map[string]string, len(e.Props.Attributes))
+	for k, v := range e.Props.Attributes {
+		clone.Props.Attributes[k] = v
+	}
+	clone.Props.Styles = make(map[string]string, len(e.Props.Styles))
+	for k, v := range e.Props.Styles {
+		clone.Props.Styles[k] = v
+	}
+	clone.Props.Classes = append([]string{}, e.Props.Classes...)
+
+	// Clone children (shallow - children themselves are not cloned)
+	clone.Children = append([]*Element{}, e.Children...)
+
+	return clone
+}
+
+// Walk traverses the element tree depth-first
+func (e *Element) Walk(fn func(*Element) bool) {
+	if !fn(e) {
+		return
+	}
+	for _, child := range e.Children {
+		child.Walk(fn)
+	}
+}
+
+// FindByID searches for an element by ID
+func (e *Element) FindByID(id string) *Element {
+	var found *Element
+	e.Walk(func(elem *Element) bool {
+		if elem.ID == id {
+			found = elem
+			return false // stop walking
+		}
+		return true // continue
+	})
+	return found
+}

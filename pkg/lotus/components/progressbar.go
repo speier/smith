@@ -1,6 +1,10 @@
 package components
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/speier/smith/pkg/lotus/vdom"
+)
 
 // ProgressBar displays a progress indicator
 type ProgressBar struct {
@@ -37,8 +41,8 @@ func (p *ProgressBar) SetValue(value float64) {
 	p.Value = value
 }
 
-// Render generates the visual representation of the progress bar
-func (p *ProgressBar) Render() string {
+// Render generates the Element for the progress bar
+func (p *ProgressBar) Render() *vdom.Element {
 	barWidth := p.Width
 	if p.ShowPercent {
 		barWidth -= 5 // Reserve space for "100%"
@@ -63,15 +67,11 @@ func (p *ProgressBar) Render() string {
 		bar += fmt.Sprintf(" %3.0f%%", p.Value*100)
 	}
 
-	return fmt.Sprintf(`<box class="progress">%s</box>`, bar)
+	return vdom.Box(
+		vdom.Text(bar),
+	).WithStyle("height", fmt.Sprintf("%d", p.Height)).
+		WithStyle("color", p.Color)
 }
 
-// GetCSS returns the CSS for progress bar styling
-func (p *ProgressBar) GetCSS() string {
-	return fmt.Sprintf(`
-		.progress {
-			height: %d;
-			color: %s;
-		}
-	`, p.Height, p.Color)
-}
+// IsNode implements vdom.Node interface
+func (p *ProgressBar) IsNode() {}

@@ -136,6 +136,12 @@ go run script.go  # Better: write a small Go program
 - ✅ Aim for >80% code coverage on new code
 - ✅ Use table-driven tests where appropriate
 
+**Token Conservation:**
+- ⚠️ Don't run tests after EVERY small change during iteration
+- ✅ Run tests when: logic changes, before reporting completion, or user asks
+- ✅ Skip tests for: simple comment changes, test updates, style-only changes
+- ✅ Use judgment - balance confidence with token efficiency
+
 **When Tests Fail:**
 1. ❌ DO NOT report "done" if tests are failing
 2. ✅ Fix the failing tests immediately
