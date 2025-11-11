@@ -1,5 +1,15 @@
-# Binaries
-smith
+# Built binaries in root (examples, test programs)
+# Pattern: files without extension in root directory
+/*
+!/*.*
+!/*.md
+!/*/
+!/go.mod
+!/go.sum
+!/Makefile
+!/LICENSE
+
+# Binaries (specific extensions to ignore even though !/*.* allows them)
 *.exe
 *.dll
 *.so
