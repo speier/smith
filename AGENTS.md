@@ -4,6 +4,74 @@
 
 🐚 **IMPORTANT: DON'T ASSUME BASH - USE PORTABLE SHELL COMMANDS!** 🐚
 
+📦 **LOTUS FRAMEWORK: THINK IN FLEXBOX - IT'S LIKE HTML/CSS!** 📦
+
+> **Lotus UI Framework Philosophy:**
+> 
+> **🎯 Core Principle: "How would I do this in HTML/CSS Flexbox?"**
+> 
+> Lotus is designed to mirror standard CSS Flexbox behavior. When building UIs:
+> 1. ✅ **First**: Think about how you'd solve it in HTML/CSS
+> 2. ✅ **Then**: Apply the same approach in Lotus
+> 3. ✅ **If missing**: Add the CSS feature to Lotus (don't work around it!)
+> 
+> **CSS Flexbox Equivalents:**
+> - ✅ `VStack` = `<div style="display: flex; flex-direction: column">`
+> - ✅ `HStack` = `<div style="display: flex; flex-direction: row">`
+> - ✅ `WithGap("1")` = `gap: 1rem` (space BETWEEN children)
+> - ✅ `WithPaddingY("1")` = `padding: 1rem 0` (space before/after ALL children)
+> - ✅ `WithMarginY("1")` = `margin: 1rem 0` (outer spacing on container)
+> - ✅ `WithAlignItems(AlignItemsCenter)` = `align-items: center` (cross-axis)
+> - ✅ `WithJustifyContent(...)` = `justify-content: ...` (main-axis)
+> - ✅ `WithFlexGrow(1)` = `flex-grow: 1` (fill available space)
+> - ✅ `.WithTextAlign(TextAlignCenter)` = `text-align: center` (for text)
+>
+> **❌ ANTI-PATTERNS - Don't Do These:**
+> - ❌ Using empty `Text("")` elements for spacing (use `gap`, `padding`, `margin` instead)
+> - ❌ Manual centering calculations (use `align-items`, `justify-content`, `text-align`)
+> - ❌ Custom layout logic (leverage flexbox engine)
+> - ❌ Working around missing features (add them to Lotus instead!)
+>
+> **✅ CORRECT PATTERNS:**
+> ```go
+> // GOOD: CSS flexbox approach
+> lotus.VStack(
+>     lotus.Text("Logo"),
+>     lotus.Text("Content"),
+> ).
+>     WithAlignItems(lotus.AlignItemsCenter).  // Center horizontally
+>     WithGap("1").                             // 1 line between items
+>     WithPaddingY("1")                         // 1 line top/bottom padding
+>
+> // BAD: Empty elements for spacing
+> lotus.VStack(
+>     lotus.Text(""),      // ❌ Don't do this
+>     lotus.Text("Logo"),
+>     lotus.Text(""),      // ❌ Don't do this
+>     lotus.Text("Content"),
+>     lotus.Text(""),      // ❌ Don't do this
+> )
+> ```
+>
+> **Important Details:**
+> - ✅ `align-items` positions the CHILD BOX in cross-axis
+> - ✅ `text-align` centers TEXT LINES within the box
+> - ✅ Multi-line text needs BOTH: `WithAlignItems()` on parent AND `WithTextAlign()` on text
+> - ✅ `gap` adds space BETWEEN children (not before first or after last)
+> - ✅ `padding` adds space INSIDE the container (before first and after last child)
+> - ✅ Default: `VStack`/`Box`/`HStack` all have `align-items: stretch` (CSS default)
+>
+> **When Missing a Feature:**
+> 1. ✅ Check if CSS has it (gap, padding, margin, align-items, etc.)
+> 2. ✅ Add it to Lotus: ComputedStyle → resolver → layout engine → Element API
+> 3. ✅ Write tests to verify it works like CSS
+> 4. ❌ Don't create workarounds with empty elements or manual calculations
+>
+> **Testing:**
+> - 🧪 Write tests that mimic HTML/CSS behavior
+> - 🧪 Tests catch subtle bugs (e.g., rune vs byte counting in Unicode)
+> - 🧪 Integration tests with real component structures reveal layout issues
+
 > **Shell Commands:**
 > - ❌ NO bash-specific syntax (heredocs, `[[`, `source`, `&&`, etc.)
 > - ✅ ONLY POSIX-compliant commands that work in fish, bash, zsh, sh

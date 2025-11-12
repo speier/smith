@@ -198,9 +198,9 @@ func (dr *DiffRenderer) RenderDiff(content string, width, height int) string {
 	// Move cursor to first changed line
 	lineDiff := firstChanged - dr.cursorRow
 	if lineDiff > 0 {
-		buffer.WriteString(fmt.Sprintf("\x1b[%dB", lineDiff)) // Move down
+		fmt.Fprintf(buffer, "\x1b[%dB", lineDiff) // Move down
 	} else if lineDiff < 0 {
-		buffer.WriteString(fmt.Sprintf("\x1b[%dA", -lineDiff)) // Move up
+		fmt.Fprintf(buffer, "\x1b[%dA", -lineDiff) // Move up
 	}
 
 	buffer.WriteString("\r")     // Move to column 0

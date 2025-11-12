@@ -17,9 +17,11 @@ type (
 
 // Style types for type-safe styling
 type (
-	BorderStyle = vdom.BorderStyle
-	AlignSelf   = vdom.AlignSelf
-	TextAlign   = vdom.TextAlign
+	BorderStyle    = vdom.BorderStyle
+	AlignSelf      = vdom.AlignSelf
+	AlignItems     = vdom.AlignItems
+	TextAlign      = vdom.TextAlign
+	JustifyContent = vdom.JustifyContent
 )
 
 // Border style constants
@@ -38,11 +40,27 @@ const (
 	AlignSelfCenter    = vdom.AlignSelfCenter
 )
 
+// Align items constants
+const (
+	AlignItemsStretch   = vdom.AlignItemsStretch
+	AlignItemsFlexStart = vdom.AlignItemsFlexStart
+	AlignItemsFlexEnd   = vdom.AlignItemsFlexEnd
+	AlignItemsCenter    = vdom.AlignItemsCenter
+)
+
 // Text align constants
 const (
 	TextAlignLeft   = vdom.TextAlignLeft
 	TextAlignCenter = vdom.TextAlignCenter
 	TextAlignRight  = vdom.TextAlignRight
+)
+
+// Justify content constants
+const (
+	JustifyContentFlexStart    = vdom.JustifyContentFlexStart
+	JustifyContentFlexEnd      = vdom.JustifyContentFlexEnd
+	JustifyContentCenter       = vdom.JustifyContentCenter
+	JustifyContentSpaceBetween = vdom.JustifyContentSpaceBetween
 )
 
 // Runtime

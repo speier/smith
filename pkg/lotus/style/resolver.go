@@ -31,27 +31,59 @@ type ComputedStyle struct {
 	Height  string // "100%", "auto"
 	Flex    string // "1", "0" (legacy shorthand, prefer FlexGrow)
 
+	// Dimensions (int values for terminal units)
+	MinWidth  int // Minimum width in characters
+	MaxWidth  int // Maximum width in characters
+	MinHeight int // Minimum height in lines
+	MaxHeight int // Maximum height in lines
+
 	// Flexbox properties
-	FlexGrow   int    // 0 = fixed size, 1+ = grows to fill space (default: 0)
-	FlexShrink int    // 0 = can't shrink, 1+ = can shrink (default: 1)
-	AlignSelf  string // "stretch" | "flex-start" | "flex-end" | "center" (default: "stretch")
+	FlexGrow       int    // 0 = fixed size, 1+ = grows to fill space (default: 0)
+	FlexShrink     int    // 0 = can't shrink, 1+ = can shrink (default: 1)
+	AlignSelf      string // "stretch" | "flex-start" | "flex-end" | "center" (default: "stretch")
+	AlignItems     string // "stretch" | "flex-start" | "flex-end" | "center" (default: "stretch") - parent cross-axis
+	JustifyContent string // "flex-start" | "flex-end" | "center" | "space-between" (default: "flex-start")
+	Gap            int    // Space between flex children (CSS gap property)
 
 	// Spacing (resolved to integers)
-	PaddingTop    int
-	PaddingRight  int
-	PaddingBottom int
-	PaddingLeft   int
-	MarginTop     int
-	MarginRight   int
-	MarginBottom  int
-	MarginLeft    int
+	PaddingTop      int
+	PaddingRight    int
+	PaddingBottom   int
+	PaddingLeft     int
+	MarginTop       int
+	MarginRight     int
+	MarginBottom    int
+	MarginLeft      int
+	MarginLeftAuto  bool // true if margin-left: auto
+	MarginRightAuto bool // true if margin-right: auto
 
 	// Visual
 	Color       string // "#ffffff"
 	BgColor     string // "#000000"
 	Border      bool
 	BorderStyle string // "single", "rounded", "double"
+	BorderColor string // Border color (defaults to foreground color if empty)
 	TextAlign   string // "left", "center", "right"
+
+	// Text styling (ANSI codes)
+	FontWeight     string // "normal", "bold"
+	FontStyle      string // "normal", "italic"
+	TextDecoration string // "none", "underline", "strikethrough"
+	Opacity        int    // 0-100 (0=invisible, 50=dim, 100=normal)
+	Reverse        bool   // Invert foreground/background colors (for selections)
+
+	// Text behavior
+	TextOverflow string // "clip", "ellipsis" (truncate with "...")
+	WhiteSpace   string // "normal", "nowrap", "pre" (preserve whitespace/newlines)
+	WordWrap     bool   // Wrap at word boundaries (default: true)
+	MaxLines     int    // Maximum number of lines (0 = unlimited, >0 = clamp with ellipsis)
+
+	// Layout behavior
+	Overflow      string // "visible", "hidden", "scroll" (for ScrollView)
+	Position      string // "static", "relative", "absolute" (future: stacking)
+	ZIndex        int    // Stacking order (future: layering)
+	PointerEvents bool   // Whether element receives input events (default: true)
+	Visibility    string // "visible", "hidden" (hidden keeps space, unlike display:none)
 }
 
 // Resolver handles CSS resolution
@@ -147,18 +179,30 @@ func (r *Resolver) matches(elem *vdom.Element, selector string) bool {
 // defaultStyle returns the default computed style
 func defaultStyle() ComputedStyle {
 	return ComputedStyle{
-		Display:     "block",
-		FlexDir:     "column",
-		Width:       "auto",
-		Height:      "auto",
-		Flex:        "0",
-		FlexGrow:    0,         // Don't grow by default
-		FlexShrink:  1,         // Can shrink by default
-		AlignSelf:   "stretch", // Stretch cross-axis by default
-		BorderStyle: "single",
-		TextAlign:   "left",
-		Color:       "#ffffff",
-		BgColor:     "",
+		Display:        "block",
+		FlexDir:        "column",
+		Width:          "auto",
+		Height:         "auto",
+		Flex:           "0",
+		FlexGrow:       0,            // Don't grow by default
+		FlexShrink:     1,            // Can shrink by default
+		AlignSelf:      "stretch",    // Stretch cross-axis by default
+		AlignItems:     "stretch",    // Stretch children cross-axis by default
+		JustifyContent: "flex-start", // Align to start by default
+		BorderStyle:    "single",
+		TextAlign:      "left",
+		Color:          "#ffffff",
+		BgColor:        "",
+		FontWeight:     "normal",
+		FontStyle:      "normal",
+		TextDecoration: "none",
+		Opacity:        100,
+		Reverse:        false,
+		TextOverflow:   "clip",
+		WhiteSpace:     "normal",
+		WordWrap:       true,
+		MaxLines:       0, // 0 = unlimited
+		PointerEvents:  true,
 	}
 }
 
@@ -186,6 +230,30 @@ func applyDeclarations(style *ComputedStyle, decls map[string]string) {
 			style.FlexShrink = parseInt(value)
 		case "align-self":
 			style.AlignSelf = value
+		case "align-items":
+			style.AlignItems = value
+		case "justify-content":
+			style.JustifyContent = value
+		case "gap":
+			style.Gap = parseInt(value)
+		case "min-width":
+			style.MinWidth = parseInt(value)
+		case "max-width":
+			style.MaxWidth = parseInt(value)
+		case "min-height":
+			style.MinHeight = parseInt(value)
+		case "max-height":
+			style.MaxHeight = parseInt(value)
+		case "overflow":
+			style.Overflow = value // "visible", "hidden", "scroll"
+		case "position":
+			style.Position = value // "static", "relative", "absolute"
+		case "z-index":
+			style.ZIndex = parseInt(value)
+		case "pointer-events":
+			style.PointerEvents = value != "none"
+		case "visibility":
+			style.Visibility = value // "visible", "hidden"
 		case "color":
 			style.Color = value
 		case "background-color", "bg-color":
@@ -198,13 +266,59 @@ func applyDeclarations(style *ComputedStyle, decls map[string]string) {
 		case "border-style":
 			// Setting border-style automatically enables border (unless "none")
 			style.BorderStyle = value
-			style.Border = value != "" && value != "none"
+			if value != "" && value != "none" {
+				style.Border = true
+			}
+		case "border-color":
+			style.BorderColor = value
 		case "text-align":
 			style.TextAlign = value
+		case "font-weight":
+			style.FontWeight = value // "normal", "bold"
+		case "font-style":
+			style.FontStyle = value // "normal", "italic"
+		case "text-decoration":
+			style.TextDecoration = value // "none", "underline", "strikethrough"
+		case "opacity":
+			style.Opacity = parseInt(value) // 0-100
+		case "text-overflow":
+			style.TextOverflow = value // "clip", "ellipsis"
+		case "white-space":
+			style.WhiteSpace = value // "normal", "nowrap", "pre"
+		case "word-wrap":
+			style.WordWrap = value != "none" && value != "false"
+		case "max-lines":
+			style.MaxLines = parseInt(value) // 0 = unlimited, >0 = clamp
+		case "reverse":
+			style.Reverse = value == "true" || value == "reverse"
 		case "padding":
 			parsePadding(value, style)
+		case "padding-top":
+			style.PaddingTop = parseInt(value)
+		case "padding-bottom":
+			style.PaddingBottom = parseInt(value)
+		case "padding-left":
+			style.PaddingLeft = parseInt(value)
+		case "padding-right":
+			style.PaddingRight = parseInt(value)
 		case "margin":
 			parseMargin(value, style)
+		case "margin-top":
+			style.MarginTop = parseInt(value)
+		case "margin-bottom":
+			style.MarginBottom = parseInt(value)
+		case "margin-left":
+			if value == "auto" {
+				style.MarginLeftAuto = true
+			} else {
+				style.MarginLeft = parseInt(value)
+			}
+		case "margin-right":
+			if value == "auto" {
+				style.MarginRightAuto = true
+			} else {
+				style.MarginRight = parseInt(value)
+			}
 		}
 	}
 }

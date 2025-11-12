@@ -165,6 +165,16 @@ const (
 	AlignSelfCenter    AlignSelf = "center"     // Center on cross-axis
 )
 
+// AlignItems represents cross-axis alignment for flex container children
+type AlignItems string
+
+const (
+	AlignItemsStretch   AlignItems = "stretch"    // Stretch children (default)
+	AlignItemsFlexStart AlignItems = "flex-start" // Align to start
+	AlignItemsFlexEnd   AlignItems = "flex-end"   // Align to end
+	AlignItemsCenter    AlignItems = "center"     // Center children
+)
+
 // TextAlign represents horizontal text alignment
 type TextAlign string
 
@@ -172,6 +182,16 @@ const (
 	TextAlignLeft   TextAlign = "left"   // Left-aligned (default)
 	TextAlignCenter TextAlign = "center" // Centered
 	TextAlignRight  TextAlign = "right"  // Right-aligned
+)
+
+// JustifyContent represents main-axis alignment in flexbox
+type JustifyContent string
+
+const (
+	JustifyContentFlexStart    JustifyContent = "flex-start"    // Align to start (default)
+	JustifyContentFlexEnd      JustifyContent = "flex-end"      // Align to end
+	JustifyContentCenter       JustifyContent = "center"        // Center items
+	JustifyContentSpaceBetween JustifyContent = "space-between" // Space between items
 )
 
 // WithBorderStyle sets the border style with type safety
@@ -195,9 +215,19 @@ func (e *Element) WithFlexShrink(shrink int) *Element {
 	return e.WithStyle("flex-shrink", intToString(shrink))
 }
 
-// WithAlignSelf sets cross-axis alignment
+// WithAlignSelf sets cross-axis alignment for this item
 func (e *Element) WithAlignSelf(align AlignSelf) *Element {
 	return e.WithStyle("align-self", string(align))
+}
+
+// WithAlignItems sets cross-axis alignment for children of this flex container
+func (e *Element) WithAlignItems(align AlignItems) *Element {
+	return e.WithStyle("align-items", string(align))
+}
+
+// WithJustifyContent sets main-axis alignment for flex containers
+func (e *Element) WithJustifyContent(justify JustifyContent) *Element {
+	return e.WithStyle("justify-content", string(justify))
 }
 
 // WithColor sets text color
@@ -210,29 +240,187 @@ func (e *Element) WithBgColor(color string) *Element {
 	return e.WithStyle("background-color", color)
 }
 
-// WithWidth sets width (number of cells or percentage)
-func (e *Element) WithWidth(width string) *Element {
-	return e.WithStyle("width", width)
+// WithWidth sets width (number of cells)
+func (e *Element) WithWidth(width int) *Element {
+	return e.WithStyle("width", intToString(width))
 }
 
 // WithHeight sets height (number of lines)
-func (e *Element) WithHeight(height string) *Element {
-	return e.WithStyle("height", height)
+func (e *Element) WithHeight(height int) *Element {
+	return e.WithStyle("height", intToString(height))
 }
 
 // WithPadding sets padding on all sides
-func (e *Element) WithPadding(padding string) *Element {
-	return e.WithStyle("padding", padding)
+func (e *Element) WithPadding(padding int) *Element {
+	return e.WithStyle("padding", intToString(padding))
+}
+
+// WithPaddingX sets horizontal padding (left and right)
+func (e *Element) WithPaddingX(padding int) *Element {
+	p := intToString(padding)
+	e.WithStyle("padding-left", p)
+	e.WithStyle("padding-right", p)
+	return e
+}
+
+// WithPaddingY sets vertical padding (top and bottom)
+func (e *Element) WithPaddingY(padding int) *Element {
+	p := intToString(padding)
+	e.WithStyle("padding-top", p)
+	e.WithStyle("padding-bottom", p)
+	return e
 }
 
 // WithMargin sets margin on all sides
-func (e *Element) WithMargin(margin string) *Element {
-	return e.WithStyle("margin", margin)
+func (e *Element) WithMargin(margin int) *Element {
+	return e.WithStyle("margin", intToString(margin))
+}
+
+// WithMarginX sets horizontal margins (left and right)
+func (e *Element) WithMarginX(margin int) *Element {
+	m := intToString(margin)
+	e.WithStyle("margin-left", m)
+	e.WithStyle("margin-right", m)
+	return e
+}
+
+// WithMarginY sets vertical margins (top and bottom)
+func (e *Element) WithMarginY(margin int) *Element {
+	m := intToString(margin)
+	e.WithStyle("margin-top", m)
+	e.WithStyle("margin-bottom", m)
+	return e
+}
+
+// WithGap sets the gap between flex children (CSS gap property)
+func (e *Element) WithGap(gap int) *Element {
+	return e.WithStyle("gap", intToString(gap))
+}
+
+// WithMinWidth sets minimum width
+func (e *Element) WithMinWidth(width int) *Element {
+	return e.WithStyle("min-width", intToString(width))
+}
+
+// WithMaxWidth sets maximum width
+func (e *Element) WithMaxWidth(width int) *Element {
+	return e.WithStyle("max-width", intToString(width))
+}
+
+// WithMinHeight sets minimum height
+func (e *Element) WithMinHeight(height int) *Element {
+	return e.WithStyle("min-height", intToString(height))
+}
+
+// WithMaxHeight sets maximum height
+func (e *Element) WithMaxHeight(height int) *Element {
+	return e.WithStyle("max-height", intToString(height))
+}
+
+// WithOverflow sets overflow behavior (visible, hidden, scroll)
+func (e *Element) WithOverflow(overflow string) *Element {
+	return e.WithStyle("overflow", overflow)
+}
+
+// WithPosition sets positioning mode (static, relative, absolute)
+func (e *Element) WithPosition(position string) *Element {
+	return e.WithStyle("position", position)
+}
+
+// WithZIndex sets stacking order
+func (e *Element) WithZIndex(zIndex int) *Element {
+	return e.WithStyle("z-index", intToString(zIndex))
+}
+
+// WithPointerEvents controls whether element receives input events
+func (e *Element) WithPointerEvents(enabled bool) *Element {
+	if enabled {
+		return e.WithStyle("pointer-events", "auto")
+	}
+	return e.WithStyle("pointer-events", "none")
 }
 
 // WithTextAlign sets text alignment
 func (e *Element) WithTextAlign(align TextAlign) *Element {
 	return e.WithStyle("text-align", string(align))
+}
+
+// WithFontWeight sets font weight (normal, bold)
+func (e *Element) WithFontWeight(weight string) *Element {
+	return e.WithStyle("font-weight", weight)
+}
+
+// WithBold is a convenience method for bold text
+func (e *Element) WithBold() *Element {
+	return e.WithStyle("font-weight", "bold")
+}
+
+// WithFontStyle sets font style (normal, italic)
+func (e *Element) WithFontStyle(style string) *Element {
+	return e.WithStyle("font-style", style)
+}
+
+// WithItalic is a convenience method for italic text
+func (e *Element) WithItalic() *Element {
+	return e.WithStyle("font-style", "italic")
+}
+
+// WithTextDecoration sets text decoration (none, underline, strikethrough)
+func (e *Element) WithTextDecoration(decoration string) *Element {
+	return e.WithStyle("text-decoration", decoration)
+}
+
+// WithUnderline is a convenience method for underlined text
+func (e *Element) WithUnderline() *Element {
+	return e.WithStyle("text-decoration", "underline")
+}
+
+// WithStrikethrough is a convenience method for strikethrough text
+func (e *Element) WithStrikethrough() *Element {
+	return e.WithStyle("text-decoration", "strikethrough")
+}
+
+// WithOpacity sets opacity (0-100, 0=invisible, 50=dim, 100=normal)
+func (e *Element) WithOpacity(opacity int) *Element {
+	return e.WithStyle("opacity", intToString(opacity))
+}
+
+// WithDim is a convenience method for dimmed text (50% opacity)
+func (e *Element) WithDim() *Element {
+	return e.WithStyle("opacity", "50")
+}
+
+// WithTextOverflow sets text overflow behavior (clip, ellipsis)
+func (e *Element) WithTextOverflow(overflow string) *Element {
+	return e.WithStyle("text-overflow", overflow)
+}
+
+// WithWhiteSpace sets whitespace handling (normal, nowrap, pre)
+func (e *Element) WithWhiteSpace(whitespace string) *Element {
+	return e.WithStyle("white-space", whitespace)
+}
+
+// WithWordWrap sets word wrapping (true/false)
+func (e *Element) WithWordWrap(wrap bool) *Element {
+	if wrap {
+		return e.WithStyle("word-wrap", "true")
+	}
+	return e.WithStyle("word-wrap", "none")
+}
+
+// WithBorderColor sets border color
+func (e *Element) WithBorderColor(color string) *Element {
+	return e.WithStyle("border-color", color)
+}
+
+// WithReverse inverts foreground and background colors (for selections)
+func (e *Element) WithReverse() *Element {
+	return e.WithStyle("reverse", "true")
+}
+
+// WithMaxLines sets the maximum number of lines for text content (0 = unlimited)
+func (e *Element) WithMaxLines(max int) *Element {
+	return e.WithStyle("max-lines", intToString(max))
 }
 
 // intToString converts int to string

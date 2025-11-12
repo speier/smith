@@ -12,7 +12,15 @@ func Box(children ...any) *Element {
 			elements = append(elements, elem)
 		}
 	}
-	return NewElement("box", Props{}, elements...)
+	// Box should be display:flex with flex-direction:column and align-items:stretch by default
+	// This ensures children stretch to fill the container (CSS flexbox default behavior)
+	return NewElement("box", Props{
+		Styles: map[string]string{
+			"display":        "flex",
+			"flex-direction": "column",
+			"align-items":    "stretch",
+		},
+	}, elements...)
 }
 
 // Text creates a text element
@@ -33,6 +41,7 @@ func VStack(children ...any) *Element {
 		Styles: map[string]string{
 			"display":        "flex",
 			"flex-direction": "column",
+			"align-items":    "stretch", // CSS default - children stretch to fill cross-axis
 		},
 	}, elements...)
 }

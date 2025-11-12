@@ -36,11 +36,22 @@ type LayoutBox struct {
 // Input: StyledNode tree + container dimensions
 // Output: LayoutBox tree with computed positions/sizes
 func Compute(node *style.StyledNode, containerWidth, containerHeight int) *LayoutBox {
+	// Resolve node's own width/height (may be constrained)
+	nodeWidth := resolveDimension(node.Style.Width, containerWidth)
+	if nodeWidth <= 0 {
+		nodeWidth = containerWidth
+	}
+
+	nodeHeight := resolveDimension(node.Style.Height, containerHeight)
+	if nodeHeight <= 0 {
+		nodeHeight = containerHeight
+	}
+
 	box := &LayoutBox{
 		X:      0,
 		Y:      0,
-		Width:  containerWidth,
-		Height: containerHeight,
+		Width:  nodeWidth,
+		Height: nodeHeight,
 		Node:   node,
 	}
 
@@ -62,9 +73,9 @@ func layoutChildren(box *LayoutBox, node *style.StyledNode) {
 	// Layout based on display mode
 	if node.Style.Display == "flex" {
 		if node.Style.FlexDir == "row" {
-			box.Children = layoutFlexRow(node.Children, contentX, contentY, contentWidth, contentHeight)
+			box.Children = layoutFlexRow(node.Children, contentX, contentY, contentWidth, contentHeight, node.Style)
 		} else {
-			box.Children = layoutFlexColumn(node.Children, contentX, contentY, contentWidth, contentHeight)
+			box.Children = layoutFlexColumn(node.Children, contentX, contentY, contentWidth, contentHeight, node.Style)
 		}
 	} else {
 		box.Children = layoutBlock(node.Children, contentX, contentY, contentWidth, contentHeight)
@@ -90,7 +101,7 @@ func computeContentBox(box *LayoutBox, style style.ComputedStyle) (x, y, width, 
 }
 
 // layoutFlexRow handles horizontal flexbox layout
-func layoutFlexRow(children []*style.StyledNode, x, y, width, height int) []*LayoutBox {
+func layoutFlexRow(children []*style.StyledNode, x, y, width, height int, parentStyle style.ComputedStyle) []*LayoutBox {
 	// Phase 1: Calculate fixed and flexible space
 	var totalFixed int
 	var totalFlexGrow int
@@ -154,9 +165,19 @@ func layoutFlexRow(children []*style.StyledNode, x, y, width, height int) []*Lay
 			}
 		}
 
+		// Check for auto margins - centers the child horizontally
+		marginLeft := child.Style.MarginLeft
+		if child.Style.MarginLeftAuto && child.Style.MarginRightAuto {
+			// Both margins auto - center the child
+			availableSpace := width - childWidth
+			if availableSpace > 0 {
+				marginLeft = availableSpace / 2
+			}
+		}
+
 		// Create layout box for this child
 		childBox := &LayoutBox{
-			X:      currentX + child.Style.MarginLeft,
+			X:      currentX + marginLeft,
 			Y:      y + child.Style.MarginTop,
 			Width:  childWidth,
 			Height: childHeight,
@@ -172,14 +193,43 @@ func layoutFlexRow(children []*style.StyledNode, x, y, width, height int) []*Lay
 		currentX += childWidth + child.Style.MarginLeft + child.Style.MarginRight
 	}
 
+	// Phase 3: Apply justify-content
+	switch parentStyle.JustifyContent {
+	case "center":
+		// Calculate total used width
+		totalUsed := currentX - x
+		if totalUsed < width {
+			offset := (width - totalUsed) / 2
+			// Shift all boxes to the right
+			for _, box := range boxes {
+				box.X += offset
+			}
+		}
+	case "flex-end":
+		// Calculate total used width
+		totalUsed := currentX - x
+		if totalUsed < width {
+			offset := width - totalUsed
+			// Shift all boxes to the right
+			for _, box := range boxes {
+				box.X += offset
+			}
+		}
+	}
+
 	return boxes
 }
 
 // layoutFlexColumn handles vertical flexbox layout
-func layoutFlexColumn(children []*style.StyledNode, x, y, width, height int) []*LayoutBox {
+func layoutFlexColumn(children []*style.StyledNode, x, y, width, height int, parentStyle style.ComputedStyle) []*LayoutBox {
 	// Phase 1: Calculate fixed and flexible space
 	var totalFixed int
 	var totalFlexGrow int
+
+	// Add gap spacing: (n-1) gaps between n children
+	if len(children) > 1 && parentStyle.Gap > 0 {
+		totalFixed += (len(children) - 1) * parentStyle.Gap
+	}
 
 	for _, child := range children {
 		flexGrow := child.Style.FlexGrow
@@ -228,21 +278,66 @@ func layoutFlexColumn(children []*style.StyledNode, x, y, width, height int) []*
 			}
 		}
 
-		// Calculate child width - respect align-self
+		// Calculate child width - respect align-items (cross-axis in column)
 		childWidth := resolveDimension(child.Style.Width, width)
+		childX := x + child.Style.MarginLeft
+
 		if childWidth <= 0 {
-			if child.Style.AlignSelf == "stretch" {
-				// Stretch to fill container width (cross-axis in column)
+			// No explicit width - check align-items behavior
+			// Use parent's align-items to determine cross-axis sizing
+			alignItems := parentStyle.AlignItems
+			if child.Style.AlignSelf != "" && child.Style.AlignSelf != "stretch" {
+				alignItems = child.Style.AlignSelf
+			}
+
+			if alignItems == "stretch" {
+				// Stretch to fill parent width (default behavior)
 				childWidth = width - child.Style.MarginLeft - child.Style.MarginRight
 			} else {
-				// Use auto width (full width for now, can add flex-start/end later)
+				// Use intrinsic width for non-stretch alignment
+				childWidth = computeIntrinsicWidth(child)
+			}
+		}
+
+		// Apply align-items to position child horizontally (cross-axis)
+		alignItems := child.Style.AlignSelf
+		if alignItems == "" || alignItems == "auto" {
+			alignItems = parentStyle.AlignItems
+		}
+
+		// Check if child has explicit width
+		hasExplicitWidth := resolveDimension(child.Style.Width, width) > 0
+
+		switch alignItems {
+		case "stretch":
+			// Only stretch if no explicit width
+			if !hasExplicitWidth {
 				childWidth = width - child.Style.MarginLeft - child.Style.MarginRight
 			}
+			childX = x + child.Style.MarginLeft
+		case "center":
+			// Center horizontally
+			availableSpace := width - childWidth - child.Style.MarginLeft - child.Style.MarginRight
+			if availableSpace > 0 {
+				childX = x + child.Style.MarginLeft + (availableSpace / 2)
+			}
+		case "flex-end":
+			// Align to right
+			childX = x + width - childWidth - child.Style.MarginRight
+		case "flex-start":
+			// Align to left (default)
+			childX = x + child.Style.MarginLeft
+		default:
+			// CSS default is stretch, so use that if alignItems is somehow empty
+			if !hasExplicitWidth {
+				childWidth = width - child.Style.MarginLeft - child.Style.MarginRight
+			}
+			childX = x + child.Style.MarginLeft
 		}
 
 		// Create layout box for this child
 		childBox := &LayoutBox{
-			X:      x + child.Style.MarginLeft,
+			X:      childX,
 			Y:      currentY + child.Style.MarginTop,
 			Width:  childWidth,
 			Height: childHeight,
@@ -256,6 +351,35 @@ func layoutFlexColumn(children []*style.StyledNode, x, y, width, height int) []*
 
 		// Move to next position
 		currentY += childHeight + child.Style.MarginTop + child.Style.MarginBottom
+
+		// Add gap spacing after this child (except for last child)
+		if i < len(children)-1 && parentStyle.Gap > 0 {
+			currentY += parentStyle.Gap
+		}
+	}
+
+	// Phase 3: Apply justify-content for column direction
+	switch parentStyle.JustifyContent {
+	case "center":
+		// Calculate total used height
+		totalUsed := currentY - y
+		if totalUsed < height {
+			offset := (height - totalUsed) / 2
+			// Shift all boxes down
+			for _, box := range boxes {
+				box.Y += offset
+			}
+		}
+	case "flex-end":
+		// Calculate total used height
+		totalUsed := currentY - y
+		if totalUsed < height {
+			offset := height - totalUsed
+			// Shift all boxes down
+			for _, box := range boxes {
+				box.Y += offset
+			}
+		}
 	}
 
 	return boxes
@@ -373,8 +497,10 @@ func computeIntrinsicWidth(node *style.StyledNode) int {
 		lines := strings.Split(node.Element.Text, "\n")
 		maxLen := 0
 		for _, line := range lines {
-			if len(line) > maxLen {
-				maxLen = len(line)
+			// Use visible length to exclude ANSI escape codes
+			visLen := visibleLen(line)
+			if visLen > maxLen {
+				maxLen = visLen
 			}
 		}
 		if maxLen > 0 {
@@ -412,4 +538,26 @@ func computeIntrinsicWidth(node *style.StyledNode) int {
 	}
 
 	return totalWidth
+}
+
+// visibleLen returns the visible character count (excluding ANSI escape codes)
+func visibleLen(s string) int {
+	count := 0
+	inEscape := false
+
+	for _, r := range s { // Iterate over runes, not bytes!
+		if r == '\033' { // ESC character
+			inEscape = true
+			continue
+		}
+		if inEscape {
+			if r == 'm' { // End of ANSI sequence
+				inEscape = false
+			}
+			continue
+		}
+		count++
+	}
+
+	return count
 }

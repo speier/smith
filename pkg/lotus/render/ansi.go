@@ -71,6 +71,10 @@ func (r *Renderer) renderBorder(box *layout.LayoutBox, st style.ComputedStyle) {
 		return // Too small for border
 	}
 
+	if !st.Border {
+		return // No border to draw
+	}
+
 	// Choose border characters
 	var topLeft, topRight, bottomLeft, bottomRight, horizontal, vertical string
 	switch st.BorderStyle {
@@ -88,8 +92,11 @@ func (r *Renderer) renderBorder(box *layout.LayoutBox, st style.ComputedStyle) {
 		horizontal, vertical = "─", "│"
 	}
 
-	// Get color
+	// Get color (use border-color if set, otherwise use text color)
 	color := getANSIColor(st.Color)
+	if st.BorderColor != "" {
+		color = getANSIColor(st.BorderColor)
+	}
 
 	// Top border
 	r.moveCursor(box.X, box.Y)
@@ -133,6 +140,11 @@ func (r *Renderer) renderText(box *layout.LayoutBox, st style.ComputedStyle) {
 		return
 	}
 
+	// Skip if hidden
+	if st.Visibility == "hidden" {
+		return
+	}
+
 	text := box.Node.Element.Text
 	if text == "" {
 		return
@@ -149,11 +161,35 @@ func (r *Renderer) renderText(box *layout.LayoutBox, st style.ComputedStyle) {
 		availableWidth -= 2
 	}
 
-	// Split text by newlines and render each line
-	lines := strings.Split(text, "\n")
+	// Handle whitespace modes
+	var lines []string
+	switch st.WhiteSpace {
+	case "pre":
+		// Preserve all whitespace and newlines
+		lines = strings.Split(text, "\n")
+	case "nowrap":
+		// No line breaks, single line
+		text = strings.ReplaceAll(text, "\n", " ")
+		lines = []string{text}
+	default: // "normal"
+		// Normal wrapping
+		lines = strings.Split(text, "\n")
+	}
 
+	// Build ANSI style prefix
+	stylePrefix := buildStylePrefix(st)
 	color := getANSIColor(st.Color)
 	bgColor := getANSIBgColor(st.BgColor)
+
+	// Apply line clamping if MaxLines is set
+	if st.MaxLines > 0 && len(lines) > st.MaxLines {
+		// Keep only first MaxLines lines
+		lines = lines[:st.MaxLines]
+
+		// Add ellipsis to the last visible line
+		lastIdx := len(lines) - 1
+		lines[lastIdx] = lines[lastIdx] + "..."
+	}
 
 	for i, line := range lines {
 		if i > 0 {
@@ -162,31 +198,42 @@ func (r *Renderer) renderText(box *layout.LayoutBox, st style.ComputedStyle) {
 
 		lineX := x
 
-		// Handle text alignment per line
+		// Handle text alignment per line (use visible length for ANSI-colored text)
+		lineVisibleLen := visibleLen(line)
+
+		// Apply text overflow (ellipsis)
+		if lineVisibleLen > availableWidth && st.TextOverflow == "ellipsis" {
+			if availableWidth > 3 {
+				line = truncateWithEllipsis(line, availableWidth)
+				lineVisibleLen = availableWidth
+			}
+		}
+
 		switch st.TextAlign {
 		case "center":
-			padding := (availableWidth - len(line)) / 2
+			padding := (availableWidth - lineVisibleLen) / 2
 			if padding > 0 {
 				lineX += padding
 			}
 		case "right":
-			padding := availableWidth - len(line)
+			padding := availableWidth - lineVisibleLen
 			if padding > 0 {
 				lineX += padding
 			}
 		}
 
-		// Clip line to available width
-		if len(line) > availableWidth {
-			line = line[:availableWidth]
+		// Clip line to available width (using visible length)
+		if lineVisibleLen > availableWidth {
+			line = clipToWidth(line, availableWidth)
 		}
 
-		// Render line
+		// Render line with styles
 		r.moveCursor(lineX, y)
+		r.buf.WriteString(stylePrefix)
 		r.buf.WriteString(color)
 		r.buf.WriteString(bgColor)
 		r.buf.WriteString(line)
-		r.buf.WriteString("\033[0m")
+		r.buf.WriteString("\033[0m") // Reset all styles
 	}
 }
 
@@ -247,4 +294,99 @@ func getANSIBgColor(color string) string {
 	}
 
 	return ""
+}
+
+// visibleLen returns the visible character count (excluding ANSI escape codes)
+func visibleLen(s string) int {
+	count := 0
+	inEscape := false
+
+	for _, r := range s { // Iterate over runes, not bytes!
+		if r == '\033' { // ESC character
+			inEscape = true
+			continue
+		}
+		if inEscape {
+			if r == 'm' { // End of ANSI sequence
+				inEscape = false
+			}
+			continue
+		}
+		count++
+	}
+
+	return count
+}
+
+// buildStylePrefix builds ANSI escape codes for text styling
+func buildStylePrefix(st style.ComputedStyle) string {
+	var codes []string
+
+	// Font weight (bold)
+	if st.FontWeight == "bold" {
+		codes = append(codes, "1")
+	}
+
+	// Opacity (dim)
+	if st.Opacity > 0 && st.Opacity < 100 {
+		codes = append(codes, "2") // dim
+	}
+
+	// Font style (italic)
+	if st.FontStyle == "italic" {
+		codes = append(codes, "3")
+	}
+
+	// Text decoration
+	switch st.TextDecoration {
+	case "underline":
+		codes = append(codes, "4")
+	case "strikethrough":
+		codes = append(codes, "9")
+	}
+
+	// Reverse video
+	if st.Reverse {
+		codes = append(codes, "7")
+	}
+
+	if len(codes) == 0 {
+		return ""
+	}
+
+	// Build escape sequence: \033[{code1};{code2};...m
+	return "\033[" + strings.Join(codes, ";") + "m"
+}
+
+// truncateWithEllipsis truncates text to fit width and adds "..." at the end
+func truncateWithEllipsis(text string, width int) string {
+	if width < 1 {
+		return ""
+	}
+	if width <= 3 {
+		return strings.Repeat(".", width)
+	}
+
+	// Count runes for proper Unicode handling
+	runes := []rune(text)
+	if len(runes) <= width-3 {
+		return text
+	}
+
+	// Truncate and add ellipsis
+	return string(runes[:width-3]) + "..."
+}
+
+// clipToWidth clips text to fit within the specified width (rune-aware)
+func clipToWidth(text string, width int) string {
+	if width < 1 {
+		return ""
+	}
+
+	runes := []rune(text)
+	if len(runes) <= width {
+		return text
+	}
+
+	return string(runes[:width])
 }

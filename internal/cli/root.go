@@ -5,8 +5,9 @@ import (
 	"os"
 
 	"github.com/speier/smith/internal/frontend"
-	"github.com/speier/smith/pkg/agent/session"
 	"github.com/speier/smith/internal/version"
+	"github.com/speier/smith/pkg/agent/session"
+	"github.com/speier/smith/pkg/lotus"
 	"github.com/spf13/cobra"
 )
 
@@ -29,12 +30,10 @@ Just chat naturally and watch the agents multiply to build your software.`,
 		// Create session
 		sess := session.NewMockSession()
 
-		// Get terminal size for initial UI
-		width, height := 100, 40 // Default size, will auto-detect
-
-		// Create and run chat UI
-		ui := frontend.NewChatUI(sess, width, height)
-		if err := ui.Run(); err != nil {
+		// Create and run chat UI using Lotus runtime
+		// ReactDOM.render(<ChatUI />)
+		ui := frontend.NewChatUI(sess)
+		if err := lotus.Run(ui); err != nil {
 			fmt.Fprintf(os.Stderr, "Error running chat UI: %v\n", err)
 			os.Exit(1)
 		}

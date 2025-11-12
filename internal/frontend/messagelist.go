@@ -1,174 +1,152 @@
 package frontend
 
 import (
-	"fmt"
+	"strings"
 
+	"github.com/charmbracelet/glamour"
 	"github.com/speier/smith/pkg/lotus/vdom"
 )
 
 // Message represents a single message in the list
 type Message struct {
-	Role    string // "user" or "assistant"
+	Role    string // "user", "assistant", "system"
 	Content string
 }
 
-// MessageList is a scrollable list of messages
+// MessageList is a scrollable list of chat messages with markdown rendering
 type MessageList struct {
-	ID             string // Component ID
-	Messages       []Message
-	Width          int  // Set by layout system (0 = auto)
-	Height         int  // Set by layout system (0 = auto)
-	Scroll         int  // Current scroll position
-	AutoScroll     bool // Auto-scroll to bottom on new messages
-	UserPrefix     string
-	ShowSpacing    bool // Add blank line between messages
-	UserColor      string
-	AssistantColor string
-	StreamingColor string
-	IsStreaming    bool
+	ID         string        // Component ID
+	Messages   []Message     // Chat messages
+	Streaming  bool          // Currently streaming a response
+	StreamBuf  string        // Partial streaming content
+	Header     *vdom.Element // Optional header (e.g., logo, banner)
+	mdRenderer *glamour.TermRenderer
 }
 
-// NewMessageList creates a new message list (layout-aware)
-func NewMessageList(id ...string) *MessageList {
-	listID := ""
-	if len(id) > 0 {
-		listID = id[0]
-	}
+// NewMessageList creates a new message list with markdown support
+func NewMessageList() *MessageList {
+	// Create markdown renderer for assistant messages with no left padding
+	mdRenderer, _ := glamour.NewTermRenderer(
+		glamour.WithAutoStyle(),  // Auto dark/light mode
+		glamour.WithWordWrap(80), // Wrap at 80 chars
+		glamour.WithStylesFromJSONBytes([]byte(`{
+			"document": {
+				"margin": 0
+			},
+			"paragraph": {
+				"margin": 0
+			}
+		}`)),
+	)
+
 	return &MessageList{
-		ID:             listID,
-		Messages:       []Message{},
-		Width:          0, // Will be set by layout
-		Height:         0, // Will be set by layout
-		Scroll:         0,
-		AutoScroll:     true,
-		UserPrefix:     "| ",
-		ShowSpacing:    true,
-		UserColor:      "#fff",
-		AssistantColor: "#ddd",
-		StreamingColor: "#888",
+		ID:         "messages",
+		Messages:   []Message{},
+		Streaming:  false,
+		mdRenderer: mdRenderer,
 	}
 }
 
 // AddMessage adds a message to the list
 func (m *MessageList) AddMessage(role, content string) {
 	m.Messages = append(m.Messages, Message{Role: role, Content: content})
-	if m.AutoScroll {
-		m.ScrollToBottom()
-	}
+}
+
+// SetHeader sets the optional header element (e.g., logo and banner)
+func (m *MessageList) SetHeader(elem *vdom.Element) {
+	m.Header = elem
 }
 
 // Clear removes all messages
 func (m *MessageList) Clear() {
 	m.Messages = []Message{}
-	m.Scroll = 0
 }
 
-// ScrollUp scrolls up one line
-func (m *MessageList) ScrollUp() {
-	if m.Scroll > 0 {
-		m.Scroll--
+// SetStreaming sets streaming state and partial content
+func (m *MessageList) SetStreaming(streaming bool, partial string) {
+	m.Streaming = streaming
+	m.StreamBuf = partial
+}
+
+// formatMessage formats a message with role prefix and markdown rendering
+func (m *MessageList) formatMessage(role, content string) string {
+	var prefix string
+	switch role {
+	case "user":
+		prefix = "\x1b[36m>\x1b[0m " // Cyan arrow for user
+	case "assistant":
+		prefix = "\x1b[32m●\x1b[0m " // Green bullet for assistant
+	case "system":
+		// No prefix for system messages (welcome banner, errors, etc.)
+		prefix = ""
+	default:
+		prefix = "  "
 	}
-}
 
-// ScrollDown scrolls down one line
-func (m *MessageList) ScrollDown() {
-	m.Scroll++
-	// Will be clamped in Render
-}
+	// Render markdown for assistant messages only (not system/user)
+	rendered := content
+	if role == "assistant" {
+		if r, err := m.mdRenderer.Render(content); err == nil {
+			// Trim all whitespace and split into lines
+			r = strings.TrimSpace(r)
+			// Also trim leading spaces from each line that glamour adds
+			lines := strings.Split(r, "\n")
+			for i, line := range lines {
+				lines[i] = strings.TrimLeft(line, " ")
+			}
+			rendered = strings.Join(lines, "\n")
+		}
+	}
 
-// ScrollToBottom scrolls to the bottom
-func (m *MessageList) ScrollToBottom() {
-	m.Scroll = 999999 // Will be clamped in Render
+	// Add prefix to first line (if prefix exists)
+	if prefix != "" {
+		lines := strings.Split(rendered, "\n")
+		if len(lines) > 0 {
+			lines[0] = prefix + lines[0]
+			// Indent subsequent lines to align with first line content
+			indent := "  " // Match the "● " width
+			for i := 1; i < len(lines); i++ {
+				lines[i] = indent + lines[i]
+			}
+			rendered = strings.Join(lines, "\n")
+		}
+	}
+
+	return rendered
 }
 
 // Render generates the Element for the message list
 func (m *MessageList) Render() *vdom.Element {
-	if len(m.Messages) == 0 {
-		return vdom.Box(vdom.Text(""))
+	// Build message elements from formatted strings
+	messageElements := make([]any, 0, len(m.Messages)+2)
+
+	// Add header if set (logo, banner, etc.)
+	if m.Header != nil {
+		messageElements = append(messageElements, m.Header)
 	}
 
-	height := m.Height
-	if height == 0 {
-		height = 20 // Default visible lines
-	}
+	for i, msg := range m.Messages {
+		formatted := m.formatMessage(msg.Role, msg.Content)
+		messageElements = append(messageElements, vdom.Text(formatted))
 
-	// Calculate total lines
-	totalLines := len(m.Messages)
-	if m.ShowSpacing {
-		totalLines += len(m.Messages)
-	}
-
-	// Clamp scroll
-	maxVisibleLines := height
-	if maxVisibleLines < 1 {
-		maxVisibleLines = 1
-	}
-
-	maxScroll := totalLines - maxVisibleLines
-	if maxScroll < 0 {
-		maxScroll = 0
-	}
-	if m.Scroll > maxScroll {
-		m.Scroll = maxScroll
-	}
-	if m.Scroll < 0 {
-		m.Scroll = 0
-	}
-
-	// Build visible message elements
-	messageElements := []*vdom.Element{}
-	currentLine := 0
-	visibleStart := m.Scroll
-	visibleEnd := m.Scroll + maxVisibleLines
-
-	for _, msg := range m.Messages {
-		// Render message line
-		if currentLine >= visibleStart && currentLine < visibleEnd {
-			color := m.AssistantColor
-			prefix := ""
-
-			if msg.Role == "user" {
-				color = m.UserColor
-				if m.UserPrefix != "" {
-					prefix = m.UserPrefix
-				}
-			} else if m.IsStreaming {
-				color = "#5af" // Streaming indicator
-			}
-
-			messageElements = append(messageElements,
-				vdom.Box(
-					vdom.Text(prefix+msg.Content),
-				).WithStyle("color", color).
-					WithStyle("padding", "0 1"),
-			)
-		}
-		currentLine++
-
-		// Add spacing line
-		if m.ShowSpacing {
-			if currentLine >= visibleStart && currentLine < visibleEnd {
-				messageElements = append(messageElements,
-					vdom.Box(vdom.Text("")),
-				)
-			}
-			currentLine++
+		// Add spacing after assistant messages (before next user message)
+		if msg.Role == "assistant" && i < len(m.Messages)-1 {
+			messageElements = append(messageElements, vdom.Text(""))
 		}
 	}
 
-	if len(messageElements) == 0 {
-		messageElements = append(messageElements, vdom.Box(vdom.Text("")))
+	// If streaming, show partial response with indicator
+	if m.Streaming {
+		if m.StreamBuf != "" {
+			streaming := m.formatMessage("assistant", m.StreamBuf+" ▌") // Blinking cursor indicator
+			messageElements = append(messageElements, vdom.Text(streaming))
+		} else {
+			messageElements = append(messageElements, vdom.Text("\x1b[32m●\x1b[0m Thinking... ▌"))
+		}
 	}
 
-	// Convert []*Element to []any for VStack
-	children := make([]any, len(messageElements))
-	for i, elem := range messageElements {
-		children[i] = elem
-	}
-
-	return vdom.VStack(children...).
-		WithID(m.ID).
-		WithStyle("height", fmt.Sprintf("%d", height))
+	// Return VStack of messages
+	return vdom.VStack(messageElements...).WithID(m.ID)
 }
 
 // IsNode implements vdom.Node interface

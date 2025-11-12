@@ -174,6 +174,11 @@ func Run(app any, data ...any) error {
 
 	width, height := term.Size()
 
+	// If app has SetRenderCallback, provide it with term.RequestRender
+	if setter, ok := appInstance.(interface{ SetRenderCallback(func()) }); ok {
+		setter.SetRenderCallback(term.RequestRender)
+	}
+
 	// Initialize focus manager
 	focusMgr := newFocusManager()
 

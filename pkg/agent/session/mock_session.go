@@ -54,11 +54,6 @@ func (m *MockSession) generateResponse(message string) string {
 	// Simple responses based on keywords
 	msgLower := message
 
-	if len(message) < 10 {
-		// Short message - give a brief response
-		return "I understand. Could you elaborate on that?"
-	}
-
 	if contains(msgLower, "hello") || contains(msgLower, "hi") {
 		return `Hello! I'm Smith, your AI coding assistant.
 

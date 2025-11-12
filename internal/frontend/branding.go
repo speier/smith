@@ -4,49 +4,29 @@ import (
 	"strings"
 
 	"github.com/speier/smith/internal/version"
-	"github.com/speier/smith/pkg/lotus"
 )
 
-var (
-	// Matrix-style colors using terminal color 10 (bright green)
-	greenStyle   = lotus.NewStyle().Foreground("10").Bold(true)
-	versionStyle = lotus.NewStyle().Foreground("10")
-	welcomeStyle = lotus.NewStyle().Foreground("10")
+// ANSI color codes for Matrix-style green (terminal color 10 = bright green)
+const (
+	green     = "\x1b[38;5;10m"   // Bright green foreground
+	greenBold = "\x1b[38;5;10;1m" // Bright green + bold
+	reset     = "\x1b[0m"         // Reset all formatting
 )
 
-// GetWelcomeBanner returns the full welcome banner with ASCII logo and version
-// Text is pre-colored using terminal color 10 (bright green)
-func GetWelcomeBanner() string {
-	logoLines := GetLogoLines()
-
-	// Build banner parts with color applied
-	var parts []string
-	parts = append(parts, "") // Empty line at top
-
-	// Add logo lines with green color and bold
-	for _, line := range logoLines {
-		parts = append(parts, greenStyle.Render(line))
-	}
-
-	parts = append(parts, "")                                     // Empty line
-	parts = append(parts, versionStyle.Render("v"+version.Get())) // Version
-	parts = append(parts, "")                                     // Empty line
-	parts = append(parts, welcomeStyle.Render("Mr. Anderson... Welcome back."))
-	parts = append(parts, welcomeStyle.Render("I've been expecting you."))
-	parts = append(parts, "") // Empty line at bottom
-
-	return strings.Join(parts, "\n")
+// GetWelcomeText returns the version and greeting text (multi-line, pre-colored)
+func GetWelcomeText() string {
+	var text strings.Builder
+	text.WriteString(green + "v" + version.Get() + reset)
+	text.WriteString("\n\n")
+	text.WriteString(green + "Mr. Anderson... Welcome back." + reset)
+	text.WriteString("\n")
+	text.WriteString(green + "I've been expecting you." + reset)
+	return text.String()
 }
 
-// GetGoodbyeBanner returns a simple goodbye message (no logo)
-func GetGoodbyeBanner() string {
-	// Matrix green, bold (matching original)
-	return greenStyle.Render("👋 Goodbye, Mr. Anderson...")
-}
-
-// GetLogoLines returns the ASCII logo lines for use in UI components
-func GetLogoLines() []string {
-	return []string{
+// GetLogoLines returns the ASCII logo (multi-line, pre-colored)
+func GetLogoLines() string {
+	lines := []string{
 		"███████╗███╗   ███╗██╗████████╗██╗  ██╗",
 		"██╔════╝████╗ ████║██║╚══██╔══╝██║  ██║",
 		"███████╗██╔████╔██║██║   ██║   ███████║",
@@ -54,4 +34,16 @@ func GetLogoLines() []string {
 		"███████║██║ ╚═╝ ██║██║   ██║   ██║  ██║",
 		"╚══════╝╚═╝     ╚═╝╚═╝   ╚═╝   ╚═╝  ╚═╝",
 	}
+
+	colored := make([]string, len(lines))
+	for i, line := range lines {
+		colored[i] = greenBold + line + reset
+	}
+	return strings.Join(colored, "\n")
+}
+
+// GetGoodbyeBanner returns a simple goodbye message
+func GetGoodbyeBanner() string {
+	// Matrix green, bold
+	return greenBold + "👋 Goodbye, Mr. Anderson..." + reset
 }
