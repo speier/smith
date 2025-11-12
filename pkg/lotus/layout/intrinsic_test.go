@@ -61,7 +61,7 @@ func TestComputeIntrinsicWidth(t *testing.T) {
 func TestHStackWithTextElements(t *testing.T) {
 	// Create HStack with prompt + placeholder (like TextInput with placeholder)
 	root := vdom.HStack(
-		vdom.Text("> "),                                             // prompt (2 chars)
+		vdom.Text("> "), // prompt (2 chars)
 		vdom.Text("Say something...").WithStyle("color", "#808080"), // placeholder (16 chars)
 	)
 
@@ -103,7 +103,7 @@ func TestHStackWithTextElements(t *testing.T) {
 func TestHStackWithMixedContent(t *testing.T) {
 	// HStack with text + flexible box
 	root := vdom.HStack(
-		vdom.Text("Label: "),                                   // fixed width (7 chars)
+		vdom.Text("Label: "), // fixed width (7 chars)
 		vdom.Box(vdom.Text("content")).WithStyle("flex-grow", "1"), // flexible
 	)
 

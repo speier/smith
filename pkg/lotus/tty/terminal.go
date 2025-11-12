@@ -19,6 +19,8 @@ package tty
 import (
 	"os"
 	"time"
+
+	"github.com/speier/smith/pkg/lotus/render"
 )
 
 // RenderFunc is called to render content to the screen
@@ -49,7 +51,10 @@ type Terminal struct {
 	useAltScreen   bool
 	lastWidth      int
 	lastHeight     int
-	renderChan     chan bool // Channel to request renders externally
+	renderChan     chan bool                                // Channel to request renders externally
+	diffRenderer   *render.DiffRenderer                     // Differential renderer for optimized updates
+	statsLogger    func(format string, args ...interface{}) // Optional callback for logging render stats
+	renderCount    int                                      // Track total renders to log stats periodically
 }
 
 // New creates a new Terminal instance
@@ -74,6 +79,7 @@ func New() (*Terminal, error) {
 		lastWidth:    width,
 		lastHeight:   height,
 		renderChan:   make(chan bool, 10), // Buffered to avoid blocking
+		diffRenderer: render.NewDiffRenderer(),
 	}, nil
 }
 
@@ -107,6 +113,11 @@ func (t *Terminal) OnTick(rate time.Duration, fn TickHandler) {
 // OnResize sets the resize handler
 func (t *Terminal) OnResize(fn ResizeHandler) {
 	t.resizeHandler = fn
+}
+
+// SetStatsLogger sets a callback for logging render statistics (for DevTools integration)
+func (t *Terminal) SetStatsLogger(logger func(format string, args ...interface{})) {
+	t.statsLogger = logger
 }
 
 // SetFilterMouse enables/disables mouse event filtering
@@ -269,14 +280,33 @@ func (t *Terminal) RequestRender() {
 	}
 }
 
-// render calls the render function and updates the screen
+// render calls the render function and updates the screen using differential rendering
 func (t *Terminal) render() {
 	if t.renderFunc != nil {
-		t.screen.Redraw()
-		output := t.renderFunc()
-		t.screen.Print(output)
+		width, height := t.screen.Size()
+		content := t.renderFunc()
+
+		// Use differential rendering for optimized updates
+		diffOutput := t.diffRenderer.RenderDiff(content, width, height)
+
+		if diffOutput != "" {
+			// Only print if there are actual changes
+			t.screen.Print(diffOutput)
+		}
+
 		// Flush to ensure output is displayed before cursor positioning
 		_ = os.Stdout.Sync()
+
+		// Log render stats periodically (every 10 renders)
+		t.renderCount++
+		if t.statsLogger != nil && t.renderCount%10 == 0 {
+			full, partial, skipped := t.diffRenderer.GetStats()
+			total := full + partial + skipped
+			if total > 0 {
+				t.statsLogger("📊 Renders: %d full, %d partial, %d skipped (%.1f%% optimized)",
+					full, partial, skipped, float64(partial+skipped)*100/float64(total))
+			}
+		}
 	}
 	// Position cursor AFTER content is printed
 	if t.postRenderFunc != nil {

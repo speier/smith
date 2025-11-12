@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/speier/smith/internal/storage"
+	"github.com/speier/smith/pkg/agent/storage"
 )
 
 // EventBus handles publishing and subscribing to events using storage abstraction

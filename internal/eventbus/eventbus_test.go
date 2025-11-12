@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/speier/smith/internal/storage"
+	"github.com/speier/smith/pkg/agent/storage"
 )
 
 func setupTestDB(t *testing.T) (storage.Store, func()) {

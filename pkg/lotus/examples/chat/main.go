@@ -3,49 +3,34 @@ package main
 import (
 	"fmt"
 
-	"github.com/charmbracelet/glamour"
 	"github.com/speier/smith/pkg/lotus"
-	"github.com/speier/smith/pkg/lotus/components"
 )
 
-// ChatApp - Simple 3-panel chat UI
+// ChatApp - Simple chat UI using only primitives
 type ChatApp struct {
 	title    string
-	messages *components.TextBox
-	input    *components.TextInput
-	renderer *glamour.TermRenderer
+	messages []string // Store message lines
+	input    *lotus.Input
 }
 
 // NewChatApp creates a new chat application
 func NewChatApp() *ChatApp {
-	// Create markdown renderer (for later use)
-	renderer, _ := glamour.NewTermRenderer(
-		glamour.WithAutoStyle(),
-		glamour.WithWordWrap(0),
-		glamour.WithPreservedNewLines(),
-	)
-
 	app := &ChatApp{
-		title:    "💬 Chat Example",
-		messages: components.NewTextBox().WithAutoScroll(true),
-		renderer: renderer,
+		title:    "💬 Chat Example (Primitives Only)",
+		messages: []string{"Welcome! Type a message below."},
 	}
 
-	// Add welcome message
-	app.messages.AppendLine("assistant: Welcome! Type a message below.")
-
 	// Setup input with inline handler
-	app.input = components.NewTextInput().
-		WithID("chat-input"). // ID required for HMR state persistence
+	app.input = lotus.NewInput().
+		WithID("chat-input").
 		WithPlaceholder("Say something...").
 		WithOnSubmit(func(value string) {
 			if value != "" {
 				// Add user message
-				app.messages.AppendLine(fmt.Sprintf("user: %s", value))
+				app.messages = append(app.messages, fmt.Sprintf("> %s", value))
 
 				// Echo response
-				response := "You said: " + value
-				app.messages.AppendLine(fmt.Sprintf("assistant: %s", response))
+				app.messages = append(app.messages, fmt.Sprintf("You said: %s", value))
 
 				app.input.Clear()
 			}
@@ -54,20 +39,28 @@ func NewChatApp() *ChatApp {
 	return app
 }
 
-// Render - 3-panel layout matching flexbox: header (auto), messages (flex-grow: 1), input (auto)
+// Render - 3-panel layout: header, messages, input
 func (app *ChatApp) Render() *lotus.Element {
+	// Build message elements from strings
+	messageElements := make([]any, len(app.messages))
+	for i, msg := range app.messages {
+		messageElements[i] = lotus.Text(msg)
+	}
+
 	// VStack = flex-direction: column
 	return lotus.VStack(
-		// Item 0: Header (auto height based on content + border)
-		lotus.Box(app.title).
+		// Header
+		lotus.Box(lotus.Text(app.title)).
 			WithBorderStyle(lotus.BorderStyleRounded),
 
-		// Item 1: Messages (flex-grow: 1, fills remaining space)
-		lotus.Box(app.messages).
+		// Messages (fills remaining space)
+		lotus.Box(
+			lotus.VStack(messageElements...),
+		).
 			WithFlexGrow(1).
 			WithBorderStyle(lotus.BorderStyleRounded),
 
-		// Item 2: Input (auto height based on content + border)
+		// Input
 		lotus.Box(app.input).
 			WithBorderStyle(lotus.BorderStyleRounded),
 	)

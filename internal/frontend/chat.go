@@ -5,9 +5,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/speier/smith/internal/session"
+	"github.com/speier/smith/pkg/agent/session"
 	"github.com/speier/smith/pkg/lotus"
-	"github.com/speier/smith/pkg/lotus/components"
+	"github.com/speier/smith/pkg/lotus/primitives"
 
 	// "github.com/speier/smith/pkg/lotus/engine" // TODO: Update to use Element API
 	"github.com/speier/smith/pkg/lotus/tty"
@@ -16,9 +16,9 @@ import (
 // ChatUI represents the main chat interface
 type ChatUI struct {
 	session   session.Session
-	input     *components.TextInput
-	inputBox  *components.InputBox
-	messages  *components.MessageList
+	input     *primitives.TextInput
+	inputBox  *primitives.InputBox
+	messages  *primitives.MessageList
 	width     int
 	height    int
 	streaming bool            // Agent is currently streaming a response
@@ -35,14 +35,14 @@ type ChatUI struct {
 
 // NewChatUI creates a new chat UI
 func NewChatUI(sess session.Session, width, height int) *ChatUI {
-	input := components.NewTextInput("chat-input") // TODO: Update to new API
-	msgList := components.NewMessageList("chat-messages")
+	input := primitives.NewTextInput("chat-input") // TODO: Update to new API
+	msgList := primitives.NewMessageList("chat-messages")
 	msgList.SetDimensions(width-2, height-6)
 
 	return &ChatUI{
 		session:  sess,
 		input:    input,
-		inputBox: components.NewInputBox("> ", input),
+		inputBox: primitives.NewInputBox("> ", input),
 		messages: msgList,
 		width:    width,
 		height:   height,

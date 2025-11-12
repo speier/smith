@@ -56,8 +56,8 @@ func (w *Watcher) addRecursive(dir string) error {
 		// Skip hidden directories and common build/vendor directories
 		if info.IsDir() {
 			name := info.Name()
-			if name == ".git" || name == "node_modules" || name == "vendor" || 
-			   name == ".idea" || name == ".vscode" || name[0] == '.' {
+			if name == ".git" || name == "node_modules" || name == "vendor" ||
+				name == ".idea" || name == ".vscode" || name[0] == '.' {
 				return filepath.SkipDir
 			}
 

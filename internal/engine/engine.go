@@ -8,8 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/speier/smith/internal/coordinator"
-	"github.com/speier/smith/internal/llm"
+	"github.com/speier/smith/pkg/agent/coordinator"
+	"github.com/speier/smith/pkg/llm"
 )
 
 // Engine is the core Smith system

@@ -33,21 +33,21 @@ const (
 
 // Special key escape sequences
 const (
-	SeqDelete     = "[3~"
-	SeqLeft       = "[D"
-	SeqRight      = "[C"
-	SeqUp         = "[A"
-	SeqDown       = "[B"
-	SeqHome       = "[H"
-	SeqHome2      = "[1~"
-	SeqEnd        = "[F"
-	SeqEnd2       = "[4~"
-	SeqCtrlLeft      = "[1;5D" // Ctrl+Left (word jump left)
-	SeqCtrlRight     = "[1;5C" // Ctrl+Right (word jump right)
-	SeqAltLeft       = "[1;3D" // Alt+Left (word jump left on some terminals)
-	SeqAltRight      = "[1;3C" // Alt+Right (word jump right on some terminals)
-	SeqCmdLeft       = "[1;9D" // Cmd+Left on Mac (beginning of line)
-	SeqCmdRight      = "[1;9C" // Cmd+Right on Mac (end of line)
+	SeqDelete        = "[3~"
+	SeqLeft          = "[D"
+	SeqRight         = "[C"
+	SeqUp            = "[A"
+	SeqDown          = "[B"
+	SeqHome          = "[H"
+	SeqHome2         = "[1~"
+	SeqEnd           = "[F"
+	SeqEnd2          = "[4~"
+	SeqCtrlLeft      = "[1;5D"  // Ctrl+Left (word jump left)
+	SeqCtrlRight     = "[1;5C"  // Ctrl+Right (word jump right)
+	SeqAltLeft       = "[1;3D"  // Alt+Left (word jump left on some terminals)
+	SeqAltRight      = "[1;3C"  // Alt+Right (word jump right on some terminals)
+	SeqCmdLeft       = "[1;9D"  // Cmd+Left on Mac (beginning of line)
+	SeqCmdRight      = "[1;9C"  // Cmd+Right on Mac (end of line)
 	SeqCmdBackspace  = "[3;9~"  // Cmd+Backspace on Mac (delete to beginning)
 	SeqCtrlBackspace = "[3;5~"  // Ctrl+Backspace (delete word backward)
 	SeqCtrlU         = "\x15"   // Ctrl+U (delete to beginning of line)
@@ -55,6 +55,8 @@ const (
 	SeqShiftEnter    = "[13;2~" // Shift+Enter (multi-line: insert newline)
 	SeqShiftLeft     = "[1;2D"  // Shift+Left (for future selection support)
 	SeqShiftRight    = "[1;2C"  // Shift+Right (for future selection support)
+	SeqPasteStart    = "[200~"  // Bracketed paste start
+	SeqPasteEnd      = "[201~"  // Bracketed paste end
 )
 
 // IsCtrlC checks if the key is Ctrl+C
@@ -92,6 +94,8 @@ type InputReader struct {
 	filterMouse  bool
 	escapeBuffer []byte
 	inEscapeSeq  bool
+	inPaste      bool   // Track if we're in bracketed paste mode
+	pasteBuffer  []byte // Buffer for pasted content
 	reader       cancelreader.CancelReader
 }
 
@@ -106,6 +110,8 @@ func NewInputReader() (*InputReader, error) {
 		filterMouse:  false,
 		escapeBuffer: make([]byte, 0, 10),
 		inEscapeSeq:  false,
+		inPaste:      false,
+		pasteBuffer:  make([]byte, 0, 1024),
 		reader:       cr,
 	}, nil
 }
@@ -141,8 +147,39 @@ func (r *InputReader) ReadKey() (*KeyEvent, error) {
 	if b == KeyCtrlC || b == KeyCtrlD {
 		r.inEscapeSeq = false
 		r.escapeBuffer = r.escapeBuffer[:0]
+		r.inPaste = false // Exit paste mode on Ctrl+C/D
+		r.pasteBuffer = r.pasteBuffer[:0]
 		event := &KeyEvent{Key: b}
 		return event, nil
+	}
+
+	// Handle bracketed paste mode content
+	if r.inPaste {
+		// Check for paste end marker in escape sequence
+		if b == KeyEscape {
+			r.inEscapeSeq = true
+			r.escapeBuffer = r.escapeBuffer[:0]
+			r.escapeBuffer = append(r.escapeBuffer, b)
+			return nil, nil
+		}
+		if r.inEscapeSeq {
+			r.escapeBuffer = append(r.escapeBuffer, b)
+			seq := string(r.escapeBuffer[1:])
+			if seq == SeqPasteEnd {
+				r.inEscapeSeq = false
+				r.escapeBuffer = r.escapeBuffer[:0]
+				r.inPaste = false
+				// Return the entire paste as a single "char" event
+				// Large pastes (>10 lines) could be handled specially here
+				pastedText := string(r.pasteBuffer)
+				r.pasteBuffer = r.pasteBuffer[:0]
+				return &KeyEvent{Char: pastedText}, nil
+			}
+			return nil, nil
+		}
+		// Accumulate paste content
+		r.pasteBuffer = append(r.pasteBuffer, b)
+		return nil, nil
 	}
 
 	// Handle escape sequences
@@ -159,6 +196,15 @@ func (r *InputReader) ReadKey() (*KeyEvent, error) {
 
 		// Check if sequence is complete
 		seq := string(r.escapeBuffer[1:]) // Skip ESC byte
+
+		// Check for bracketed paste start
+		if seq == SeqPasteStart {
+			r.inEscapeSeq = false
+			r.escapeBuffer = r.escapeBuffer[:0]
+			r.inPaste = true
+			r.pasteBuffer = r.pasteBuffer[:0]
+			return nil, nil // Don't send paste marker as key event
+		}
 
 		// Word/line navigation (check longer sequences first)
 		if seq == SeqCtrlLeft || seq == SeqAltLeft {

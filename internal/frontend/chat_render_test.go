@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/speier/smith/internal/session"
+	"github.com/speier/smith/pkg/agent/session"
 )
 
 // TestInputRendering tests that typed text is visible in the rendered output

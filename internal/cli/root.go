@@ -5,7 +5,7 @@ import (
 	"os"
 
 	"github.com/speier/smith/internal/frontend"
-	"github.com/speier/smith/internal/session"
+	"github.com/speier/smith/pkg/agent/session"
 	"github.com/speier/smith/internal/version"
 	"github.com/spf13/cobra"
 )

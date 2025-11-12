@@ -1,4 +1,4 @@
-package locks
+package coordinator
 
 import (
 	"context"
@@ -30,8 +30,8 @@ type Manager struct {
 	store storage.LockStore
 }
 
-// New creates a new lock Manager
-func New(store storage.LockStore) *Manager {
+// NewLockManager creates a new lock Manager
+func NewLockManager(store storage.LockStore) *Manager {
 	return &Manager{store: store}
 }
 

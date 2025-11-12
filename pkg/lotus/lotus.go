@@ -1,9 +1,10 @@
 package lotus
 
 import (
+	"github.com/speier/smith/pkg/lotus/primitives"
 	"github.com/speier/smith/pkg/lotus/runtime"
 	"github.com/speier/smith/pkg/lotus/vdom"
-	
+
 	// Import devtools to register factories
 	_ "github.com/speier/smith/pkg/lotus/devtools"
 )
@@ -56,4 +57,18 @@ var (
 	HStack = vdom.HStack
 	Text   = vdom.Text
 	Markup = vdom.Markup
+)
+
+// UI Primitives - browser equivalents
+type (
+	Input      = primitives.Input
+	TextArea   = primitives.TextArea
+	ScrollView = primitives.ScrollView
+)
+
+// Primitive constructor functions
+var (
+	NewInput      = primitives.NewInput
+	NewTextArea   = primitives.NewTextArea
+	NewScrollView = primitives.NewScrollView
 )

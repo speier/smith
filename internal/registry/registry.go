@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/speier/smith/internal/eventbus"
-	"github.com/speier/smith/internal/storage"
+	"github.com/speier/smith/pkg/agent/storage"
 )
 
 // AgentStatus represents the status of an agent

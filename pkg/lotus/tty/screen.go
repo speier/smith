@@ -58,11 +58,15 @@ func (s *Screen) SetRawMode() error {
 		return fmt.Errorf("failed to set raw mode: %w", err)
 	}
 	s.oldState = oldState
+	// Enable bracketed paste mode
+	fmt.Print("\033[?2004h")
 	return nil
 }
 
 // Restore restores the terminal to its original state
 func (s *Screen) Restore() {
+	// Disable bracketed paste mode
+	fmt.Print("\033[?2004l")
 	if s.cursorHidden {
 		s.ShowCursor()
 	}

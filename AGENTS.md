@@ -212,6 +212,63 @@ golangci-lint run ./...
 ✅ No issues found!
 ```
 
+### Rule #8: NEVER Delete Files During Refactoring
+**CRITICAL** - Files can't be recovered if not in git!
+
+**When refactoring/consolidating/moving files:**
+- ❌ DO NOT delete source files until replacement is fully working
+- ❌ DO NOT `rm file.go` and then create `new_file.go`
+- ✅ DO create the new file FIRST, verify it works, THEN delete old
+- ✅ DO move to archive/temp folder if unsure: `mv old.go /tmp/old.go.bak`
+
+**Safe Refactoring Pattern:**
+```bash
+# WRONG - Delete first, create later (file lost if creation fails!)
+rm old_test.go
+cat > new_test.go << EOF
+...
+EOF
+
+# CORRECT - Create first, verify, then delete
+cat > new_test.go << EOF
+...
+EOF
+go test ./...  # Verify it works!
+rm old_test.go  # Only now safe to delete
+
+# BEST - Move to backup first
+mv old_test.go /tmp/old_test.go.bak
+cat > new_test.go << EOF
+...
+EOF
+go test ./...  # Verify it works!
+# If success: rm /tmp/old_test.go.bak
+# If failure: mv /tmp/old_test.go.bak old_test.go
+```
+
+**When consolidating multiple files:**
+```bash
+# WRONG
+cat file1.go file2.go > combined.go && rm file1.go file2.go
+
+# CORRECT
+cat file1.go file2.go > combined.go  # Create first
+go test ./...  # Verify works
+rm file1.go file2.go  # Only delete after success
+
+# BEST
+mv file1.go /tmp/file1.go.bak
+mv file2.go /tmp/file2.go.bak
+cat /tmp/file1.go.bak /tmp/file2.go.bak > combined.go
+go test ./...  # Verify
+# Only delete backups after confirming success
+```
+
+**Why This Matters:**
+- Files not in git = permanently lost if deleted prematurely
+- Refactoring often fails halfway through
+- Always have an escape route
+
 ---
 
 ## � Development Workflow

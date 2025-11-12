@@ -193,6 +193,9 @@ func Run(app any, data ...any) error {
 			})
 		}
 
+		// Enable render stats logging to DevTools
+		term.SetStatsLogger(devTools.Log)
+
 		// Create HMR manager if factory exists
 
 		if hmrFactory != nil {

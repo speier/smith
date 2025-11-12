@@ -8,7 +8,7 @@ import (
 
 	"github.com/speier/smith/internal/eventbus"
 	"github.com/speier/smith/internal/registry"
-	"github.com/speier/smith/internal/storage"
+	"github.com/speier/smith/pkg/agent/storage"
 )
 
 func setupTestDB(t *testing.T) (storage.Store, *registry.Registry, func()) {

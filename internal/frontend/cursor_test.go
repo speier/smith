@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/speier/smith/internal/session"
+	"github.com/speier/smith/pkg/agent/session"
 )
 
 // TestCursorPositioning tests cursor column calculation

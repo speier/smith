@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/speier/smith/pkg/lotus/components"
 	"github.com/speier/smith/pkg/lotus/runtime"
 	"github.com/speier/smith/pkg/lotus/vdom"
 )
@@ -27,7 +26,7 @@ const (
 
 // DevTools provides an in-app debug console (like browser DevTools)
 type DevTools struct {
-	textbox    *components.TextBox
+	logs       []string
 	enabled    bool
 	position   DevToolsPosition
 	onLogAdded func() // Callback to trigger re-render
@@ -36,7 +35,7 @@ type DevTools struct {
 // New creates a new DevTools instance
 func New() *DevTools {
 	dt := &DevTools{
-		textbox:  components.NewTextBox().WithAutoScroll(true),
+		logs:     make([]string, 0),
 		enabled:  true,
 		position: DevToolsRight, // Default to right side like browser DevTools
 	}
@@ -55,7 +54,7 @@ func (dt *DevTools) Log(format string, args ...interface{}) {
 	timestamp := time.Now().Format("15:04:05.000")
 	msg := fmt.Sprintf(format, args...)
 
-	dt.textbox.AppendLine(fmt.Sprintf("[%s] %s", timestamp, msg))
+	dt.logs = append(dt.logs, fmt.Sprintf("[%s] %s", timestamp, msg))
 
 	// Trigger re-render if callback is set
 	if dt.onLogAdded != nil {
@@ -74,7 +73,13 @@ func (dt *DevTools) Render() *vdom.Element {
 		return nil
 	}
 
-	return vdom.Box(dt.textbox)
+	// Simple rendering of logs as text elements
+	children := make([]any, 0, len(dt.logs))
+	for _, log := range dt.logs {
+		children = append(children, vdom.Text(log))
+	}
+
+	return vdom.VStack(children...)
 }
 
 // Enable turns DevTools on
