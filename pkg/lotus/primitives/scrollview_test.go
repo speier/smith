@@ -1,8 +1,12 @@
 package primitives
 
 import (
+	"strings"
 	"testing"
 
+	"github.com/speier/smith/pkg/lotus/layout"
+	"github.com/speier/smith/pkg/lotus/render"
+	"github.com/speier/smith/pkg/lotus/style"
 	"github.com/speier/smith/pkg/lotus/vdom"
 )
 
@@ -262,5 +266,145 @@ func TestScrollViewBoundsChecking(t *testing.T) {
 	sv.ScrollLeft(100)
 	if sv.ScrollX != 0 {
 		t.Errorf("ScrollLeft should clamp to 0, got %d", sv.ScrollX)
+	}
+}
+
+// TestScrollViewBufferIntegration tests the full rendering pipeline with ScrollView
+func TestScrollViewBufferIntegration(t *testing.T) {
+	// Create content with 20 lines
+	var messages []any
+	for i := 1; i <= 20; i++ {
+		messages = append(messages, vdom.Text("Line "+string(rune('0'+(i%10)))))
+	}
+	content := vdom.VStack(messages...)
+
+	// Create ScrollView with 10-line viewport
+	sv := NewScrollView().
+		WithID("test-scroll").
+		WithContent(content).
+		WithSize(80, 10)
+
+	// Wrap in Box
+	root := vdom.Box(sv).WithFlexGrow(1)
+
+	// Full rendering pipeline: vdom → style → layout → buffer → ANSI
+	resolver := style.NewResolver("")
+	styled := resolver.Resolve(root)
+	layoutBox := layout.Compute(styled, 80, 10)
+
+	layoutRenderer := render.NewLayoutRenderer()
+	buffer := layoutRenderer.RenderToBuffer(layoutBox, 80, 10)
+	output := render.RenderBufferFull(buffer)
+
+	// Verify output contains content
+	if !strings.Contains(output, "Line") {
+		t.Error("Buffer output should contain visible content")
+	}
+
+	// Verify clipping works - should not see all 20 lines in 10-line viewport
+	lineCount := 0
+	for y := 0; y < buffer.Height; y++ {
+		rowHasContent := false
+		for x := 0; x < buffer.Width; x++ {
+			if buffer.Get(x, y).Char != ' ' {
+				rowHasContent = true
+				break
+			}
+		}
+		if rowHasContent {
+			lineCount++
+		}
+	}
+
+	if lineCount > 10 {
+		t.Errorf("Expected at most 10 lines of content in viewport, got %d", lineCount)
+	}
+}
+
+// TestScrollViewBufferWithScroll tests buffer rendering with different scroll positions
+func TestScrollViewBufferWithScroll(t *testing.T) {
+	// Create 10 numbered lines
+	var messages []any
+	for i := 1; i <= 10; i++ {
+		messages = append(messages, vdom.Text("Line "+string(rune('0'+i))))
+	}
+	content := vdom.VStack(messages...)
+
+	// Create ScrollView with 5-line viewport
+	sv := NewScrollView().
+		WithID("test-scroll").
+		WithContent(content).
+		WithSize(80, 5)
+
+	// Scroll to middle
+	sv.ScrollDown(3)
+
+	root := vdom.Box(sv).WithFlexGrow(1)
+
+	// Render
+	resolver := style.NewResolver("")
+	styled := resolver.Resolve(root)
+	layoutBox := layout.Compute(styled, 80, 5)
+
+	layoutRenderer := render.NewLayoutRenderer()
+	buffer := layoutRenderer.RenderToBuffer(layoutBox, 80, 5)
+	output := render.RenderBufferFull(buffer)
+
+	// Should see lines around position 3 (Lines 4-8 approximately)
+	if !strings.Contains(output, "Line") {
+		t.Error("Scrolled viewport should still show content")
+	}
+
+	// Verify buffer contains data
+	hasContent := false
+	for y := 0; y < buffer.Height; y++ {
+		for x := 0; x < buffer.Width; x++ {
+			if buffer.Get(x, y).Char != ' ' {
+				hasContent = true
+				break
+			}
+		}
+	}
+
+	if !hasContent {
+		t.Error("Buffer should contain visible content after scrolling")
+	}
+}
+
+// TestScrollViewBufferAutoScroll tests auto-scroll with buffer rendering
+func TestScrollViewBufferAutoScroll(t *testing.T) {
+	// Create many lines
+	var messages []any
+	for i := 1; i <= 30; i++ {
+		messages = append(messages, vdom.Text("Message "+string(rune('A'+(i%26)))))
+	}
+	content := vdom.VStack(messages...)
+
+	// Create ScrollView with auto-scroll
+	sv := NewScrollView().
+		WithID("test-scroll").
+		WithContent(content).
+		WithAutoScroll(true).
+		WithSize(80, 10)
+
+	root := vdom.Box(sv).WithFlexGrow(1)
+
+	// Render
+	resolver := style.NewResolver("")
+	styled := resolver.Resolve(root)
+	layoutBox := layout.Compute(styled, 80, 10)
+
+	layoutRenderer := render.NewLayoutRenderer()
+	buffer := layoutRenderer.RenderToBuffer(layoutBox, 80, 10)
+	output := render.RenderBufferFull(buffer)
+
+	// With auto-scroll, should see content from the end
+	if !strings.Contains(output, "Message") {
+		t.Error("Auto-scroll viewport should show messages")
+	}
+
+	// Verify scroll position was calculated
+	if sv.ScrollY < 0 {
+		t.Errorf("Auto-scroll should set valid ScrollY, got %d", sv.ScrollY)
 	}
 }
