@@ -27,8 +27,9 @@ type MessageList struct {
 func NewMessageList() *MessageList {
 	// Create markdown renderer for assistant messages with no left padding
 	mdRenderer, _ := glamour.NewTermRenderer(
-		glamour.WithAutoStyle(),  // Auto dark/light mode
-		glamour.WithWordWrap(80), // Wrap at 80 chars
+		glamour.WithAutoStyle(),         // Auto dark/light mode
+		glamour.WithWordWrap(80),        // Wrap at 80 chars
+		glamour.WithPreservedNewLines(), // Preserve hard line breaks
 		glamour.WithStylesFromJSONBytes([]byte(`{
 			"document": {
 				"margin": 0

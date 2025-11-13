@@ -112,5 +112,5 @@ func main() {
 		WithPaddingY(1).
 		WithAlignItems(lotus.AlignItemsCenter)
 
-	lotus.Run(app)
+	_ = lotus.Run(app)
 }

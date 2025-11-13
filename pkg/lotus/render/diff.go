@@ -1,240 +1,137 @@
 package render
 
-import (
-	"crypto/sha256"
-	"fmt"
-	"strings"
-)
-
-// DiffRenderer implements differential rendering with synchronized output
-// Three-strategy rendering approach:
-// 1. First render: output all lines without clearing scrollback
-// 2. Width changed or change above viewport: clear screen and full re-render
-// 3. Normal update: move cursor to first changed line, clear to end, render changed lines
-type DiffRenderer struct {
-	previousLines  []string
-	previousWidth  int
-	previousHeight int
-	cursorRow      int // Track where cursor is (0-indexed)
-	cache          *RenderCache
-
-	// Debug stats
-	FullRenders    int
-	PartialRenders int
-	SkippedRenders int
+// DiffRegion represents a rectangular region that has changed between two buffers
+type DiffRegion struct {
+	X      int
+	Y      int
+	Width  int
+	Height int
 }
 
-// RenderCache stores cached component renders
-type RenderCache struct {
-	cache map[string]CachedRender
+// DiffResult contains the differences between two buffers
+type DiffResult struct {
+	Regions []DiffRegion
+	// Track if buffers are completely different (e.g., size changed)
+	FullRedraw bool
 }
 
-// CachedRender stores a cached render result
-type CachedRender struct {
-	Hash   string
-	Output string
-}
-
-// NewDiffRenderer creates a new differential renderer
-func NewDiffRenderer() *DiffRenderer {
-	return &DiffRenderer{
-		previousLines:  make([]string, 0),
-		previousWidth:  0,
-		previousHeight: 0,
-		cursorRow:      0,
-		cache:          NewRenderCache(),
-	}
-}
-
-// NewRenderCache creates a new render cache
-func NewRenderCache() *RenderCache {
-	return &RenderCache{
-		cache: make(map[string]CachedRender),
-	}
-}
-
-// GetCached returns cached render if available
-func (rc *RenderCache) GetCached(id string, contentHash string) (string, bool) {
-	if cached, ok := rc.cache[id]; ok {
-		if cached.Hash == contentHash {
-			return cached.Output, true
-		}
-	}
-	return "", false
-}
-
-// SetCached stores a render in the cache
-func (rc *RenderCache) SetCached(id string, contentHash string, output string) {
-	rc.cache[id] = CachedRender{
-		Hash:   contentHash,
-		Output: output,
-	}
-}
-
-// Clear clears the cache
-func (rc *RenderCache) Clear() {
-	rc.cache = make(map[string]CachedRender)
-}
-
-// HashContent creates a hash of content for cache invalidation
-func HashContent(content string) string {
-	hash := sha256.Sum256([]byte(content))
-	return fmt.Sprintf("%x", hash[:8]) // Use first 8 bytes for compact hash
-}
-
-// RenderDiff performs differential rendering
-// Returns the ANSI output needed to update the screen
-func (dr *DiffRenderer) RenderDiff(content string, width, height int) string {
-	newLines := strings.Split(content, "\n")
-
-	// Trim trailing empty lines to avoid unnecessary scrolling
-	for len(newLines) > 0 && strings.TrimSpace(newLines[len(newLines)-1]) == "" {
-		newLines = newLines[:len(newLines)-1]
-	}
-	if len(newLines) == 0 {
-		newLines = []string{""}
+// ComputeDiff compares two buffers and returns the regions that differ
+func ComputeDiff(prev, curr *Buffer) *DiffResult {
+	if prev == nil {
+		return &DiffResult{FullRedraw: true}
 	}
 
-	// First render - output everything without clearing scrollback
-	// Wrapped in synchronized output for flicker-free rendering
-	if len(dr.previousLines) == 0 {
-		dr.FullRenders++
-		buffer := &strings.Builder{}
-		buffer.WriteString("\x1b[?2026h") // Begin synchronized output (CSI 2026)
-		for i, line := range newLines {
-			if i > 0 {
-				buffer.WriteString("\r\n")
-			}
-			buffer.WriteString(line)
-		}
-		buffer.WriteString("\x1b[?2026l") // End synchronized output
-		dr.previousLines = newLines
-		dr.previousWidth = width
-		dr.previousHeight = height
-		dr.cursorRow = len(newLines) - 1
-		return buffer.String()
+	// If dimensions changed, full redraw
+	if prev.Width != curr.Width || prev.Height != curr.Height {
+		return &DiffResult{FullRedraw: true}
 	}
 
-	// Width changed - full re-render (strategy 2)
-	if dr.previousWidth != width {
-		dr.FullRenders++
-		buffer := &strings.Builder{}
-		buffer.WriteString("\x1b[?2026h")          // Begin synchronized output
-		buffer.WriteString("\x1b[3J\x1b[2J\x1b[H") // Clear scrollback, screen, and home
-		for i, line := range newLines {
-			if i > 0 {
-				buffer.WriteString("\r\n")
-			}
-			buffer.WriteString(line)
-		}
-		buffer.WriteString("\x1b[?2026l") // End synchronized output
-		dr.previousLines = newLines
-		dr.previousWidth = width
-		dr.previousHeight = height
-		dr.cursorRow = len(newLines) - 1
-		return buffer.String()
+	result := &DiffResult{
+		Regions:    make([]DiffRegion, 0),
+		FullRedraw: false,
 	}
 
-	// Find first changed line
-	firstChanged := -1
+	// Scan buffer line by line to find changed regions
+	// We use a simple strategy: find contiguous vertical spans of changes
+	for y := 0; y < curr.Height; y++ {
+		lineChanged := false
+		minX := curr.Width
+		maxX := -1
 
-	maxLines := max(len(newLines), len(dr.previousLines))
-	for i := 0; i < maxLines; i++ {
-		oldLine := ""
-		if i < len(dr.previousLines) {
-			oldLine = dr.previousLines[i]
-		}
-		newLine := ""
-		if i < len(newLines) {
-			newLine = newLines[i]
-		}
+		// Check if this line has any changes
+		for x := 0; x < curr.Width; x++ {
+			prevCell := prev.Get(x, y)
+			currCell := curr.Get(x, y)
 
-		if oldLine != newLine {
-			if firstChanged == -1 {
-				firstChanged = i
-				break // We only need the first changed line
+			if !cellsEqual(prevCell, currCell) {
+				lineChanged = true
+				if x < minX {
+					minX = x
+				}
+				if x > maxX {
+					maxX = x
+				}
 			}
 		}
+
+		// If line changed, create a region for it
+		if lineChanged {
+			result.Regions = append(result.Regions, DiffRegion{
+				X:      minX,
+				Y:      y,
+				Width:  maxX - minX + 1,
+				Height: 1,
+			})
+		}
 	}
 
-	// No changes - return empty string
-	if firstChanged == -1 {
-		dr.SkippedRenders++
-		return ""
+	// Merge adjacent horizontal regions to reduce ANSI escape sequences
+	result.Regions = mergeRegions(result.Regions)
+
+	return result
+}
+
+// cellsEqual checks if two cells are identical
+func cellsEqual(a, b Cell) bool {
+	return a.Char == b.Char &&
+		a.Style.FgColor == b.Style.FgColor &&
+		a.Style.BgColor == b.Style.BgColor &&
+		a.Style.Bold == b.Style.Bold &&
+		a.Style.Italic == b.Style.Italic
+}
+
+// mergeRegions merges adjacent or overlapping regions
+func mergeRegions(regions []DiffRegion) []DiffRegion {
+	if len(regions) <= 1 {
+		return regions
 	}
 
-	// Check if first changed line is above the viewport
-	// If cursor is at cursorRow, viewport shows lines [cursorRow - height + 1, cursorRow]
-	viewportTop := dr.cursorRow - height + 1
-	if viewportTop < 0 {
-		viewportTop = 0
-	}
+	merged := make([]DiffRegion, 0, len(regions))
+	current := regions[0]
 
-	// If change is above viewport, do full re-render (strategy 2)
-	if firstChanged < viewportTop {
-		dr.FullRenders++
-		buffer := &strings.Builder{}
-		buffer.WriteString("\x1b[?2026h")          // Begin synchronized output
-		buffer.WriteString("\x1b[3J\x1b[2J\x1b[H") // Clear scrollback, screen, and home
-		for i, line := range newLines {
-			if i > 0 {
-				buffer.WriteString("\r\n")
+	for i := 1; i < len(regions); i++ {
+		next := regions[i]
+
+		// If next region is on the same line or adjacent line, try to merge
+		if next.Y == current.Y || next.Y == current.Y+current.Height {
+			// Check if regions overlap or are adjacent horizontally
+			if next.Y == current.Y && next.X <= current.X+current.Width {
+				// Same line, merge horizontally
+				endX := max(current.X+current.Width, next.X+next.Width)
+				current.X = min(current.X, next.X)
+				current.Width = endX - current.X
+			} else if next.Y == current.Y+current.Height && next.X == current.X && next.Width == current.Width {
+				// Adjacent lines with same X and Width, merge vertically
+				current.Height += next.Height
+			} else {
+				// Can't merge, save current and start new
+				merged = append(merged, current)
+				current = next
 			}
-			buffer.WriteString(line)
+		} else {
+			// Not adjacent, save current and start new
+			merged = append(merged, current)
+			current = next
 		}
-		buffer.WriteString("\x1b[?2026l") // End synchronized output
-		dr.previousLines = newLines
-		dr.previousWidth = width
-		dr.previousHeight = height
-		dr.cursorRow = len(newLines) - 1
-		return buffer.String()
 	}
 
-	// Normal update - differential rendering (strategy 3)
-	dr.PartialRenders++
-	buffer := &strings.Builder{}
-	buffer.WriteString("\x1b[?2026h") // Begin synchronized output
+	// Add final region
+	merged = append(merged, current)
 
-	// Move cursor to first changed line
-	lineDiff := firstChanged - dr.cursorRow
-	if lineDiff > 0 {
-		fmt.Fprintf(buffer, "\x1b[%dB", lineDiff) // Move down
-	} else if lineDiff < 0 {
-		fmt.Fprintf(buffer, "\x1b[%dA", -lineDiff) // Move up
-	}
-
-	buffer.WriteString("\r")     // Move to column 0
-	buffer.WriteString("\x1b[J") // Clear from cursor to end of screen
-
-	// Render from first changed line to end
-	for i := firstChanged; i < len(newLines); i++ {
-		if i > firstChanged {
-			buffer.WriteString("\r\n")
-		}
-		buffer.WriteString(newLines[i])
-	}
-
-	buffer.WriteString("\x1b[?2026l") // End synchronized output
-
-	// Update state
-	dr.cursorRow = len(newLines) - 1
-	dr.previousLines = newLines
-	dr.previousWidth = width
-	dr.previousHeight = height
-
-	return buffer.String()
+	return merged
 }
 
-// Reset resets the differential renderer state
-func (dr *DiffRenderer) Reset() {
-	dr.previousLines = make([]string, 0)
-	dr.previousWidth = 0
-	dr.previousHeight = 0
-	dr.cursorRow = 0
-	dr.cache.Clear()
+// Helper functions
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }
 
-// GetStats returns rendering statistics for debugging
-func (dr *DiffRenderer) GetStats() (full, partial, skipped int) {
-	return dr.FullRenders, dr.PartialRenders, dr.SkippedRenders
+func max(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
 }

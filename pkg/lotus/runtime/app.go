@@ -226,7 +226,10 @@ func Run(app any, data ...any) error {
 		}
 	}
 
-	// Set up rendering using clean pipeline: vdom → style → layout → render
+	// Store previous buffer for differential rendering
+	var previousBuffer *render.Buffer
+
+	// Set up rendering using clean pipeline: vdom → style → layout → buffer → diff → ansi
 	term.OnRender(func() string {
 		// First render to collect components
 		element := appInstance.Render()
@@ -252,9 +255,25 @@ func Run(app any, data ...any) error {
 		// 2. Compute layout
 		layoutBox := layout.Compute(styled, width, height)
 
-		// 3. Render to ANSI
-		renderer := render.New()
-		return renderer.Render(layoutBox)
+		// 3. Render layout to buffer
+		layoutRenderer := render.NewLayoutRenderer()
+		currentBuffer := layoutRenderer.RenderToBuffer(layoutBox, width, height)
+
+		// 4. Compute diff and render ANSI
+		var output string
+		if previousBuffer == nil {
+			// First render - full render
+			output = render.RenderBufferFull(currentBuffer)
+		} else {
+			// Differential rendering
+			diff := render.ComputeDiff(previousBuffer, currentBuffer)
+			output = render.RenderBufferDiff(previousBuffer, currentBuffer, diff)
+		}
+
+		// Store current buffer for next render
+		previousBuffer = currentBuffer
+
+		return output
 	})
 
 	// Auto-wire resize handling

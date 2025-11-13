@@ -1,27 +1,21 @@
 package primitives
 
 import (
-	"strings"
 	"testing"
 
 	"github.com/speier/smith/pkg/lotus/vdom"
 )
 
 func TestScrollViewVertical(t *testing.T) {
-	// Create content with 10 lines
-	lines := make([]string, 10)
-	for i := 0; i < 10; i++ {
-		lines[i] = strings.Repeat("x", 20)
-	}
-	content := strings.Join(lines, "\n")
-
 	sv := NewScrollView().WithSize(20, 5) // 5 lines visible
 
+	// Simulate content dimensions from layout
+	sv.contentWidth = 20
+	sv.contentHeight = 10 // 10 lines of content
+
 	// Initially at top
-	viewport := sv.GetViewport(content)
-	visibleLines := strings.Split(viewport, "\n")
-	if len(visibleLines) != 5 {
-		t.Errorf("Expected 5 visible lines, got %d", len(visibleLines))
+	if sv.ScrollY != 0 {
+		t.Errorf("Expected ScrollY=0 initially, got %d", sv.ScrollY)
 	}
 
 	// Scroll down
@@ -50,15 +44,15 @@ func TestScrollViewVertical(t *testing.T) {
 }
 
 func TestScrollViewHorizontal(t *testing.T) {
-	// Create wide content
-	content := strings.Repeat("x", 100)
-
 	sv := NewScrollView().WithSize(20, 1) // 20 columns visible
 
+	// Simulate wide content
+	sv.contentWidth = 100
+	sv.contentHeight = 1
+
 	// Initially at left
-	viewport := sv.GetViewport(content)
-	if len(viewport) != 20 {
-		t.Errorf("Expected 20 visible chars, got %d", len(viewport))
+	if sv.ScrollX != 0 {
+		t.Errorf("Expected ScrollX=0 initially, got %d", sv.ScrollX)
 	}
 
 	// Scroll right
@@ -67,24 +61,20 @@ func TestScrollViewHorizontal(t *testing.T) {
 		t.Errorf("ScrollX should be 10, got %d", sv.ScrollX)
 	}
 
-	viewport = sv.GetViewport(content)
-	if !strings.HasPrefix(content[10:], viewport) {
-		t.Error("Viewport should start at offset 10")
+	// Verify GetScrollOffset returns correct offset
+	offsetX, offsetY := sv.GetScrollOffset()
+	if offsetX != 10 || offsetY != 0 {
+		t.Errorf("GetScrollOffset: expected (10, 0), got (%d, %d)", offsetX, offsetY)
 	}
 }
 
 func TestScrollViewAutoScroll(t *testing.T) {
 	sv := NewScrollView().WithSize(20, 5).WithAutoScroll(true)
 
-	// Create content with 10 lines
-	lines := make([]string, 10)
-	for i := 0; i < 10; i++ {
-		lines[i] = "line"
-	}
-	content := strings.Join(lines, "\n")
+	// Simulate content with 10 lines
+	sv.SetContentSize(20, 10)
 
-	// Auto-scroll should jump to bottom
-	_ = sv.GetViewport(content)
+	// Auto-scroll should jump to bottom on SetContentSize
 	if sv.ScrollY != 5 { // 10 - 5 = 5
 		t.Errorf("Auto-scroll should set ScrollY to 5, got %d", sv.ScrollY)
 	}
@@ -93,13 +83,9 @@ func TestScrollViewAutoScroll(t *testing.T) {
 func TestScrollViewPageNavigation(t *testing.T) {
 	sv := NewScrollView().WithSize(20, 5)
 
-	// Create content with 20 lines
-	lines := make([]string, 20)
-	for i := 0; i < 20; i++ {
-		lines[i] = "line"
-	}
-	content := strings.Join(lines, "\n")
-	_ = sv.GetViewport(content) // Initialize content size
+	// Simulate content with 20 lines
+	sv.contentWidth = 20
+	sv.contentHeight = 20
 
 	// Page down
 	sv.PageDown()
@@ -117,13 +103,9 @@ func TestScrollViewPageNavigation(t *testing.T) {
 func TestScrollViewCanScroll(t *testing.T) {
 	sv := NewScrollView().WithSize(20, 5)
 
-	// Create content with 10 lines
-	lines := make([]string, 10)
-	for i := 0; i < 10; i++ {
-		lines[i] = "line"
-	}
-	content := strings.Join(lines, "\n")
-	_ = sv.GetViewport(content) // Initialize content size
+	// Simulate content with 10 lines
+	sv.contentWidth = 20
+	sv.contentHeight = 10
 
 	// At top - can't scroll up
 	if sv.CanScrollUp() {
@@ -154,13 +136,9 @@ func TestScrollViewCallback(t *testing.T) {
 			lastX, lastY = x, y
 		})
 
-	// Need to initialize content size first
-	lines := make([]string, 20)
-	for i := 0; i < 20; i++ {
-		lines[i] = "line"
-	}
-	content := strings.Join(lines, "\n")
-	_ = sv.GetViewport(content) // Initialize content dimensions
+	// Simulate content
+	sv.contentWidth = 20
+	sv.contentHeight = 20
 
 	sv.ScrollDown(3)
 
@@ -207,6 +185,82 @@ func TestScrollViewRender(t *testing.T) {
 
 	// Should render content inside a box
 	if elem.Tag != "box" {
-		t.Errorf("Expected box element, got %q", elem.Tag)
+		t.Errorf("Expected box element, got tag %q", elem.Tag)
+	}
+}
+
+func TestScrollViewRenderWithoutSize(t *testing.T) {
+	// ScrollView with zero size falls back to box wrapper
+	sv := NewScrollView().WithSize(0, 0).WithContent(vdom.Text("hello"))
+
+	elem := sv.Render()
+	if elem == nil {
+		t.Fatal("Render returned nil")
+	}
+
+	// Should fall back to box when dimensions are zero
+	if elem.Tag != "box" {
+		t.Errorf("Expected box element without size, got %q", elem.Tag)
+	}
+}
+
+func TestScrollViewGetViewportSize(t *testing.T) {
+	sv := NewScrollView().WithSize(20, 5)
+
+	width, height := sv.GetViewportSize()
+	if width != 20 || height != 5 {
+		t.Errorf("GetViewportSize: expected (20, 5), got (%d, %d)", width, height)
+	}
+}
+
+func TestScrollViewGetScrollOffset(t *testing.T) {
+	sv := NewScrollView().WithSize(20, 5)
+	sv.ScrollX = 10
+	sv.ScrollY = 3
+
+	offsetX, offsetY := sv.GetScrollOffset()
+	if offsetX != 10 || offsetY != 3 {
+		t.Errorf("GetScrollOffset: expected (10, 3), got (%d, %d)", offsetX, offsetY)
+	}
+}
+
+func TestScrollViewSetContentSize(t *testing.T) {
+	sv := NewScrollView().WithSize(20, 5)
+
+	// Set content size
+	sv.SetContentSize(50, 20)
+
+	if sv.contentWidth != 50 || sv.contentHeight != 20 {
+		t.Errorf("SetContentSize: expected content (50, 20), got (%d, %d)",
+			sv.contentWidth, sv.contentHeight)
+	}
+}
+
+func TestScrollViewBoundsChecking(t *testing.T) {
+	sv := NewScrollView().WithSize(20, 5)
+	sv.SetContentSize(30, 10)
+
+	// Scroll beyond bottom - should be clamped by ScrollDown
+	sv.ScrollDown(100)
+	if sv.ScrollY != 5 { // max = 10 - 5 = 5
+		t.Errorf("ScrollDown should clamp to 5, got %d", sv.ScrollY)
+	}
+
+	// Scroll beyond right - should be clamped by ScrollRight
+	sv.ScrollRight(100)
+	if sv.ScrollX != 10 { // max = 30 - 20 = 10
+		t.Errorf("ScrollRight should clamp to 10, got %d", sv.ScrollX)
+	}
+
+	// Scroll beyond top - should be clamped by ScrollUp
+	sv.ScrollUp(100)
+	if sv.ScrollY != 0 {
+		t.Errorf("ScrollUp should clamp to 0, got %d", sv.ScrollY)
+	}
+
+	// Scroll beyond left - should be clamped by ScrollLeft
+	sv.ScrollLeft(100)
+	if sv.ScrollX != 0 {
+		t.Errorf("ScrollLeft should clamp to 0, got %d", sv.ScrollX)
 	}
 }
