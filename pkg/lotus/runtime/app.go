@@ -18,6 +18,36 @@ type App interface {
 	Render() *vdom.Element
 }
 
+// AppContext provides helpers for functional components
+type AppContext struct {
+	renderCallback func() // Callback to trigger re-render
+}
+
+// Rerender triggers a re-render of the application
+// Use this in event callbacks to update the UI after state changes
+func (ctx AppContext) Rerender() {
+	if ctx.renderCallback != nil {
+		ctx.renderCallback()
+	}
+}
+
+// FunctionalComponent is a function that renders elements with access to AppContext
+type FunctionalComponent func(AppContext) *vdom.Element
+
+// functionalApp wraps a FunctionalComponent to satisfy App interface
+type functionalApp struct {
+	renderFn FunctionalComponent
+	ctx      AppContext
+}
+
+func (f *functionalApp) Render() *vdom.Element {
+	return f.renderFn(f.ctx)
+}
+
+func (f *functionalApp) SetRenderCallback(callback func()) {
+	f.ctx.renderCallback = callback
+}
+
 // DevToolsProvider is the interface for DevTools integration
 type DevToolsProvider interface {
 	Log(format string, args ...interface{})
@@ -142,6 +172,7 @@ func (e *elementApp) Render() *vdom.Element {
 // Run creates and runs a Lotus terminal app
 // Accepts:
 //   - App interface (with Render method)
+//   - FunctionalComponent (func(AppContext) *vdom.Element)
 //   - *vdom.Element (static element)
 //   - string (markup string, optionally followed by data for {0}, {1}, etc.)
 func Run(app any, data ...any) error {
@@ -150,6 +181,12 @@ func Run(app any, data ...any) error {
 	switch v := app.(type) {
 	case App:
 		appInstance = v
+	case FunctionalComponent:
+		// Wrap functional component to satisfy App interface
+		appInstance = &functionalApp{renderFn: v}
+	case func(AppContext) *vdom.Element:
+		// Support bare function type
+		appInstance = &functionalApp{renderFn: FunctionalComponent(v)}
 	case *vdom.Element:
 		appInstance = &elementApp{element: v}
 	case string:
@@ -157,7 +194,7 @@ func Run(app any, data ...any) error {
 		elem := vdom.Markup(v, data...)
 		appInstance = &elementApp{element: elem}
 	default:
-		return fmt.Errorf("app must be App interface, *vdom.Element, or markup string, got %T", app)
+		return fmt.Errorf("app must be App interface, FunctionalComponent, *vdom.Element, or markup string, got %T", app)
 	}
 
 	// Check for state restoration from HMR

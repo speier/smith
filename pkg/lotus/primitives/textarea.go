@@ -18,6 +18,14 @@ func NewTextArea() *TextArea {
 	}
 }
 
+// CreateTextArea creates a new multi-line input with simplified API (like pi-tui)
+// Usage: CreateTextArea(placeholder, onSubmit)
+func CreateTextArea(placeholder string, onSubmit func(string)) *TextArea {
+	return NewTextArea().
+		WithPlaceholder(placeholder).
+		WithOnSubmit(onSubmit)
+}
+
 // WithID sets the component ID
 func (ta *TextArea) WithID(id string) *TextArea {
 	ta.input.WithID(id)

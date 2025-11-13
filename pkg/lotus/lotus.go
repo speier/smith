@@ -64,6 +64,11 @@ const (
 )
 
 // Runtime
+type (
+	AppContext          = runtime.AppContext
+	FunctionalComponent = runtime.FunctionalComponent
+)
+
 var (
 	Run = runtime.Run
 )
@@ -89,4 +94,8 @@ var (
 	NewInput      = primitives.NewInput
 	NewTextArea   = primitives.NewTextArea
 	NewScrollView = primitives.NewScrollView
+
+	// Simplified constructors (pi-tui style)
+	CreateInput    = primitives.CreateInput
+	CreateTextArea = primitives.CreateTextArea
 )

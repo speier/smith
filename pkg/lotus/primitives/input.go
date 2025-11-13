@@ -80,6 +80,14 @@ func NewInput(id ...string) *Input {
 	}
 }
 
+// CreateInput creates a new single-line input with simplified API (like pi-tui)
+// Usage: CreateInput(placeholder, onSubmit)
+func CreateInput(placeholder string, onSubmit func(string)) *Input {
+	return NewInput().
+		WithPlaceholder(placeholder).
+		WithOnSubmit(onSubmit)
+}
+
 // SetProps updates the component props (React pattern)
 // Allows parent to configure component behavior
 func (t *Input) SetProps(props InputProps) {
