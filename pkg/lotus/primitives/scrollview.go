@@ -1,8 +1,6 @@
 package primitives
 
 import (
-	"strings"
-
 	"github.com/speier/smith/pkg/lotus/tty"
 	"github.com/speier/smith/pkg/lotus/vdom"
 )
@@ -74,15 +72,26 @@ func (s *ScrollView) WithOnScroll(callback func(int, int)) *ScrollView {
 	return s
 }
 
+// GetScrollOffset returns the current scroll position (for buffer clipping)
+func (s *ScrollView) GetScrollOffset() (int, int) {
+	return s.ScrollX, s.ScrollY
+}
+
+// GetViewportSize returns the viewport dimensions
+func (s *ScrollView) GetViewportSize() (int, int) {
+	return s.Width, s.Height
+}
+
 // Render returns the scroll view element
+// The actual clipping happens in the layout renderer via GetScrollOffset/GetViewportSize
 func (s *ScrollView) Render() *vdom.Element {
 	if s.Content == nil {
 		return vdom.Text("")
 	}
 
-	// Return content as-is - actual scrolling happens during rendering
-	// The layout engine will compute the content dimensions
-	return vdom.Box(s.Content)
+	// Return content wrapped in a box
+	// The layout renderer will check for the ScrollViewInterface and apply clipping
+	return vdom.Box(s.Content).WithID(s.ID)
 }
 
 // ScrollUp scrolls up by N lines
@@ -174,65 +183,6 @@ func (s *ScrollView) SetContentSize(width, height int) {
 	if s.AutoScroll {
 		s.ScrollToBottom()
 	}
-}
-
-// GetViewport returns the visible content lines
-func (s *ScrollView) GetViewport(content string) string {
-	lines := strings.Split(content, "\n")
-
-	// Update content height
-	s.contentHeight = len(lines)
-
-	// Find max line width
-	s.contentWidth = 0
-	for _, line := range lines {
-		if len(line) > s.contentWidth {
-			s.contentWidth = len(line)
-		}
-	}
-
-	// Auto-scroll if enabled
-	if s.AutoScroll {
-		s.ScrollToBottom()
-	}
-
-	// Calculate visible range
-	startY := s.ScrollY
-	endY := s.ScrollY + s.Height
-	if endY > len(lines) {
-		endY = len(lines)
-	}
-	if startY >= len(lines) {
-		return ""
-	}
-
-	// Extract visible lines
-	visibleLines := lines[startY:endY]
-
-	// Apply horizontal scrolling if needed
-	if s.ScrollX > 0 {
-		for i, line := range visibleLines {
-			if s.ScrollX < len(line) {
-				// Trim to width
-				end := s.ScrollX + s.Width
-				if end > len(line) {
-					end = len(line)
-				}
-				visibleLines[i] = line[s.ScrollX:end]
-			} else {
-				visibleLines[i] = ""
-			}
-		}
-	} else {
-		// Just trim to width
-		for i, line := range visibleLines {
-			if len(line) > s.Width {
-				visibleLines[i] = line[:s.Width]
-			}
-		}
-	}
-
-	return strings.Join(visibleLines, "\n")
 }
 
 // emitScroll triggers the OnScroll callback

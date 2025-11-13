@@ -30,18 +30,19 @@ func TestFullPipeline(t *testing.T) {
 	// 3. Compute layout
 	layoutBox := layout.Compute(styled, 160, 40)
 
-	// 4. Render to ANSI
-	renderer := New()
-	output := renderer.Render(layoutBox)
+	// 4. Render to buffer and ANSI
+	layoutRenderer := NewLayoutRenderer()
+	buffer := layoutRenderer.RenderToBuffer(layoutBox, 160, 40)
+	output := RenderBufferFull(buffer)
 
 	// Verify output is generated
 	if output == "" {
 		t.Fatal("Render output is empty")
 	}
 
-	// Should contain clear screen command
-	if !strings.Contains(output, "\033[2J") {
-		t.Error("Missing clear screen command")
+	// Should contain clear screen command (or CSI 2026 sync)
+	if !strings.Contains(output, "\x1b[2J") && !strings.Contains(output, "\x1b[?2026h") {
+		t.Error("Missing clear screen or sync command")
 	}
 
 	// Should contain text
@@ -79,8 +80,9 @@ func TestRenderBorder(t *testing.T) {
 	styled := resolver.Resolve(root)
 	layoutBox := layout.Compute(styled, 20, 5)
 
-	renderer := New()
-	output := renderer.Render(layoutBox)
+	layoutRenderer := NewLayoutRenderer()
+	buffer := layoutRenderer.RenderToBuffer(layoutBox, 20, 5)
+	output := RenderBufferFull(buffer)
 
 	// Should contain rounded border chars
 	if !strings.Contains(output, "╭") && !strings.Contains(output, "╮") {
@@ -115,8 +117,9 @@ func TestRenderTextAlignment(t *testing.T) {
 			styled := resolver.Resolve(root)
 			layoutBox := layout.Compute(styled, 20, 3)
 
-			renderer := New()
-			output := renderer.Render(layoutBox)
+			layoutRenderer := NewLayoutRenderer()
+			buffer := layoutRenderer.RenderToBuffer(layoutBox, 20, 3)
+			output := RenderBufferFull(buffer)
 
 			if !strings.Contains(output, "Hello") {
 				t.Error("Missing text in output")
@@ -138,8 +141,9 @@ func TestRenderPlaceholderColor(t *testing.T) {
 	styled := resolver.Resolve(root)
 	layoutBox := layout.Compute(styled, 40, 3)
 
-	renderer := New()
-	output := renderer.Render(layoutBox)
+	layoutRenderer := NewLayoutRenderer()
+	buffer := layoutRenderer.RenderToBuffer(layoutBox, 40, 3)
+	output := RenderBufferFull(buffer)
 
 	// Should contain the placeholder text
 	if !strings.Contains(output, "Type here...") {

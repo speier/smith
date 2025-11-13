@@ -96,77 +96,39 @@ func TestTextStyling(t *testing.T) {
 				Children: nil,
 			}
 
-			// Render
-			renderer := New()
-			output := renderer.Render(layoutBox)
+			// Render to buffer
+			layoutRenderer := NewLayoutRenderer()
+			buffer := layoutRenderer.RenderToBuffer(layoutBox, 10, 1)
+			output := RenderBufferFull(buffer)
 
 			// Check for expected ANSI codes
+			// Note: codes might be combined with color codes, e.g. "\x1b[1;97m" for bold+white
 			for _, code := range tt.expectedCodes {
-				if !strings.Contains(output, code) {
-					t.Errorf("Expected ANSI code %q not found in output", code)
+				// Extract the numeric codes we're looking for
+				// e.g. "\x1b[1m" -> "1", "\x1b[1;4m" -> "1;4"
+				codeNum := strings.TrimPrefix(code, "\033[")
+				codeNum = strings.TrimPrefix(codeNum, "\x1b[")
+				codeNum = strings.TrimSuffix(codeNum, "m")
+
+				// Check if the code appears in the output
+				// Can be:
+				// - Exact match: \x1b[1m
+				// - At start: \x1b[1;...m
+				// - In middle: \x1b[...;1;...m
+				// - At end: \x1b[...;1m
+				found := strings.Contains(output, code) ||
+					strings.Contains(output, "["+codeNum+";") ||
+					strings.Contains(output, ";"+codeNum+";") ||
+					strings.Contains(output, ";"+codeNum+"m")
+
+				if !found {
+					t.Errorf("Expected ANSI code %q (numeric: %s) not found in output: %q", code, codeNum, output)
 				}
 			}
 
 			// Verify reset code is present
 			if !strings.Contains(output, "\033[0m") {
 				t.Error("Expected reset code \\033[0m not found")
-			}
-		})
-	}
-}
-
-func TestTruncateWithEllipsis(t *testing.T) {
-	tests := []struct {
-		input    string
-		width    int
-		expected string
-	}{
-		{"Hello World", 20, "Hello World"}, // No truncation needed
-		{"Hello World", 8, "Hello..."},     // Truncate with ellipsis
-		{"Hello World", 5, "He..."},        // Short truncation
-		{"Hello World", 3, "..."},          // Width exactly 3
-		{"Hello World", 2, ".."},           // Width less than 3
-		{"Hello World", 1, "."},            // Width 1
-		{"Hello", 10, "Hello"},             // Shorter than width
-		{"こんにちは", 3, "..."},                // Unicode handling
-		{"Hello 世界", 7, "Hell..."},         // Mixed ASCII/Unicode
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.input, func(t *testing.T) {
-			result := truncateWithEllipsis(tt.input, tt.width)
-			if result != tt.expected {
-				t.Errorf("truncateWithEllipsis(%q, %d) = %q, want %q",
-					tt.input, tt.width, result, tt.expected)
-			}
-
-			// Verify result fits within width
-			if len([]rune(result)) > tt.width {
-				t.Errorf("Result %q exceeds width %d", result, tt.width)
-			}
-		})
-	}
-}
-
-func TestClipToWidth(t *testing.T) {
-	tests := []struct {
-		input    string
-		width    int
-		expected string
-	}{
-		{"Hello World", 5, "Hello"},
-		{"Hello World", 20, "Hello World"},
-		{"こんにちは", 2, "こん"},
-		{"Hello", 10, "Hello"},
-		{"", 5, ""},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.input, func(t *testing.T) {
-			result := clipToWidth(tt.input, tt.width)
-			if result != tt.expected {
-				t.Errorf("clipToWidth(%q, %d) = %q, want %q",
-					tt.input, tt.width, result, tt.expected)
 			}
 		})
 	}
@@ -193,8 +155,9 @@ func TestVisibility(t *testing.T) {
 		Height: 1,
 	}
 
-	renderer := New()
-	output := renderer.Render(layoutBox)
+	layoutRenderer := NewLayoutRenderer()
+	buffer := layoutRenderer.RenderToBuffer(layoutBox, 20, 1)
+	output := RenderBufferFull(buffer)
 
 	if !strings.Contains(output, "Hidden Text") {
 		t.Error("Visible element should render text")
@@ -210,7 +173,8 @@ func TestVisibility(t *testing.T) {
 	}
 
 	layoutBox.Node = styledHidden
-	output = renderer.Render(layoutBox)
+	buffer = layoutRenderer.RenderToBuffer(layoutBox, 20, 1)
+	output = RenderBufferFull(buffer)
 
 	// Hidden text should not be rendered (but layout space is preserved)
 	if strings.Contains(output, "Hidden Text") {
@@ -240,8 +204,9 @@ func TestBorderColor(t *testing.T) {
 		Height: 5,
 	}
 
-	renderer := New()
-	output := renderer.Render(layoutBox)
+	layoutRenderer := NewLayoutRenderer()
+	buffer := layoutRenderer.RenderToBuffer(layoutBox, 10, 5)
+	output := RenderBufferFull(buffer)
 
 	// Should contain red color code for border
 	if !strings.Contains(output, "\033[91m") { // bright red
@@ -320,8 +285,9 @@ func TestMaxLines(t *testing.T) {
 				Height: 10,
 			}
 
-			renderer := New()
-			output := renderer.Render(layoutBox)
+			layoutRenderer := NewLayoutRenderer()
+			buffer := layoutRenderer.RenderToBuffer(layoutBox, 50, 10)
+			output := RenderBufferFull(buffer)
 
 			// Strip ANSI codes for easier testing
 			cleaned := stripANSI(output)

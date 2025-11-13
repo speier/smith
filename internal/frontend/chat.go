@@ -11,6 +11,7 @@ import (
 type ChatUI struct {
 	session        session.Session
 	input          *lotus.Input
+	scrollView     *lotus.ScrollView
 	messageList    *MessageList
 	renderCallback func() // Callback to trigger re-renders from async operations
 }
@@ -31,6 +32,11 @@ func NewChatUI(sess session.Session) *ChatUI {
 				app.handleSubmit(value)
 			}
 		})
+
+	// Setup scroll view for messages
+	app.scrollView = lotus.NewScrollView().
+		WithID("messages-scroll").
+		WithAutoScroll(true)
 
 	// Load existing history
 	app.loadHistory()
@@ -128,6 +134,9 @@ func (app *ChatUI) handleSubmit(message string) {
 
 // Render - 3-panel layout: header, messages, input (React render pattern)
 func (app *ChatUI) Render() *lotus.Element {
+	// Update scroll view content
+	app.scrollView.WithContent(app.messageList.Render())
+
 	return lotus.VStack(
 		// Header - SMITH ASCII logo + version
 		// lotus.Box(lotus.Text("💬 SMITH - Multi-Agent System")).
@@ -135,11 +144,7 @@ func (app *ChatUI) Render() *lotus.Element {
 		// 	WithColor("10"), // Bright green
 
 		// Messages (fills remaining space with scrolling)
-		lotus.Box(
-			lotus.NewScrollView().
-				WithID("messages-scroll").
-				WithContent(app.messageList.Render()),
-		).
+		lotus.Box(app.scrollView).
 			WithFlexGrow(1).
 			WithBorderStyle(lotus.BorderStyleRounded),
 

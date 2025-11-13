@@ -9,384 +9,270 @@ package render
 import (
 	"fmt"
 	"strings"
-
-	"github.com/speier/smith/pkg/lotus/layout"
-	"github.com/speier/smith/pkg/lotus/style"
 )
 
-// Renderer converts a LayoutBox tree to ANSI terminal output
-type Renderer struct {
-	// Buffer for building output
-	buf strings.Builder
-}
+// colorToANSI converts a color string to ANSI code
 
-// New creates a new renderer
-func New() *Renderer {
-	return &Renderer{}
-}
+// RenderBufferFull renders an entire buffer to ANSI output with synchronized output
+func RenderBufferFull(buf *Buffer) string {
+	var out strings.Builder
 
-// Render converts a layout tree to ANSI output
-func (r *Renderer) Render(layout *layout.LayoutBox) string {
-	r.buf.Reset()
+	// Begin synchronized output (CSI 2026) for flicker-free rendering
+	out.WriteString("\x1b[?2026h")
 
-	// Clear screen and move cursor to home
-	r.buf.WriteString("\033[2J\033[H")
+	// Clear screen and move to home
+	out.WriteString("\x1b[2J\x1b[H")
 
-	// Render the tree
-	r.renderBox(layout)
+	var currentStyle Style
+	styleActive := false
 
-	return r.buf.String()
-}
+	for y := 0; y < buf.Height; y++ {
+		for x := 0; x < buf.Width; x++ {
+			cell := buf.Get(x, y)
 
-// renderBox renders a single layout box and its children
-func (r *Renderer) renderBox(box *layout.LayoutBox) {
-	if box == nil || box.Node == nil {
-		return
-	}
+			// Check if style changed
+			if !stylesEqual(cell.Style, currentStyle) {
+				// Reset previous style
+				if styleActive {
+					out.WriteString("\x1b[0m")
+				}
 
-	style := box.Node.Style
-
-	// Render border if present
-	if style.Border {
-		r.renderBorder(box, style)
-	}
-
-	// Render based on element type
-	if box.Node.Element != nil {
-		switch box.Node.Element.Type {
-		case 1: // TextElement
-			r.renderText(box, style)
-		default:
-			// Container - render children
-			for _, child := range box.Children {
-				r.renderBox(child)
+				// Apply new style
+				styleSeq := buildStyleSequence(cell.Style)
+				if styleSeq != "" {
+					out.WriteString(styleSeq)
+					styleActive = true
+				} else {
+					styleActive = false
+				}
+				currentStyle = cell.Style
 			}
-		}
-	}
-}
 
-// renderBorder draws a border around a box
-func (r *Renderer) renderBorder(box *layout.LayoutBox, st style.ComputedStyle) {
-	if box.Width < 2 || box.Height < 2 {
-		return // Too small for border
-	}
-
-	if !st.Border {
-		return // No border to draw
-	}
-
-	// Choose border characters
-	var topLeft, topRight, bottomLeft, bottomRight, horizontal, vertical string
-	switch st.BorderStyle {
-	case "rounded":
-		topLeft, topRight = "╭", "╮"
-		bottomLeft, bottomRight = "╰", "╯"
-		horizontal, vertical = "─", "│"
-	case "double":
-		topLeft, topRight = "╔", "╗"
-		bottomLeft, bottomRight = "╚", "╝"
-		horizontal, vertical = "═", "║"
-	default: // "single"
-		topLeft, topRight = "┌", "┐"
-		bottomLeft, bottomRight = "└", "┘"
-		horizontal, vertical = "─", "│"
-	}
-
-	// Get color (use border-color if set, otherwise use text color)
-	color := getANSIColor(st.Color)
-	if st.BorderColor != "" {
-		color = getANSIColor(st.BorderColor)
-	}
-
-	// Top border
-	r.moveCursor(box.X, box.Y)
-	r.buf.WriteString(color)
-	r.buf.WriteString(topLeft)
-	if box.Width > 2 {
-		r.buf.WriteString(strings.Repeat(horizontal, box.Width-2))
-	}
-	r.buf.WriteString(topRight)
-	r.buf.WriteString("\033[0m")
-
-	// Side borders
-	for i := 1; i < box.Height-1; i++ {
-		// Left border
-		r.moveCursor(box.X, box.Y+i)
-		r.buf.WriteString(color)
-		r.buf.WriteString(vertical)
-		r.buf.WriteString("\033[0m")
-
-		// Right border
-		r.moveCursor(box.X+box.Width-1, box.Y+i)
-		r.buf.WriteString(color)
-		r.buf.WriteString(vertical)
-		r.buf.WriteString("\033[0m")
-	}
-
-	// Bottom border
-	r.moveCursor(box.X, box.Y+box.Height-1)
-	r.buf.WriteString(color)
-	r.buf.WriteString(bottomLeft)
-	if box.Width > 2 {
-		r.buf.WriteString(strings.Repeat(horizontal, box.Width-2))
-	}
-	r.buf.WriteString(bottomRight)
-	r.buf.WriteString("\033[0m")
-}
-
-// renderText renders text content
-func (r *Renderer) renderText(box *layout.LayoutBox, st style.ComputedStyle) {
-	if box.Node.Element == nil {
-		return
-	}
-
-	// Skip if hidden
-	if st.Visibility == "hidden" {
-		return
-	}
-
-	text := box.Node.Element.Text
-	if text == "" {
-		return
-	}
-
-	// Calculate position (accounting for border if present)
-	x := box.X
-	y := box.Y
-	availableWidth := box.Width
-
-	if st.Border {
-		x++
-		y++
-		availableWidth -= 2
-	}
-
-	// Handle whitespace modes
-	var lines []string
-	switch st.WhiteSpace {
-	case "pre":
-		// Preserve all whitespace and newlines
-		lines = strings.Split(text, "\n")
-	case "nowrap":
-		// No line breaks, single line
-		text = strings.ReplaceAll(text, "\n", " ")
-		lines = []string{text}
-	default: // "normal"
-		// Normal wrapping
-		lines = strings.Split(text, "\n")
-	}
-
-	// Build ANSI style prefix
-	stylePrefix := buildStylePrefix(st)
-	color := getANSIColor(st.Color)
-	bgColor := getANSIBgColor(st.BgColor)
-
-	// Apply line clamping if MaxLines is set
-	if st.MaxLines > 0 && len(lines) > st.MaxLines {
-		// Keep only first MaxLines lines
-		lines = lines[:st.MaxLines]
-
-		// Add ellipsis to the last visible line
-		lastIdx := len(lines) - 1
-		lines[lastIdx] = lines[lastIdx] + "..."
-	}
-
-	for i, line := range lines {
-		if i > 0 {
-			y++ // Move to next line
+			// Write character
+			out.WriteRune(cell.Char)
 		}
 
-		lineX := x
+		// Move to next line (except for last line)
+		if y < buf.Height-1 {
+			out.WriteString("\r\n")
+		}
+	}
 
-		// Handle text alignment per line (use visible length for ANSI-colored text)
-		lineVisibleLen := visibleLen(line)
+	// Reset style at end
+	if styleActive {
+		out.WriteString("\x1b[0m")
+	}
 
-		// Apply text overflow (ellipsis)
-		if lineVisibleLen > availableWidth && st.TextOverflow == "ellipsis" {
-			if availableWidth > 3 {
-				line = truncateWithEllipsis(line, availableWidth)
-				lineVisibleLen = availableWidth
+	// End synchronized output
+	out.WriteString("\x1b[?2026l")
+
+	return out.String()
+}
+
+// RenderBufferDiff renders only the changed regions between two buffers
+func RenderBufferDiff(prev, curr *Buffer, diff *DiffResult) string {
+	if diff.FullRedraw {
+		return RenderBufferFull(curr)
+	}
+
+	if len(diff.Regions) == 0 {
+		return "" // No changes
+	}
+
+	var out strings.Builder
+
+	// Begin synchronized output
+	out.WriteString("\x1b[?2026h")
+
+	// Render each changed region
+	for _, region := range diff.Regions {
+		var currentStyle Style
+		styleActive := false
+
+		for dy := 0; dy < region.Height; dy++ {
+			y := region.Y + dy
+
+			// Move cursor to start of region
+			out.WriteString(fmt.Sprintf("\x1b[%d;%dH", y+1, region.X+1))
+
+			for dx := 0; dx < region.Width; dx++ {
+				x := region.X + dx
+				cell := curr.Get(x, y)
+
+				// Check if style changed
+				if !stylesEqual(cell.Style, currentStyle) {
+					// Reset previous style
+					if styleActive {
+						out.WriteString("\x1b[0m")
+					}
+
+					// Apply new style
+					styleSeq := buildStyleSequence(cell.Style)
+					if styleSeq != "" {
+						out.WriteString(styleSeq)
+						styleActive = true
+					} else {
+						styleActive = false
+					}
+					currentStyle = cell.Style
+				}
+
+				// Write character
+				out.WriteRune(cell.Char)
 			}
 		}
 
-		switch st.TextAlign {
-		case "center":
-			padding := (availableWidth - lineVisibleLen) / 2
-			if padding > 0 {
-				lineX += padding
-			}
-		case "right":
-			padding := availableWidth - lineVisibleLen
-			if padding > 0 {
-				lineX += padding
-			}
+		// Reset style after each region
+		if styleActive {
+			out.WriteString("\x1b[0m")
 		}
-
-		// Clip line to available width (using visible length)
-		if lineVisibleLen > availableWidth {
-			line = clipToWidth(line, availableWidth)
-		}
-
-		// Render line with styles
-		r.moveCursor(lineX, y)
-		r.buf.WriteString(stylePrefix)
-		r.buf.WriteString(color)
-		r.buf.WriteString(bgColor)
-		r.buf.WriteString(line)
-		r.buf.WriteString("\033[0m") // Reset all styles
 	}
+
+	// End synchronized output
+	out.WriteString("\x1b[?2026l")
+
+	return out.String()
 }
 
-// moveCursor moves the cursor to (x, y) using ANSI escape codes
-func (r *Renderer) moveCursor(x, y int) {
-	// ANSI escape: ESC[{y};{x}H (1-indexed)
-	fmt.Fprintf(&r.buf, "\033[%d;%dH", y+1, x+1)
+// stylesEqual checks if two styles are identical
+func stylesEqual(a, b Style) bool {
+	return a.FgColor == b.FgColor &&
+		a.BgColor == b.BgColor &&
+		a.Bold == b.Bold &&
+		a.Italic == b.Italic &&
+		a.Underline == b.Underline &&
+		a.Strikethrough == b.Strikethrough &&
+		a.Dim == b.Dim &&
+		a.Reverse == b.Reverse
 }
 
-// getANSIColor converts a hex color to ANSI foreground color
-func getANSIColor(color string) string {
-	if color == "" {
-		return ""
-	}
-
-	// Basic color mapping (can be enhanced with true color support)
-	colorMap := map[string]string{
-		"#ffffff": "\033[97m", // bright white
-		"#ffff00": "\033[93m", // bright yellow
-		"#ff0000": "\033[91m", // bright red
-		"#00ff00": "\033[92m", // bright green
-		"#0000ff": "\033[94m", // bright blue
-		"#ff00ff": "\033[95m", // bright magenta
-		"#00ffff": "\033[96m", // bright cyan
-		"#000000": "\033[30m", // black
-		"#808080": "\033[90m", // gray
-	}
-
-	if ansi, ok := colorMap[strings.ToLower(color)]; ok {
-		return ansi
-	}
-
-	// Default to white
-	return "\033[97m"
-}
-
-// getANSIBgColor converts a hex color to ANSI background color
-func getANSIBgColor(color string) string {
-	if color == "" {
-		return ""
-	}
-
-	// Basic color mapping
-	colorMap := map[string]string{
-		"#ffffff": "\033[107m", // bright white bg
-		"#ffff00": "\033[103m", // bright yellow bg
-		"#ff0000": "\033[101m", // bright red bg
-		"#00ff00": "\033[102m", // bright green bg
-		"#0000ff": "\033[104m", // bright blue bg
-		"#ff00ff": "\033[105m", // bright magenta bg
-		"#00ffff": "\033[106m", // bright cyan bg
-		"#000000": "\033[40m",  // black bg
-		"#808080": "\033[100m", // gray bg
-	}
-
-	if ansi, ok := colorMap[strings.ToLower(color)]; ok {
-		return ansi
-	}
-
-	return ""
-}
-
-// visibleLen returns the visible character count (excluding ANSI escape codes)
-func visibleLen(s string) int {
-	count := 0
-	inEscape := false
-
-	for _, r := range s { // Iterate over runes, not bytes!
-		if r == '\033' { // ESC character
-			inEscape = true
-			continue
-		}
-		if inEscape {
-			if r == 'm' { // End of ANSI sequence
-				inEscape = false
-			}
-			continue
-		}
-		count++
-	}
-
-	return count
-}
-
-// buildStylePrefix builds ANSI escape codes for text styling
-func buildStylePrefix(st style.ComputedStyle) string {
+// buildStyleSequence creates an ANSI escape sequence for a style
+func buildStyleSequence(st Style) string {
 	var codes []string
 
-	// Font weight (bold)
-	if st.FontWeight == "bold" {
+	// Style attributes first (traditional ANSI order)
+	// Bold
+	if st.Bold {
 		codes = append(codes, "1")
 	}
 
-	// Opacity (dim)
-	if st.Opacity > 0 && st.Opacity < 100 {
-		codes = append(codes, "2") // dim
+	// Dim
+	if st.Dim {
+		codes = append(codes, "2")
 	}
 
-	// Font style (italic)
-	if st.FontStyle == "italic" {
+	// Italic
+	if st.Italic {
 		codes = append(codes, "3")
 	}
 
-	// Text decoration
-	switch st.TextDecoration {
-	case "underline":
+	// Underline
+	if st.Underline {
 		codes = append(codes, "4")
-	case "strikethrough":
+	}
+
+	// Reverse
+	if st.Reverse {
+		codes = append(codes, "7")
+	}
+
+	// Strikethrough
+	if st.Strikethrough {
 		codes = append(codes, "9")
 	}
 
-	// Reverse video
-	if st.Reverse {
-		codes = append(codes, "7")
+	// Foreground color
+	if st.FgColor != "" {
+		if code := colorToANSI(st.FgColor, false); code != "" {
+			codes = append(codes, code)
+		}
+	}
+
+	// Background color
+	if st.BgColor != "" {
+		if code := colorToANSI(st.BgColor, true); code != "" {
+			codes = append(codes, code)
+		}
 	}
 
 	if len(codes) == 0 {
 		return ""
 	}
 
-	// Build escape sequence: \033[{code1};{code2};...m
-	return "\033[" + strings.Join(codes, ";") + "m"
+	return "\x1b[" + strings.Join(codes, ";") + "m"
 }
 
-// truncateWithEllipsis truncates text to fit width and adds "..." at the end
-func truncateWithEllipsis(text string, width int) string {
-	if width < 1 {
-		return ""
-	}
-	if width <= 3 {
-		return strings.Repeat(".", width)
+// colorToANSI converts a color string to ANSI code
+func colorToANSI(color string, background bool) string {
+	offset := 30
+	if background {
+		offset = 40
 	}
 
-	// Count runes for proper Unicode handling
-	runes := []rune(text)
-	if len(runes) <= width-3 {
-		return text
+	// Handle hex colors
+	if strings.HasPrefix(color, "#") {
+		hexToANSI := map[string]int{
+			"#ffffff": 97, // bright white
+			"#ffff00": 93, // bright yellow
+			"#ff0000": 91, // bright red
+			"#00ff00": 92, // bright green
+			"#0000ff": 94, // bright blue
+			"#ff00ff": 95, // bright magenta
+			"#00ffff": 96, // bright cyan
+			"#000000": 30, // black
+			"#808080": 90, // gray
+		}
+
+		if code, ok := hexToANSI[strings.ToLower(color)]; ok {
+			if background {
+				// Convert foreground code to background (add 10)
+				return fmt.Sprintf("%d", code+10)
+			}
+			return fmt.Sprintf("%d", code)
+		}
+		// Default to white
+		return fmt.Sprintf("%d", offset+7)
 	}
 
-	// Truncate and add ellipsis
-	return string(runes[:width-3]) + "..."
-}
-
-// clipToWidth clips text to fit within the specified width (rune-aware)
-func clipToWidth(text string, width int) string {
-	if width < 1 {
-		return ""
+	// Named colors
+	switch color {
+	case "black":
+		return fmt.Sprintf("%d", offset+0)
+	case "red":
+		return fmt.Sprintf("%d", offset+1)
+	case "green":
+		return fmt.Sprintf("%d", offset+2)
+	case "yellow":
+		return fmt.Sprintf("%d", offset+3)
+	case "blue":
+		return fmt.Sprintf("%d", offset+4)
+	case "magenta":
+		return fmt.Sprintf("%d", offset+5)
+	case "cyan":
+		return fmt.Sprintf("%d", offset+6)
+	case "white":
+		return fmt.Sprintf("%d", offset+7)
 	}
 
-	runes := []rune(text)
-	if len(runes) <= width {
-		return text
+	// Bright colors
+	switch color {
+	case "bright-black", "gray", "grey":
+		return fmt.Sprintf("%d", offset+60)
+	case "bright-red":
+		return fmt.Sprintf("%d", offset+61)
+	case "bright-green":
+		return fmt.Sprintf("%d", offset+62)
+	case "bright-yellow":
+		return fmt.Sprintf("%d", offset+63)
+	case "bright-blue":
+		return fmt.Sprintf("%d", offset+64)
+	case "bright-magenta":
+		return fmt.Sprintf("%d", offset+65)
+	case "bright-cyan":
+		return fmt.Sprintf("%d", offset+66)
+	case "bright-white":
+		return fmt.Sprintf("%d", offset+67)
 	}
 
-	return string(runes[:width])
+	return ""
 }
