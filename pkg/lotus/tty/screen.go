@@ -34,11 +34,6 @@ func NewScreen() (*Screen, error) {
 
 // needsAltScreenForNoScroll detects terminals that need alternate screen to prevent scrolling
 // Currently: VS Code integrated terminal needs it, native terminals (Ghostty, iTerm2, Alacritty) don't
-func needsAltScreenForNoScroll() bool {
-	termProgram := os.Getenv("TERM_PROGRAM")
-	// VS Code terminal scrolls without alt screen
-	return termProgram == "vscode"
-}
 
 // Size returns the terminal dimensions (always checks current size)
 func (s *Screen) Size() (int, int) {
@@ -82,9 +77,15 @@ func (s *Screen) Restore() {
 
 // Clear clears the entire screen
 func (s *Screen) Clear() {
-	// Disable scrolling by setting scroll region to full screen
-	fmt.Printf("\033[1;%dr", s.height) // Set scroll region to entire screen
-	fmt.Print("\033[2J\033[H")         // Clear screen and move cursor to top
+	// Clear visible screen only (retain scrollback)
+	fmt.Print("\033[2J\033[H") // Clear screen and move cursor to top
+}
+
+// ClearInitial clears screen AND scrollback for a pristine starting view
+// Uses CSI 3J (clear scrollback) followed by full clear + cursor home.
+// Avoids scroll-region manipulation which could shift content one line.
+func (s *Screen) ClearInitial() {
+	fmt.Print("\033[3J\033[2J\033[H")
 }
 
 // Redraw moves cursor to home position without clearing
@@ -94,23 +95,17 @@ func (s *Screen) Redraw() {
 
 // EnterAltScreen switches to alternate screen buffer
 func (s *Screen) EnterAltScreen() {
-	// Some terminals (VS Code) need alt screen to prevent scrolling
-	// Others (Ghostty, iTerm2, Alacritty) work better without it
-	if needsAltScreenForNoScroll() {
-		fmt.Print("\033[?47h") // Use simpler alt screen (better Ctrl+C handling)
-		fmt.Print("\033[2J")   // Clear the alternate screen
-	} else {
-		// Native terminals: Just clear screen, no alt buffer needed
-		fmt.Print("\033[2J\033[H")
-	}
+	// Use 1049h (alternate screen with cursor save/restore) for consistent origin
+	fmt.Print("\033[?1049h") // enter alt buffer
+	// Fully clear scrollback + screen and reset scroll region + home
+	fmt.Print("\033[3J\033[2J\033[r\033[H")
 	s.inAltMode = true
 }
 
 // ExitAltScreen switches back to normal screen buffer
 func (s *Screen) ExitAltScreen() {
-	if needsAltScreenForNoScroll() {
-		fmt.Print("\033[?47l") // Restore screen
-	}
+	// Leave alt buffer restoring previous screen
+	fmt.Print("\033[?1049l")
 	s.inAltMode = false
 }
 

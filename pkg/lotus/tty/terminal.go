@@ -18,6 +18,7 @@ package tty
 
 import (
 	"os"
+	"strings"
 	"time"
 )
 
@@ -67,14 +68,23 @@ func New() (*Terminal, error) {
 		return nil, err
 	}
 
+	// Alt screen toggle via environment (LOTUS_ALT_SCREEN=false/0 disables)
+	useAlt := true
+	if v := os.Getenv("LOTUS_ALT_SCREEN"); v != "" {
+		lv := strings.ToLower(v)
+		if lv == "0" || lv == "false" || lv == "no" {
+			useAlt = false
+		}
+	}
+
 	return &Terminal{
 		screen:       screen,
 		input:        input,
-		tickRate:     0,    // No ticking by default
-		useAltScreen: true, // Try with simpler alt screen sequence
+		tickRate:     0,
+		useAltScreen: useAlt,
 		lastWidth:    width,
 		lastHeight:   height,
-		renderChan:   make(chan bool, 10), // Buffered to avoid blocking
+		renderChan:   make(chan bool, 10),
 	}, nil
 }
 
@@ -160,13 +170,16 @@ func (t *Terminal) Start() error {
 	if err := t.screen.SetRawMode(); err != nil {
 		return err
 	}
+
 	defer t.screen.Restore()
 	defer func() { _ = t.input.Close() }()
 
 	if t.useAltScreen {
+		// Enter alt screen (already clears internally)
 		t.screen.EnterAltScreen()
 	} else {
-		t.screen.Clear()
+		// Clear normal buffer similarly
+		t.screen.ClearInitial()
 	}
 	// Hide terminal cursor - we render our own cursor characters
 	t.screen.HideCursor()
@@ -279,12 +292,9 @@ func (t *Terminal) RequestRender() {
 func (t *Terminal) render() {
 	if t.renderFunc != nil {
 		content := t.renderFunc()
-
 		if content != "" {
 			t.screen.Print(content)
 		}
-
-		// Flush to ensure output is displayed before cursor positioning
 		_ = os.Stdout.Sync()
 	}
 	// Position cursor AFTER content is printed

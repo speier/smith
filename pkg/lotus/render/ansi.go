@@ -27,6 +27,11 @@ func RenderBufferFull(buf *Buffer) string {
 	styleActive := false
 
 	for y := 0; y < buf.Height; y++ {
+		// Position cursor at start of each row (prevents auto-wrap scroll issues)
+		if y > 0 {
+			out.WriteString(fmt.Sprintf("\x1b[%d;1H", y+1))
+		}
+
 		for x := 0; x < buf.Width; x++ {
 			cell := buf.Get(x, y)
 
@@ -50,11 +55,6 @@ func RenderBufferFull(buf *Buffer) string {
 
 			// Write character
 			out.WriteRune(cell.Char)
-		}
-
-		// Move to next line (except for last line)
-		if y < buf.Height-1 {
-			out.WriteString("\r\n")
 		}
 	}
 

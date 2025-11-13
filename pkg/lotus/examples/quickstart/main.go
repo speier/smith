@@ -14,8 +14,7 @@ func main() {
 	_ = lotus.Run(func(ctx lotus.AppContext) *lotus.Element {
 		return lotus.VStack(
 			lotus.Text("👋 Hello, Lotus!").WithBold().WithColor("bright-cyan"),
-			lotus.Text(""),
 			lotus.Text("Press Ctrl+C to exit"),
-		)
+		).WithGap(1)
 	})
 }
