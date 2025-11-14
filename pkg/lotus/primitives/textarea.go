@@ -18,7 +18,7 @@ func NewTextArea() *TextArea {
 	}
 }
 
-// CreateTextArea creates a new multi-line input with simplified API (like pi-tui)
+// CreateTextArea creates a new multi-line input with simplified API
 // Usage: CreateTextArea(placeholder, onSubmit)
 func CreateTextArea(placeholder string, onSubmit func(string)) *TextArea {
 	return NewTextArea().

@@ -6,73 +6,55 @@ import (
 	"github.com/speier/smith/pkg/lotus"
 )
 
-// Minimal chat UI - demonstrates Lotus's outstanding DX
-// Build a production-ready chat in ~30 lines with:
-// - Functional components
-// - Auto-scrolling message history
-// - Responsive layout
-// - Superior rendering performance
+type ChatApp struct {
+	messages []string
+}
 
-func main() {
-	err := lotus.Run(func(ctx lotus.AppContext) *lotus.Element {
-		// State lives in closure - simple and clean
-		messages := []string{
+func NewChatApp() *ChatApp {
+	return &ChatApp{
+		messages: []string{
 			"💬 Welcome to Lotus Chat!",
 			"Type a message below. Try 'long' to test scrolling.",
+		},
+	}
+}
+
+func (app *ChatApp) onSubmit(text string) {
+	if text == "" {
+		return
+	}
+	app.messages = append(app.messages, "> "+text)
+	if text == "long" {
+		for i := 1; i <= 50; i++ {
+			app.messages = append(app.messages, fmt.Sprintf("[%02d] Auto-scroll test line", i))
 		}
+	} else {
+		app.messages = append(app.messages, "Echo: "+text)
+	}
+}
 
-		// Build message list
-		messageElements := make([]any, len(messages))
-		for i, msg := range messages {
-			messageElements[i] = lotus.Text(msg)
-		}
+func (app *ChatApp) Render() *lotus.Element {
+	return lotus.VStack(
+		lotus.Box(
+			lotus.Text("Lotus Chat").
+				WithBold().
+				WithColor("bright-cyan").
+				WithPaddingX(1),
+		).WithBorderStyle(lotus.BorderStyleRounded),
+		lotus.VStack(lotus.Map(app.messages, lotus.Text)...).
+			WithGap(1).
+			WithPaddingX(1).
+			WithFlexGrow(1).
+			WithScroll(true).
+			WithBorderStyle(lotus.BorderStyleRounded),
+		lotus.Box(
+			lotus.Input("Type a message...", app.onSubmit),
+		).WithBorderStyle(lotus.BorderStyleRounded),
+	)
+}
 
-		// 3-panel layout: header, scrollable messages, input
-		return lotus.VStack(
-			// Header
-			lotus.Box(
-				lotus.Text("Lotus Chat").
-					WithBold().
-					WithColor("bright-cyan"),
-			).WithBorderStyle(lotus.BorderStyleRounded),
-
-			// Messages with auto-scroll
-			lotus.Box(
-				lotus.NewScrollView().
-					WithAutoScroll(true).
-					WithContent(lotus.VStack(messageElements...)),
-			).
-				WithFlexGrow(1).
-				WithBorderStyle(lotus.BorderStyleRounded),
-
-			// Input - simplified API
-			lotus.Box(
-				lotus.CreateInput("Type a message...", func(text string) {
-					if text == "" {
-						return
-					}
-
-					// Add user message
-					messages = append(messages, fmt.Sprintf("> %s", text))
-
-					// Simulate response
-					if text == "long" {
-						// Stress test: 50 lines to verify auto-scroll
-						for i := 1; i <= 50; i++ {
-							messages = append(messages, fmt.Sprintf("[%02d] Auto-scroll test line", i))
-						}
-					} else {
-						messages = append(messages, fmt.Sprintf("Echo: %s", text))
-					}
-
-					// Trigger re-render to show new messages
-					ctx.Rerender()
-				}),
-			).WithBorderStyle(lotus.BorderStyleRounded),
-		)
-	})
-
-	if err != nil {
+func main() {
+	if err := lotus.Run(NewChatApp()); err != nil {
 		panic(err)
 	}
 }

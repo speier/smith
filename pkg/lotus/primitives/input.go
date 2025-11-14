@@ -6,6 +6,15 @@ import (
 	"github.com/speier/smith/pkg/lotus/vdom"
 )
 
+// InputType defines the type of input (like HTML input type attribute)
+type InputType string
+
+const (
+	InputTypeText     InputType = "text"     // Regular text input (default)
+	InputTypePassword InputType = "password" // Masked password input (shows *)
+	InputTypeNumber   InputType = "number"   // Numeric input only
+)
+
 // CursorStyle defines the visual style of the cursor
 type CursorStyle int
 
@@ -24,6 +33,7 @@ type InputProps struct {
 	Placeholder string
 	Width       int
 	Disabled    bool
+	Type        InputType // Input type (text, password, number)
 	OnChange    func(value string)
 	OnSubmit    func(value string)
 }
@@ -33,6 +43,9 @@ type InputProps struct {
 type Input struct {
 	// Component metadata
 	ID string // Component ID for registration (React key) - MUST be set for state preservation
+
+	// Input type
+	Type InputType // Input type (text, password, number)
 
 	// Internal state (private to component)
 	Value      string // Current input text (single line)
@@ -67,6 +80,7 @@ func NewInput(id ...string) *Input {
 	}
 	return &Input{
 		ID:            inputID,
+		Type:          InputTypeText, // Default to text input
 		Value:         "",
 		CursorPos:     0,
 		Scroll:        0,
@@ -96,6 +110,9 @@ func (t *Input) SetProps(props InputProps) {
 		t.Width = props.Width
 	}
 	t.Disabled = props.Disabled
+	if props.Type != "" {
+		t.Type = props.Type
+	}
 	t.OnChange = props.OnChange
 	t.OnSubmit = props.OnSubmit
 }
@@ -133,6 +150,18 @@ func (t *Input) WithOnSubmit(onSubmit func(string)) *Input {
 	return t
 }
 
+// UpdateProps updates callbacks and props from a new component instance
+// This is called during reconciliation to keep callbacks fresh while preserving state
+func (t *Input) UpdateProps(newComponent vdom.Component) {
+	if newInput, ok := newComponent.(*Input); ok {
+		// Update callbacks (props that change between renders)
+		t.OnSubmit = newInput.OnSubmit
+		t.OnChange = newInput.OnChange
+		t.Placeholder = newInput.Placeholder
+		// Note: We do NOT update Value, CursorPos, Focused - those are state
+	}
+}
+
 // WithCursorStyle sets the cursor style and returns the component for chaining
 func (t *Input) WithCursorStyle(style CursorStyle) *Input {
 	t.CursorStyle = style
@@ -146,12 +175,32 @@ func (t *Input) WithValue(value string) *Input {
 	return t
 }
 
+// WithType sets the input type and returns the component for chaining
+func (t *Input) WithType(inputType InputType) *Input {
+	t.Type = inputType
+	return t
+}
+
+// getDisplayValue returns the value to display (masked for password type)
+func (t *Input) getDisplayValue() string {
+	if t.Type == InputTypePassword && len(t.Value) > 0 {
+		// Mask password with asterisks
+		runes := []rune(t.Value)
+		masked := make([]rune, len(runes))
+		for i := range runes {
+			masked[i] = '*'
+		}
+		return string(masked)
+	}
+	return t.Value
+}
+
 // renderUnfocused renders the input without cursor (when not focused)
 func (t *Input) renderUnfocused() *vdom.Element {
 	// Render same structure but without cursor styling
 	text := ""
 	if len(t.Value) > 0 {
-		text = t.Value
+		text = t.getDisplayValue()
 	} else if t.Placeholder != "" {
 		text = t.Placeholder
 	}
@@ -172,35 +221,49 @@ func (t *Input) Render() *vdom.Element {
 		return t.renderUnfocused()
 	}
 
-	// Always show prompt "> " followed by content
+	// When focused with empty value: show placeholder with cursor over first char
 	if len(t.Value) == 0 && t.Placeholder != "" {
-		// Empty with placeholder: show first char with cursor styling (inverse/underline) + rest
-		// This makes the character visible "through" the cursor
-
 		// If placeholder has at least one character, show styled first char + rest
 		if len(t.Placeholder) > 0 {
-			firstChar := string(t.Placeholder[0])
-			restOfPlaceholder := t.Placeholder[1:]
+			// Get first rune (character) properly for Unicode support
+			runes := []rune(t.Placeholder)
+			firstChar := string(runes[0])
+			var restOfPlaceholder string
+			if len(runes) > 1 {
+				restOfPlaceholder = string(runes[1:])
+			}
 
 			// Build cursor element based on style
 			var cursorElements []interface{}
 			if t.CursorStyle == CursorBar {
 				// Bar cursor: show "|" before the character
-				cursorElements = []interface{}{
-					vdom.Text("> "),
-					vdom.Text("|"),
+				var barElements []interface{}
+				barElements = append(barElements, vdom.Text("> "))
+				// Only show bar if cursor is visible
+				if t.CursorVisible {
+					barElements = append(barElements, vdom.Text("|"))
+				}
+				barElements = append(barElements,
 					vdom.Text(firstChar).WithStyle("color", "#808080"),
 					vdom.Text(restOfPlaceholder).WithStyle("color", "#808080"),
-				}
+				)
+				cursorElements = barElements
 			} else {
 				// Block or Underline: style the first character
-				styledChar := vdom.Text(firstChar)
-				if t.CursorStyle == CursorBlock {
-					// Block cursor on placeholder: keep dark text visible through light background
-					styledChar = t.applyCursorStyle(styledChar)
+				var styledChar *vdom.Element
+				if t.CursorVisible {
+					// Show cursor styling only when visible
+					styledChar = vdom.Text(firstChar).WithStyle("color", "#808080")
+					if t.CursorStyle == CursorBlock {
+						// Block cursor on placeholder: light background with gray text visible
+						styledChar = styledChar.WithStyle("background-color", "#ffffff")
+					} else {
+						// Underline on placeholder: gray text with underline
+						styledChar = styledChar.WithStyle("text-decoration", "underline")
+					}
 				} else {
-					// Underline on placeholder: gray text with underline
-					styledChar = styledChar.WithStyle("color", "#808080").WithStyle("text-decoration", "underline")
+					// Cursor not visible: just gray text, no styling
+					styledChar = vdom.Text(firstChar).WithStyle("color", "#808080")
 				}
 
 				cursorElements = []interface{}{
@@ -227,15 +290,17 @@ func (t *Input) Render() *vdom.Element {
 			WithStyle("padding", "0 1")
 	}
 
-	// With text: show prompt + text with inverse video cursor (supports multi-line)
+	// With text: show value with cursor (no placeholder suffix)
 	visible, cursorOffset := t.GetVisible()
 
 	// Split visible text into: before cursor, cursor char, after cursor
 	var beforeCursor, cursorChar, afterCursor string
-	if cursorOffset >= len(visible) {
+	cursorAtEnd := cursorOffset >= len(visible)
+
+	if cursorAtEnd {
 		// Cursor at end
 		beforeCursor = visible
-		cursorChar = " " // Show space with cursor
+		cursorChar = " " // Space (will be replaced with cursor glyph if visible)
 		afterCursor = ""
 	} else {
 		beforeCursor = visible[:cursorOffset]
@@ -277,7 +342,10 @@ func (t *Input) Render() *vdom.Element {
 		if beforeCursor != "" {
 			textElements = append(textElements, vdom.Text(beforeCursor))
 		}
-		textElements = append(textElements, vdom.Text("|"))
+		// Only show cursor bar if focused and visible
+		if t.Focused && t.CursorVisible {
+			textElements = append(textElements, vdom.Text("|"))
+		}
 		textElements = append(textElements, vdom.Text(cursorChar))
 		if afterCursor != "" {
 			textElements = append(textElements, vdom.Text(afterCursor))
@@ -287,7 +355,23 @@ func (t *Input) Render() *vdom.Element {
 		if beforeCursor != "" {
 			textElements = append(textElements, vdom.Text(beforeCursor))
 		}
-		textElements = append(textElements, t.applyCursorStyle(vdom.Text(cursorChar)))
+		// Only show cursor styling if cursor is visible (not in blink-off state)
+		if t.Focused && t.CursorVisible {
+			// When cursor is at end, show the actual cursor glyph instead of styled space
+			if cursorAtEnd {
+				// Use actual cursor character (█, _, etc.) for visibility
+				cursorGlyph := t.GetCursorChar()
+				textElements = append(textElements, vdom.Text(cursorGlyph))
+			} else {
+				// Cursor over a character: apply inverse styling
+				textElements = append(textElements, t.applyCursorStyle(vdom.Text(cursorChar)))
+			}
+		} else {
+			// Cursor not visible: show character normally (or nothing if at end)
+			if !cursorAtEnd {
+				textElements = append(textElements, vdom.Text(cursorChar))
+			}
+		}
 		if afterCursor != "" {
 			textElements = append(textElements, vdom.Text(afterCursor))
 		}
@@ -358,6 +442,11 @@ func (t *Input) IsFocusable() bool {
 // SetFocusState sets whether this component has focus (called by runtime)
 func (t *Input) SetFocusState(focused bool) {
 	t.Focused = focused
+	if focused {
+		// Reset cursor visibility when gaining focus (cursor should always be visible when focused)
+		t.CursorVisible = true
+		t.lastBlinkTime = time.Now()
+	}
 }
 
 // IsNode implements vdom.Node interface

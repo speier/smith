@@ -2,11 +2,16 @@ package ui
 
 import (
 	"strings"
+	"sync"
 
-	"github.com/speier/smith/pkg/lotus/primitives"
+	"github.com/speier/smith/pkg/lotus/render"
 	"github.com/speier/smith/pkg/lotus/tty"
 	"github.com/speier/smith/pkg/lotus/vdom"
 )
+
+// LineRenderer is a custom renderer for transforming text before display
+// Useful for markdown rendering (glamour), syntax highlighting, etc.
+type LineRenderer func(text string) string
 
 // TextBox is a convenience wrapper around ScrollView for displaying text lines
 // It provides a simple API for appending lines while using ScrollView for scrolling
@@ -14,10 +19,14 @@ type TextBox struct {
 	ID string // Component ID
 
 	// Content
-	Lines []string // Lines of text to display
+	Lines []string   // Lines of text to display
+	mu    sync.Mutex // Protects Lines for concurrent access (streaming)
+
+	// Rendering
+	Renderer LineRenderer // Optional custom renderer (e.g., glamour for markdown)
 
 	// Scrolling (delegated to ScrollView)
-	scrollView *primitives.ScrollView
+	scrollView *render.ScrollView
 
 	// Dimensions (set by layout or manually)
 	Width  int // Visible width (0 = auto)
@@ -28,6 +37,9 @@ type TextBox struct {
 
 	// Focus
 	Focusable bool // Whether component can receive keyboard focus (for scrolling)
+
+	// Streaming state
+	streamBuffer string // Buffer for partial line (streaming mode)
 }
 
 // NewTextBox creates a new scrollable text box
@@ -43,33 +55,91 @@ func NewTextBox(id ...string) *TextBox {
 		Width:     0,
 		Height:    0,
 		WordWrap:  false,
-		Focusable: true, // Focusable by default for scrolling
+		Focusable: false, // Not focusable by default (read-only display)
 	}
 
 	// Create internal ScrollView
-	tb.scrollView = primitives.NewScrollView().WithID(boxID + "-scroll")
+	tb.scrollView = render.NewScrollView().WithID(boxID + "-scroll")
 
 	return tb
 }
 
 // SetContent replaces all content with new lines
 func (tb *TextBox) SetContent(lines []string) {
+	tb.mu.Lock()
+	defer tb.mu.Unlock()
 	tb.Lines = lines
 }
 
-// AppendLine adds a line to the end
+// AppendLine adds a line to the end (thread-safe for streaming)
 func (tb *TextBox) AppendLine(line string) {
+	tb.mu.Lock()
+	defer tb.mu.Unlock()
 	tb.Lines = append(tb.Lines, line)
 }
 
-// AppendLines adds multiple lines to the end
+// AppendLines adds multiple lines to the end (thread-safe)
 func (tb *TextBox) AppendLines(lines []string) {
+	tb.mu.Lock()
+	defer tb.mu.Unlock()
 	tb.Lines = append(tb.Lines, lines...)
+}
+
+// AppendText appends text chunk (for streaming)
+// Automatically handles newlines - completes current line or adds new lines
+// Thread-safe for concurrent streaming from goroutines
+func (tb *TextBox) AppendText(text string) {
+	tb.mu.Lock()
+	defer tb.mu.Unlock()
+
+	// Append to stream buffer
+	tb.streamBuffer += text
+
+	// Process complete lines (split by \n)
+	for {
+		idx := strings.Index(tb.streamBuffer, "\n")
+		if idx == -1 {
+			break // No complete line yet
+		}
+
+		// Extract complete line
+		line := tb.streamBuffer[:idx]
+		tb.streamBuffer = tb.streamBuffer[idx+1:]
+
+		// Add to lines
+		tb.Lines = append(tb.Lines, line)
+	}
+
+	// If buffer has content without newline, update last line
+	if len(tb.streamBuffer) > 0 && len(tb.Lines) > 0 {
+		// Update last line with partial content (for live streaming effect)
+		lastIdx := len(tb.Lines) - 1
+		tb.Lines[lastIdx] = tb.Lines[lastIdx] + tb.streamBuffer
+		tb.streamBuffer = ""
+	} else if len(tb.streamBuffer) > 0 {
+		// First chunk without newline - start new line
+		tb.Lines = append(tb.Lines, tb.streamBuffer)
+		tb.streamBuffer = ""
+	}
+}
+
+// FlushStream completes the current streaming line
+func (tb *TextBox) FlushStream() {
+	tb.mu.Lock()
+	defer tb.mu.Unlock()
+
+	if tb.streamBuffer != "" {
+		tb.Lines = append(tb.Lines, tb.streamBuffer)
+		tb.streamBuffer = ""
+	}
 }
 
 // Clear removes all content
 func (tb *TextBox) Clear() {
+	tb.mu.Lock()
+	defer tb.mu.Unlock()
 	tb.Lines = []string{}
+	tb.streamBuffer = ""
 }
 
 // Scrolling methods - delegate to ScrollView
@@ -99,14 +169,23 @@ func (tb *TextBox) ScrollToBottom() {
 
 // Render generates the Element for the text box
 func (tb *TextBox) Render() *vdom.Element {
-	if len(tb.Lines) == 0 {
+	tb.mu.Lock()
+	lines := make([]string, len(tb.Lines))
+	copy(lines, tb.Lines)
+	tb.mu.Unlock()
+
+	if len(lines) == 0 {
 		return vdom.Box(vdom.Text(""))
 	}
 
-	// Build content from lines
-	elements := make([]any, len(tb.Lines))
-	for i, line := range tb.Lines {
-		elements[i] = vdom.Text(line)
+	// Build content from lines (apply custom renderer if set)
+	elements := make([]any, len(lines))
+	for i, line := range lines {
+		displayLine := line
+		if tb.Renderer != nil {
+			displayLine = tb.Renderer(line)
+		}
+		elements[i] = vdom.Text(displayLine)
 	}
 	content := vdom.VStack(elements...)
 
@@ -180,5 +259,11 @@ func (tb *TextBox) WithHeight(height int) *TextBox {
 // WithWidth sets the viewport width
 func (tb *TextBox) WithWidth(width int) *TextBox {
 	tb.Width = width
+	return tb
+}
+
+// WithRenderer sets a custom line renderer (e.g., glamour for markdown)
+func (tb *TextBox) WithRenderer(renderer LineRenderer) *TextBox {
+	tb.Renderer = renderer
 	return tb
 }

@@ -12,7 +12,7 @@ Smith is an AI coding assistant that orchestrates multiple specialized agents wo
 
 **Key Features:**
 - **Multi-Agent Coordination** - Specialized agents work in parallel on different aspects of your code
-- **Interactive REPL** - Natural conversation interface powered by Bubble Tea
+- **Interactive REPL** - Natural conversation interface powered by Lotus
 - **BBolt Storage** - Lock-free coordination via embedded key-value store (same as etcd/Kubernetes)
 - **Safety Levels** - Control what agents can do (Low/Medium/High execution permissions)
 - **Multiple LLM Providers** - GitHub Copilot, OpenRouter, and more

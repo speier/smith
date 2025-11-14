@@ -1,9 +1,27 @@
 package primitives
 
+import "unicode"
+
 // This file contains text editing operations for Input component
 
 // InsertChar inserts a character at the cursor position
 func (t *Input) InsertChar(ch string) {
+	// Validate input based on type
+	if t.Type == InputTypeNumber {
+		// Only allow digits, decimal point, minus sign
+		if len(ch) == 1 {
+			r := rune(ch[0])
+			// Allow: digits, decimal point, minus (only at start)
+			isValid := unicode.IsDigit(r) || ch == "."
+			if ch == "-" && t.CursorPos == 0 {
+				isValid = true // Allow minus at start
+			}
+			if !isValid {
+				return // Reject invalid character
+			}
+		}
+	}
+
 	t.Value = t.Value[:t.CursorPos] + ch + t.Value[t.CursorPos:]
 	t.CursorPos++
 	t.adjustScroll()

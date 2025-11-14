@@ -11,10 +11,12 @@ import (
 // - Superior rendering performance
 
 func main() {
-	_ = lotus.Run(func(ctx lotus.AppContext) *lotus.Element {
+	if err := lotus.Run(func(ctx lotus.Context) *lotus.Element {
 		return lotus.VStack(
 			lotus.Text("👋 Hello, Lotus!").WithBold().WithColor("bright-cyan"),
 			lotus.Text("Press Ctrl+C to exit"),
 		).WithGap(1)
-	})
+	}); err != nil {
+		panic(err)
+	}
 }

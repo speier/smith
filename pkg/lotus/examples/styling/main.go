@@ -16,6 +16,7 @@ func main() {
 		lotus.Text(""), // spacer
 
 		// Text styling
+		lotus.Text("Regular Text"),
 		lotus.Text("Bold Text").WithBold(),
 		lotus.Text("Italic Text").WithItalic(),
 		lotus.Text("Underlined Text").WithUnderline(),
@@ -112,5 +113,7 @@ func main() {
 		WithPaddingY(1).
 		WithAlignItems(lotus.AlignItemsCenter)
 
-	_ = lotus.Run(app)
+	if err := lotus.Run(app); err != nil {
+		panic(err)
+	}
 }

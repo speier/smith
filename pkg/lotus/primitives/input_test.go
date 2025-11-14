@@ -610,7 +610,7 @@ func TestInput_RenderWithPlaceholder(t *testing.T) {
 		t.Errorf("Expected prompt '> ', got '%s'", promptText.Text)
 	}
 
-	// Second child should be first char with inverse video (cursor effect)
+	// Second child should be first char with block cursor (white background, gray text for placeholder)
 	cursorText := hstack.Children[1]
 	if cursorText.Type != vdom.TextElement {
 		t.Errorf("Expected TextElement for cursor char, got %v", cursorText.Type)
@@ -618,11 +618,11 @@ func TestInput_RenderWithPlaceholder(t *testing.T) {
 	if cursorText.Text != "S" {
 		t.Errorf("Expected 'S' with cursor styling, got '%s'", cursorText.Text)
 	}
-	if cursorText.Props.Styles["color"] != "#000000" {
-		t.Errorf("Expected #000000 (black) color for cursor char, got '%s'", cursorText.Props.Styles["color"])
+	if cursorText.Props.Styles["color"] != "#808080" {
+		t.Errorf("Expected #808080 (gray) color for cursor char on placeholder, got '%s'", cursorText.Props.Styles["color"])
 	}
 	if cursorText.Props.Styles["background-color"] != "#ffffff" {
-		t.Errorf("Expected #ffffff background for cursor char (inverse), got '%s'", cursorText.Props.Styles["background-color"])
+		t.Errorf("Expected #ffffff background for cursor char (block cursor), got '%s'", cursorText.Props.Styles["background-color"])
 	}
 
 	// Third child should be rest of placeholder with gray color (#808080)
@@ -638,7 +638,7 @@ func TestInput_RenderWithPlaceholder(t *testing.T) {
 		t.Errorf("Expected #808080 color for placeholder, got '%s'", placeholderText.Props.Styles["color"])
 	}
 
-	// Test 2: With text, should render with inverse video cursor
+	// Test 2: With text, should render with inverse video cursor (no placeholder suffix)
 	input.InsertChar("H")
 	input.InsertChar("i")
 	elem = input.Render()
@@ -653,8 +653,8 @@ func TestInput_RenderWithPlaceholder(t *testing.T) {
 		t.Errorf("Expected box (HStack), got %s", hstackWithText.Tag)
 	}
 
-	// HStack should have 3 children: prompt, "Hi", cursor (space)
-	// (cursor is at end, so it shows as space with inverse, no afterCursor)
+	// HStack should have 3 children: prompt, "Hi", cursor glyph
+	// (cursor is at end, so it shows actual cursor character like █)
 	if len(hstackWithText.Children) != 3 {
 		t.Errorf("Expected 3 children (prompt + before + cursor), got %d", len(hstackWithText.Children))
 	}
@@ -671,10 +671,10 @@ func TestInput_RenderWithPlaceholder(t *testing.T) {
 		t.Errorf("Expected 'Hi', got '%s'", beforeText.Text)
 	}
 
-	// Third child should be cursor (space with inverse video since cursor at end)
+	// Third child should be cursor glyph (█ for block cursor at end)
 	cursorElem := hstackWithText.Children[2]
-	if cursorElem.Props.Styles["background-color"] != "#ffffff" {
-		t.Errorf("Expected #ffffff background for cursor, got '%s'", cursorElem.Props.Styles["background-color"])
+	if cursorElem.Text != "█" {
+		t.Errorf("Expected cursor glyph '█', got '%s'", cursorElem.Text)
 	}
 }
 

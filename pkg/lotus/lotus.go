@@ -9,7 +9,7 @@ import (
 	_ "github.com/speier/smith/pkg/lotus/devtools"
 )
 
-// Core types
+// Core VDOM types
 type (
 	Element = vdom.Element
 	Node    = vdom.Node
@@ -63,39 +63,66 @@ const (
 	JustifyContentSpaceBetween = vdom.JustifyContentSpaceBetween
 )
 
-// Runtime
+// Runtime types
 type (
-	AppContext          = runtime.AppContext
-	FunctionalComponent = runtime.FunctionalComponent
+	// Context provides access to app lifecycle methods in functional components
+	// Usage: lotus.Run(func(ctx lotus.Context) *lotus.Element { ... })
+	Context = runtime.Context
 )
 
+// Runtime functions
 var (
+	// Run starts a Lotus terminal application
+	// Accepts: App interface, functional component, Element, or markup string
 	Run = runtime.Run
 )
 
-// VDOM primitives - JSX-like API
+// VDOM element constructors
 var (
-	Box    = vdom.Box
+	// Box creates a container element (like HTML <div>)
+	Box = vdom.Box
+
+	// VStack creates a vertical stack container (flexbox column)
 	VStack = vdom.VStack
+
+	// HStack creates a horizontal stack container (flexbox row)
 	HStack = vdom.HStack
-	Text   = vdom.Text
+
+	// Text creates a text element with the given content
+	Text = vdom.Text
+
+	// Markup creates an element from a markup string with optional data
+	// Usage: Markup("Hello {0}!", name)
 	Markup = vdom.Markup
 )
 
-// UI Primitives - browser equivalents
+// Map transforms a slice into Elements using a mapping function
+// Generic wrapper around vdom.Map - works with any type
+// Usage: lotus.Map(messages, lotus.Text)
+func Map[T any](items []T, fn func(T) *Element) []any {
+	return vdom.Map(items, fn)
+}
+
+// Input types
 type (
-	Input      = primitives.Input
-	TextArea   = primitives.TextArea
-	ScrollView = primitives.ScrollView
+	// InputType defines the type of input (like HTML input type attribute)
+	InputType = primitives.InputType
 )
 
-// Primitive constructor functions
-var (
-	NewInput      = primitives.NewInput
-	NewTextArea   = primitives.NewTextArea
-	NewScrollView = primitives.NewScrollView
+// Input type constants
+const (
+	InputTypeText     = primitives.InputTypeText     // Regular text input
+	InputTypePassword = primitives.InputTypePassword // Masked password input
+	InputTypeNumber   = primitives.InputTypeNumber   // Numeric input only
+)
 
-	// Simplified constructors (pi-tui style)
-	CreateInput    = primitives.CreateInput
-	CreateTextArea = primitives.CreateTextArea
+// Input components
+var (
+	// Input creates a single-line text input field
+	// Usage: lotus.Input("placeholder", onSubmit)
+	Input = primitives.CreateInput
+
+	// TextArea creates a multi-line text input field
+	// Usage: lotus.TextArea("placeholder", onSubmit)
+	TextArea = primitives.CreateTextArea
 )

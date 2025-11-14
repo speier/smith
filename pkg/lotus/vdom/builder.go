@@ -16,9 +16,10 @@ func Box(children ...any) *Element {
 	// This ensures children stretch to fill the container (CSS flexbox default behavior)
 	return NewElement("box", Props{
 		Styles: map[string]string{
-			"display":        "flex",
-			"flex-direction": "column",
-			"align-items":    "stretch",
+			"display":         "flex",
+			"flex-direction":  "column",
+			"align-items":     "stretch",
+			"justify-content": "flex-start", // Align children to top (main-axis)
 		},
 	}, elements...)
 }
@@ -39,9 +40,10 @@ func VStack(children ...any) *Element {
 	}
 	return NewElement("box", Props{
 		Styles: map[string]string{
-			"display":        "flex",
-			"flex-direction": "column",
-			"align-items":    "stretch", // CSS default - children stretch to fill cross-axis
+			"display":         "flex",
+			"flex-direction":  "column",
+			"align-items":     "stretch",    // CSS default - children stretch to fill cross-axis
+			"justify-content": "flex-start", // Align children to top (main-axis)
 		},
 	}, elements...)
 }
@@ -77,4 +79,14 @@ func toElement(v any) *Element {
 	default:
 		return nil
 	}
+}
+
+// Map transforms a slice of items into Elements using a mapping function (like React's map)
+// Usage: lotus.VStack(lotus.Map(messages, lotus.Text)...)
+func Map[T any](items []T, fn func(T) *Element) []any {
+	result := make([]any, len(items))
+	for i, item := range items {
+		result[i] = fn(item)
+	}
+	return result
 }

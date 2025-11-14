@@ -1,4 +1,4 @@
-package primitives
+package layout
 
 import (
 	"github.com/speier/smith/pkg/lotus/tty"

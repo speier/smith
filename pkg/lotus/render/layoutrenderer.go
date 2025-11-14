@@ -43,8 +43,15 @@ func (lr *LayoutRenderer) renderBox(buf *Buffer, box *layout.LayoutBox) {
 		if sv, ok := box.Node.Element.Component.(ScrollViewInterface); ok {
 			// Render children to temporary buffer
 			tempBuf := NewBuffer(buf.Width, buf.Height)
+
+			// Render children with coordinates adjusted relative to ScrollView origin
+			offsetX := box.X
+			offsetY := box.Y
+
 			for _, child := range box.Children {
-				lr.renderBox(tempBuf, child)
+				// Recursively adjust entire tree to relative coordinates
+				adjustedChild := lr.adjustLayoutTree(child, offsetX, offsetY)
+				lr.renderBox(tempBuf, adjustedChild)
 			}
 
 			// Get scroll offset
@@ -165,6 +172,27 @@ func (lr *LayoutRenderer) renderText(buf *Buffer, box *layout.LayoutBox, bufStyl
 }
 
 // renderBorder draws a border around a box in the buffer
+// adjustLayoutTree recursively adjusts a layout tree to be relative to given offset
+func (lr *LayoutRenderer) adjustLayoutTree(box *layout.LayoutBox, offsetX, offsetY int) *layout.LayoutBox {
+	adjusted := &layout.LayoutBox{
+		X:      box.X - offsetX,
+		Y:      box.Y - offsetY,
+		Width:  box.Width,
+		Height: box.Height,
+		Node:   box.Node,
+	}
+
+	// Recursively adjust children
+	if len(box.Children) > 0 {
+		adjusted.Children = make([]*layout.LayoutBox, len(box.Children))
+		for i, child := range box.Children {
+			adjusted.Children[i] = lr.adjustLayoutTree(child, offsetX, offsetY)
+		}
+	}
+
+	return adjusted
+}
+
 func (lr *LayoutRenderer) renderBorder(buf *Buffer, box *layout.LayoutBox, st style.ComputedStyle) {
 	if box.Width < 2 || box.Height < 2 {
 		return

@@ -1,11 +1,10 @@
-package primitives
+package render
 
 import (
 	"strings"
 	"testing"
 
 	"github.com/speier/smith/pkg/lotus/layout"
-	"github.com/speier/smith/pkg/lotus/render"
 	"github.com/speier/smith/pkg/lotus/style"
 	"github.com/speier/smith/pkg/lotus/vdom"
 )
@@ -292,9 +291,9 @@ func TestScrollViewBufferIntegration(t *testing.T) {
 	styled := resolver.Resolve(root)
 	layoutBox := layout.Compute(styled, 80, 10)
 
-	layoutRenderer := render.NewLayoutRenderer()
+	layoutRenderer := NewLayoutRenderer()
 	buffer := layoutRenderer.RenderToBuffer(layoutBox, 80, 10)
-	output := render.RenderBufferFull(buffer)
+	output := RenderBufferFull(buffer)
 
 	// Verify output contains content
 	if !strings.Contains(output, "Line") {
@@ -346,9 +345,9 @@ func TestScrollViewBufferWithScroll(t *testing.T) {
 	styled := resolver.Resolve(root)
 	layoutBox := layout.Compute(styled, 80, 5)
 
-	layoutRenderer := render.NewLayoutRenderer()
+	layoutRenderer := NewLayoutRenderer()
 	buffer := layoutRenderer.RenderToBuffer(layoutBox, 80, 5)
-	output := render.RenderBufferFull(buffer)
+	output := RenderBufferFull(buffer)
 
 	// Should see lines around position 3 (Lines 4-8 approximately)
 	if !strings.Contains(output, "Line") {
@@ -394,9 +393,9 @@ func TestScrollViewBufferAutoScroll(t *testing.T) {
 	styled := resolver.Resolve(root)
 	layoutBox := layout.Compute(styled, 80, 10)
 
-	layoutRenderer := render.NewLayoutRenderer()
+	layoutRenderer := NewLayoutRenderer()
 	buffer := layoutRenderer.RenderToBuffer(layoutBox, 80, 10)
-	output := render.RenderBufferFull(buffer)
+	output := RenderBufferFull(buffer)
 
 	// With auto-scroll, should see content from the end
 	if !strings.Contains(output, "Message") {

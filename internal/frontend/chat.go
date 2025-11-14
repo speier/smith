@@ -5,13 +5,15 @@ import (
 
 	"github.com/speier/smith/pkg/agent/session"
 	"github.com/speier/smith/pkg/lotus"
+	"github.com/speier/smith/pkg/lotus/primitives"
+	"github.com/speier/smith/pkg/lotus/render"
 )
 
 // ChatUI represents the main chat interface (React-like component)
 type ChatUI struct {
 	session        session.Session
-	input          *lotus.Input
-	scrollView     *lotus.ScrollView
+	input          *primitives.Input
+	scrollView     *render.ScrollView
 	messageList    *MessageList
 	renderCallback func() // Callback to trigger re-renders from async operations
 }
@@ -24,17 +26,14 @@ func NewChatUI(sess session.Session) *ChatUI {
 	}
 
 	// Setup input with inline handler
-	app.input = lotus.NewInput().
-		WithID("chat-input").
-		WithPlaceholder("Type your message...").
-		WithOnSubmit(func(value string) {
-			if value != "" {
-				app.handleSubmit(value)
-			}
-		})
+	app.input = lotus.CreateInput("Type your message...", func(value string) {
+		if value != "" {
+			app.handleSubmit(value)
+		}
+	}).WithID("chat-input")
 
 	// Setup scroll view for messages
-	app.scrollView = lotus.NewScrollView().
+	app.scrollView = render.NewScrollView().
 		WithID("messages-scroll").
 		WithAutoScroll(true)
 

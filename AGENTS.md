@@ -6,6 +6,62 @@
 
 📦 **LOTUS FRAMEWORK: THINK IN FLEXBOX - IT'S LIKE HTML/CSS!** 📦
 
+🖥️ **TUI APPS: YOU CAN'T SEE THE OUTPUT!** 🖥️
+
+> **TUI Application Testing:**
+> 
+> **⚠️ CRITICAL: Terminal UI apps take over the screen - you cannot see their output!**
+> 
+> When testing Lotus/TUI applications:
+> - ❌ **DON'T** try to run TUI apps and read their output
+> - ❌ **DON'T** expect to see visual rendering in terminal output
+> - ❌ **DON'T** use `go run` on TUI apps expecting to debug visually
+> - ❌ **DON'T** add debug logging as a substitute for tests
+> - ✅ **DO** write unit tests instead (`go test ./...`)
+> - ✅ **DO** ask user to test interactively when visual testing is needed
+> - ✅ **DO** focus on code correctness and test coverage
+> - ✅ **DO** improve testing infrastructure if something is hard to test
+>
+> **Why this matters:**
+> - TUI apps use raw terminal mode (hide cursor, take full screen)
+> - Running them in background doesn't show UI
+> - Output appears empty/frozen even when app works
+> - Only user can see and interact with the actual UI
+> - **We have extensive testing infrastructure - use it!**
+>
+> **Testing Philosophy:**
+> - 🧪 **Tests are your eyes** - you can't see TUI output, but tests can verify behavior
+> - 🧪 **Write tests first** - before adding debug logs or trying to run apps
+> - 🧪 **Improve test infrastructure** - if something is hard to test, add test helpers
+> - 🧪 **Test coverage matters** - aim for >80% on new code
+> - 🧪 **Integration tests exist** - use snapshot tests, layout tests, rendering tests
+>
+> **Example - WRONG:**
+> ```bash
+> go run examples/chat/main.go  # Can't see anything!
+> # Or adding: fmt.Fprintf(os.Stderr, "DEBUG: %v\n", value)
+> ```
+>
+> **Example - CORRECT:**
+> ```bash
+> go test ./pkg/lotus/primitives/... -v  # Tests show real output
+> # Or ask: "Can you test the chat app and let me know if typing works?"
+> # Or write: TestInputStatePreservation to verify reconciliation
+> ```
+>
+> **Available Test Infrastructure:**
+> - ✅ `primitives/*_test.go` - Unit tests for components
+> - ✅ `layout/*_test.go` - Layout engine tests
+> - ✅ `snapshot/` - Snapshot testing framework
+> - ✅ `testing/` - Test helpers and utilities
+> - ✅ Mock implementations for testing
+>
+> **When something doesn't work:**
+> 1. ✅ Write a failing test that reproduces the issue
+> 2. ✅ Fix the code to make the test pass
+> 3. ✅ Add more tests for edge cases
+> 4. ❌ Don't add debug logs and try to run the TUI app
+
 > **Lotus UI Framework Philosophy:**
 > 
 > **🎯 Core Principle: "How would I do this in HTML/CSS Flexbox?"**

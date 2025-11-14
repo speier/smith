@@ -11,7 +11,7 @@ Clean separation between **Session** (core agent system) and **UI** (interface l
 ├─────────────────────────────────────────────────────────┤
 │                                                           │
 │  CLI              TUI              HTTP                  │
-│  (stdin/stdout)   (Bubble Tea)     (REST API)           │
+│  (stdin/stdout)   (Lotus)     (REST API)           │
 │                                                           │
 │  WebSocket        gRPC             Desktop App           │
 │                                                           │

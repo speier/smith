@@ -322,6 +322,20 @@ func (e *Element) WithOverflow(overflow string) *Element {
 	return e.WithStyle("overflow", overflow)
 }
 
+// WithScroll enables scrolling on this container with auto-follow behavior
+// When enabled, content that exceeds the viewport will be scrollable.
+// Auto-follows tail by default (pauses when user scrolls up manually).
+func (e *Element) WithScroll(enabled bool) *Element {
+	if enabled {
+		e.WithStyle("overflow-y", "auto")
+		e.WithStyle("scroll-behavior", "auto-follow")
+	} else {
+		e.WithStyle("overflow-y", "visible")
+		e.WithStyle("scroll-behavior", "none")
+	}
+	return e
+}
+
 // WithPosition sets positioning mode (static, relative, absolute)
 func (e *Element) WithPosition(position string) *Element {
 	return e.WithStyle("position", position)

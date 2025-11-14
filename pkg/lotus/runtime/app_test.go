@@ -11,7 +11,7 @@ import (
 // when converted to elements, enabling event routing to work
 func TestComponentReferencePreservation(t *testing.T) {
 	// Create a component
-	input := primitives.NewInput()
+	input := primitives.CreateInput("", nil)
 
 	// Convert to element (this is what Box() does internally)
 	element := vdom.ToElement(input)
@@ -50,7 +50,7 @@ func TestEventRoutingInTree(t *testing.T) {
 	}
 
 	app := &TestApp{
-		input: primitives.NewInput(),
+		input: primitives.CreateInput("", nil),
 	}
 
 	// Render method that boxes the input
@@ -95,8 +95,8 @@ func TestEventRoutingInTree(t *testing.T) {
 /*
 func TestFocusManagerAndGlobalEventRouting(t *testing.T) {
 	// Create components
-	nameInput := primitives.NewInput().WithPlaceholder("Name")
-	emailInput := primitives.NewInput().WithPlaceholder("Email")
+	nameInput := primitives.CreateInput("Name", nil)
+	emailInput := primitives.CreateInput("Email", nil)
 
 	// Track which tab is active
 	activeTab := 0
@@ -246,8 +246,8 @@ func TestFocusManagerAndGlobalEventRouting(t *testing.T) {
 /*
 func TestFocusWithMixedComponents(t *testing.T) {
 	// Mimic the kitchensink forms tab structure
-	nameInput := primitives.NewInput().WithPlaceholder("Name")
-	emailInput := primitives.NewInput().WithPlaceholder("Email")
+	nameInput := primitives.CreateInput("Name", nil)
+	emailInput := primitives.CreateInput("Email", nil)
 	radioGroup := ui.NewRadioGroup().WithOptions([]ui.RadioOption{
 		{Label: "Light", Value: "light"},
 		{Label: "Dark", Value: "dark"},
@@ -349,8 +349,8 @@ func TestFocusWithMixedComponents(t *testing.T) {
 /*
 func TestKitchensinkScenario(t *testing.T) {
 	// Mimic kitchensink structure
-	nameInput := primitives.NewInput().WithPlaceholder("Name")
-	emailInput := primitives.NewInput().WithPlaceholder("Email")
+	nameInput := primitives.CreateInput("Name", nil)
+	emailInput := primitives.CreateInput("Email", nil)
 
 	formsTab := vdom.VStack(
 		vdom.Box(nameInput),

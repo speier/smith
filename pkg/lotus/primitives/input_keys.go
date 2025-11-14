@@ -41,6 +41,9 @@ func (t *Input) HandleKey(event tty.KeyEvent) bool {
 	if event.IsEnter() {
 		if t.OnSubmit != nil {
 			t.OnSubmit(t.Value)
+			// Auto-clear after submit (like browser inputs)
+			t.Value = ""
+			t.CursorPos = 0
 		}
 		return false // Let app handle it too
 	}
