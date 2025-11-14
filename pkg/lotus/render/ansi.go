@@ -54,7 +54,10 @@ func RenderBufferFull(buf *Buffer) string {
 			}
 
 			// Write character
-			out.WriteRune(cell.Char)
+			// Skip zero-width space placeholders (used for wide character continuation)
+			if cell.Char != '\u200B' {
+				out.WriteRune(cell.Char)
+			}
 		}
 	}
 
@@ -118,7 +121,10 @@ func RenderBufferDiff(prev, curr *Buffer, diff *DiffResult) string {
 				}
 
 				// Write character
-				out.WriteRune(cell.Char)
+				// Skip zero-width space placeholders (used for wide character continuation)
+				if cell.Char != '\u200B' {
+					out.WriteRune(cell.Char)
+				}
 			}
 		}
 

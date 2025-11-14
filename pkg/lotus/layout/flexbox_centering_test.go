@@ -53,7 +53,7 @@ func TestVisibleLen(t *testing.T) {
 }
 
 func TestComputeIntrinsicWidthWithANSI(t *testing.T) {
-	// This tests that computeIntrinsicWidth correctly uses visibleLen
+	// This tests that ComputeIntrinsicWidth correctly uses visibleLen
 	// We'll need to create a styled node with ANSI text
 
 	// TODO: Add test cases for actual styled nodes with ANSI codes

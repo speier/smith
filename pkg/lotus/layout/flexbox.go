@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/mattn/go-runewidth"
 	"github.com/speier/smith/pkg/lotus/style"
 )
 
@@ -120,7 +121,7 @@ func layoutFlexRow(children []*style.StyledNode, x, y, width, height int, parent
 				totalFixed += childWidth + child.Style.MarginLeft + child.Style.MarginRight
 			} else {
 				// No explicit width and no flex-grow - use intrinsic width
-				intrinsicWidth := computeIntrinsicWidth(child)
+				intrinsicWidth := ComputeIntrinsicWidth(child)
 				totalFixed += intrinsicWidth + child.Style.MarginLeft + child.Style.MarginRight
 			}
 		}
@@ -149,7 +150,7 @@ func layoutFlexRow(children []*style.StyledNode, x, y, width, height int, parent
 			childWidth = resolveDimension(child.Style.Width, width)
 			if childWidth <= 0 {
 				// Use intrinsic width based on content
-				childWidth = computeIntrinsicWidth(child)
+				childWidth = ComputeIntrinsicWidth(child)
 			}
 		}
 
@@ -295,7 +296,7 @@ func layoutFlexColumn(children []*style.StyledNode, x, y, width, height int, par
 				childWidth = width - child.Style.MarginLeft - child.Style.MarginRight
 			} else {
 				// Use intrinsic width for non-stretch alignment
-				childWidth = computeIntrinsicWidth(child)
+				childWidth = ComputeIntrinsicWidth(child)
 			}
 		}
 
@@ -487,8 +488,8 @@ func computeIntrinsicHeight(node *style.StyledNode) int {
 	return totalHeight
 }
 
-// computeIntrinsicWidth calculates the natural width of a node based on its content
-func computeIntrinsicWidth(node *style.StyledNode) int {
+// ComputeIntrinsicWidth calculates the natural width of a node based on its content
+func ComputeIntrinsicWidth(node *style.StyledNode) int {
 	contentWidth := 1 // default minimum
 
 	// For text nodes, width is the length of the longest line
@@ -511,14 +512,14 @@ func computeIntrinsicWidth(node *style.StyledNode) int {
 		if node.Style.FlexDir == "row" {
 			total := 0
 			for _, child := range node.Children {
-				total += computeIntrinsicWidth(child)
+				total += ComputeIntrinsicWidth(child)
 			}
 			contentWidth = total
 		} else {
 			// For column, take maximum width
 			maxWidth := 1
 			for _, child := range node.Children {
-				w := computeIntrinsicWidth(child)
+				w := ComputeIntrinsicWidth(child)
 				if w > maxWidth {
 					maxWidth = w
 				}
@@ -556,7 +557,8 @@ func visibleLen(s string) int {
 			}
 			continue
 		}
-		count++
+		// Use RuneWidth to account for wide characters (emojis = 2, normal = 1)
+		count += runewidth.RuneWidth(r)
 	}
 
 	return count

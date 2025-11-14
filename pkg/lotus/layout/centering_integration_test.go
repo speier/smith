@@ -150,7 +150,7 @@ func TestLogoIntrinsicWidth(t *testing.T) {
 		Style: style.ComputedStyle{},
 	}
 
-	width := computeIntrinsicWidth(logoNode)
+	width := ComputeIntrinsicWidth(logoNode)
 
 	// Each line is 43 visible characters (Lotus logo)
 	expectedWidth := 43

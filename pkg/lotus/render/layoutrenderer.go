@@ -3,6 +3,7 @@ package render
 import (
 	"strings"
 
+	"github.com/mattn/go-runewidth"
 	"github.com/speier/smith/pkg/lotus/layout"
 	"github.com/speier/smith/pkg/lotus/style"
 )
@@ -162,11 +163,21 @@ func (lr *LayoutRenderer) renderText(buf *Buffer, box *layout.LayoutBox, bufStyl
 
 		// Write line to buffer
 		for _, ch := range line {
-			if x >= contentX+contentWidth {
+			charWidth := runewidth.RuneWidth(ch)
+			// Check if there's enough space for the full character width
+			if x+charWidth > contentX+contentWidth {
 				break // Don't exceed content width
 			}
 			buf.Set(x, y, Cell{Char: ch, Style: bufStyle})
-			x++
+
+			// For wide characters (emoji, CJK), mark the next cell as occupied
+			// Use a zero-width space (U+200B) as a placeholder
+			if charWidth == 2 {
+				buf.Set(x+1, y, Cell{Char: '\u200B', Style: bufStyle})
+			}
+
+			// Increment by actual character width (emojis = 2, normal = 1)
+			x += charWidth
 		}
 	}
 }
@@ -290,7 +301,7 @@ func (lr *LayoutRenderer) wrapText(text string, width int) []string {
 
 // displayWidth calculates the display width of a string (for now, just rune count)
 func (lr *LayoutRenderer) displayWidth(s string) int {
-	return len([]rune(s))
+	return runewidth.StringWidth(s)
 }
 
 // styleToBufferStyle converts a ComputedStyle to a buffer Style

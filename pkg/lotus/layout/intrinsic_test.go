@@ -48,7 +48,7 @@ func TestComputeIntrinsicWidth(t *testing.T) {
 			styled := resolver.Resolve(tt.element)
 
 			// Compute intrinsic width
-			width := computeIntrinsicWidth(styled)
+			width := ComputeIntrinsicWidth(styled)
 
 			if width != tt.expected {
 				t.Errorf("Expected width %d, got %d for text %q", tt.expected, width, tt.element.Text)
