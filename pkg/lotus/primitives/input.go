@@ -119,13 +119,6 @@ func (t *Input) SetProps(props InputProps) {
 
 // Fluent API methods (React-like chaining)
 
-// WithID sets the component ID and returns the component for chaining
-// ID is required for HMR state persistence to work
-func (t *Input) WithID(id string) *Input {
-	t.ID = id
-	return t
-}
-
 // WithPlaceholder sets the placeholder text and returns the component for chaining
 func (t *Input) WithPlaceholder(placeholder string) *Input {
 	t.Placeholder = placeholder
@@ -210,7 +203,7 @@ func (t *Input) renderUnfocused() *vdom.Element {
 			vdom.Text("> "),
 			vdom.Text(text),
 		),
-	).WithID(t.ID).
+	).
 		WithStyle("padding", "0 1")
 }
 
@@ -275,7 +268,7 @@ func (t *Input) Render() *vdom.Element {
 
 			return vdom.Box(
 				vdom.HStack(cursorElements...),
-			).WithID(t.ID).
+			).
 				WithStyle("padding", "0 1")
 		}
 
@@ -286,7 +279,7 @@ func (t *Input) Render() *vdom.Element {
 				vdom.Text("> "),
 				vdom.Text(cursorChar),
 			),
-		).WithID(t.ID).
+		).
 			WithStyle("padding", "0 1")
 	}
 
@@ -329,7 +322,7 @@ func (t *Input) Render() *vdom.Element {
 		}
 		return vdom.Box(
 			vdom.VStack(children...),
-		).WithID(t.ID).
+		).
 			WithStyle("padding", "0 1")
 	}
 
@@ -379,7 +372,7 @@ func (t *Input) Render() *vdom.Element {
 
 	return vdom.Box(
 		vdom.HStack(textElements...),
-	).WithID(t.ID).
+	).
 		WithStyle("padding", "0 1")
 }
 

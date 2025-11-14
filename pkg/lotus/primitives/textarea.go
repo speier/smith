@@ -26,12 +26,6 @@ func CreateTextArea(placeholder string, onSubmit func(string)) *TextArea {
 		WithOnSubmit(onSubmit)
 }
 
-// WithID sets the component ID
-func (ta *TextArea) WithID(id string) *TextArea {
-	ta.input.WithID(id)
-	return ta
-}
-
 // WithPlaceholder sets the placeholder text
 func (ta *TextArea) WithPlaceholder(placeholder string) *TextArea {
 	ta.input.WithPlaceholder(placeholder)

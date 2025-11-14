@@ -141,6 +141,13 @@ func (r *Resolver) computeStyle(elem *vdom.Element) ComputedStyle {
 		applyDeclarations(&style, elem.Props.Styles)
 	}
 
+	// Smart default: boxes with flex-grow > 0 get overflow: auto
+	// This enables scrolling for boxes that fill available space (common TUI pattern)
+	// Explicit overflow values take precedence (already applied above)
+	if style.FlexGrow > 0 && style.Overflow == "" {
+		style.Overflow = "auto"
+	}
+
 	return style
 }
 
@@ -154,11 +161,6 @@ func (r *Resolver) matches(elem *vdom.Element, selector string) bool {
 
 	if selector == "" {
 		return false
-	}
-
-	// ID selector
-	if selector[0] == '#' {
-		return elem.ID == selector[1:]
 	}
 
 	// Class selector

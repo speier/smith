@@ -41,12 +41,13 @@ func (app *ChatApp) Render() *lotus.Element {
 				WithColor("bright-cyan").
 				WithPaddingX(1),
 		).WithBorderStyle(lotus.BorderStyleRounded),
-		lotus.VStack(lotus.Map(app.messages, lotus.Text)...).
-			WithGap(1).
-			WithPaddingX(1).
-			WithFlexGrow(1).
-			WithScroll(true).
-			WithBorderStyle(lotus.BorderStyleRounded),
+
+		lotus.Box(
+			lotus.VStack(lotus.Map(app.messages, lotus.Text)...).
+				WithGap(1).
+				WithPaddingX(1),
+		).WithBorderStyle(lotus.BorderStyleRounded).WithFlexGrow(1),
+
 		lotus.Box(
 			lotus.Input("Type a message...", app.onSubmit),
 		).WithBorderStyle(lotus.BorderStyleRounded),

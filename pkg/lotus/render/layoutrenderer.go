@@ -8,8 +8,16 @@ import (
 	"github.com/speier/smith/pkg/lotus/style"
 )
 
+// ScrollManager interface for managing scroll state (decoupled from runtime)
+type ScrollManager interface {
+	GetOffset(id string) (int, int)
+	UpdateDimensions(id string, contentW, contentH, viewportW, viewportH int)
+}
+
 // LayoutRenderer converts a LayoutBox tree into a Buffer
-type LayoutRenderer struct{}
+type LayoutRenderer struct {
+	ScrollManager ScrollManager // Optional: for overflow:auto support
+}
 
 // NewLayoutRenderer creates a new layout renderer
 func NewLayoutRenderer() *LayoutRenderer {
@@ -34,43 +42,52 @@ func (lr *LayoutRenderer) renderBox(buf *Buffer, box *layout.LayoutBox) {
 	// Convert style to buffer style
 	bufStyle := lr.styleToBufferStyle(st)
 
-	// Check if this is a ScrollView component - handle specially
-	if box.Node.Element != nil && box.Node.Element.Component != nil {
-		// Try to get ScrollView interface for viewport clipping
-		type ScrollViewInterface interface {
-			GetScrollOffset() (int, int)
-			GetViewportSize() (int, int)
+	// Handle overflow: auto (CSS-like scrolling)
+	if st.Overflow == "auto" && box.Node.Element != nil && lr.ScrollManager != nil {
+		// Use element path as stable identifier (managed by reconciler)
+		scrollID := box.Node.Element.Path
+		if scrollID == "" {
+			scrollID = "0" // fallback for root
 		}
-		if sv, ok := box.Node.Element.Component.(ScrollViewInterface); ok {
-			// Render children to temporary buffer
-			tempBuf := NewBuffer(buf.Width, buf.Height)
 
-			// Render children with coordinates adjusted relative to ScrollView origin
-			offsetX := box.X
-			offsetY := box.Y
-
-			for _, child := range box.Children {
-				// Recursively adjust entire tree to relative coordinates
-				adjustedChild := lr.adjustLayoutTree(child, offsetX, offsetY)
-				lr.renderBox(tempBuf, adjustedChild)
+		// Calculate content bounds
+		var maxContentWidth, maxContentHeight int
+		for _, child := range box.Children {
+			childRight := child.X + child.Width - box.X
+			childBottom := child.Y + child.Height - box.Y
+			if childRight > maxContentWidth {
+				maxContentWidth = childRight
 			}
-
-			// Get scroll offset
-			scrollX, scrollY := sv.GetScrollOffset()
-
-			// Clip the temp buffer to viewport and copy to main buffer
-			_, viewportHeight := sv.GetViewportSize()
-			clipped := tempBuf.Clip(scrollX, scrollY, box.Width, viewportHeight)
-
-			// Copy clipped buffer to main buffer at box position
-			for y := 0; y < clipped.Height; y++ {
-				for x := 0; x < clipped.Width; x++ {
-					cell := clipped.Get(x, y)
-					buf.Set(box.X+x, box.Y+y, cell)
-				}
+			if childBottom > maxContentHeight {
+				maxContentHeight = childBottom
 			}
-			return
 		}
+
+		// Update scroll manager with dimensions
+		lr.ScrollManager.UpdateDimensions(scrollID, maxContentWidth, maxContentHeight, box.Width, box.Height)
+
+		// Create temp buffer for content
+		tempHeight := max(box.Height, maxContentHeight)
+		tempBuf := NewBuffer(box.Width, tempHeight)
+
+		// Render children to temp buffer
+		for _, child := range box.Children {
+			adjustedChild := lr.adjustLayoutTree(child, box.X, box.Y)
+			lr.renderBox(tempBuf, adjustedChild)
+		}
+
+		// Get scroll offset and clip
+		scrollX, scrollY := lr.ScrollManager.GetOffset(scrollID)
+		clipped := tempBuf.Clip(scrollX, scrollY, box.Width, box.Height)
+
+		// Copy to main buffer
+		for y := 0; y < clipped.Height; y++ {
+			for x := 0; x < clipped.Width; x++ {
+				cell := clipped.Get(x, y)
+				buf.Set(box.X+x, box.Y+y, cell)
+			}
+		}
+		return
 	}
 
 	// Render border if present

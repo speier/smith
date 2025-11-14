@@ -22,6 +22,7 @@ type (
 	AlignItems     = vdom.AlignItems
 	TextAlign      = vdom.TextAlign
 	JustifyContent = vdom.JustifyContent
+	Overflow       = vdom.Overflow
 )
 
 // Border style constants
@@ -61,6 +62,12 @@ const (
 	JustifyContentFlexEnd      = vdom.JustifyContentFlexEnd
 	JustifyContentCenter       = vdom.JustifyContentCenter
 	JustifyContentSpaceBetween = vdom.JustifyContentSpaceBetween
+)
+
+// Overflow constants
+const (
+	OverflowAuto   = vdom.OverflowAuto
+	OverflowHidden = vdom.OverflowHidden
 )
 
 // Runtime types

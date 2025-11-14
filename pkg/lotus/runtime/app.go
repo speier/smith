@@ -76,6 +76,10 @@ func Run(app any, data ...any) error {
 	// Initialize focus manager
 	focusMgr := newFocusManager()
 
+	// Initialize scroll manager for overflow:auto elements
+	scrollMgr := newScrollManager()
+	var scrollableElementID string // Track which element should receive scroll events
+
 	// Initialize DevTools and HMR if LOTUS_DEV=true
 	var devTools DevToolsProvider
 	var hmrManager HMRManager
@@ -125,11 +129,17 @@ func Run(app any, data ...any) error {
 
 	// Set up rendering using clean pipeline: vdom → style → layout → buffer → diff → ansi
 	term.OnRender(func() string {
+		if devTools != nil {
+			devTools.Log("Render() called")
+		}
 		// Render once and update focus on that tree
 		element := appInstance.Render()
 
 		// Rebuild focus list and update component states on the rendered tree
 		focusMgr.rebuild(element)
+
+		// Find scrollable element (element with overflow:auto or flex-grow > 0)
+		scrollableElementID = findScrollableElement(element)
 
 		// Wrap with DevTools overlay if enabled
 		if devTools != nil && devTools.IsEnabled() {
@@ -148,6 +158,7 @@ func Run(app any, data ...any) error {
 
 		// 3. Render layout to buffer
 		layoutRenderer := render.NewLayoutRenderer()
+		layoutRenderer.ScrollManager = scrollMgr // Enable overflow:auto support
 		currentBuffer := layoutRenderer.RenderToBuffer(layoutBox, width, height)
 
 		// 4. Compute diff and render ANSI
@@ -187,6 +198,28 @@ func Run(app any, data ...any) error {
 			return true
 		}
 
+		// Arrow keys scroll the scrollable element if one is set
+		if scrollableElementID != "" {
+			var dx, dy int
+			switch event.Code {
+			case tty.SeqUp:
+				dy = -1
+			case tty.SeqDown:
+				dy = 1
+			case tty.SeqLeft:
+				dx = -1
+			case tty.SeqRight:
+				dx = 1
+			}
+
+			if dx != 0 || dy != 0 {
+				if scrollMgr.ScrollBy(scrollableElementID, dx, dy) {
+					term.RequestRender()
+					return true
+				}
+			}
+		}
+
 		// Ctrl+T toggles DevTools visibility
 		if devTools != nil && event.Key == 20 { // Ctrl+T
 			if devTools.IsEnabled() {
@@ -215,10 +248,17 @@ func Run(app any, data ...any) error {
 		// Route event to the currently focused component
 		focused := focusMgr.getFocused()
 		if focused != nil {
-			if focused.HandleKeyEvent(event) {
-				term.RequestRender() // Trigger re-render after focused component handles event
+			handled := focused.HandleKeyEvent(event)
+			// Always trigger re-render after focused component processes event
+			// Even if it returns false (e.g., Input calling OnSubmit), state may have changed
+			if devTools != nil {
+				devTools.Log("Key handled=%v, requesting render", handled)
+			}
+			term.RequestRender()
+			if handled {
 				return true
 			}
+			// Event not fully handled, fall through to global handlers
 		}
 
 		// If no focused component handled it, try global handlers in the tree
@@ -275,4 +315,33 @@ func execRestart(statePath string) error {
 	// This is Unix-specific but works on macOS and Linux
 	// The current process is replaced - no new process spawned!
 	return syscall.Exec(binaryPath, []string{binaryPath}, env)
+}
+
+// findScrollableElement searches for the first element with overflow:auto or flex-grow > 0
+// Returns element path or empty string if none found
+func findScrollableElement(elem *vdom.Element) string {
+	if elem == nil {
+		return ""
+	}
+
+	// Check current element
+	if elem.Props.Styles != nil {
+		// Explicit overflow:auto takes priority
+		if elem.Props.Styles["overflow"] == "auto" {
+			return elem.Path
+		}
+		// Smart default: flex-grow > 0
+		if flexGrow := elem.Props.Styles["flex-grow"]; flexGrow != "" && flexGrow != "0" {
+			return elem.Path
+		}
+	}
+
+	// Recurse into children
+	for _, child := range elem.Children {
+		if path := findScrollableElement(child); path != "" {
+			return path
+		}
+	}
+
+	return ""
 }

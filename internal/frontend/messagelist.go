@@ -147,7 +147,7 @@ func (m *MessageList) Render() *vdom.Element {
 	}
 
 	// Return VStack of messages
-	return vdom.VStack(messageElements...).WithID(m.ID)
+	return vdom.VStack(messageElements...)
 }
 
 // IsNode implements vdom.Node interface

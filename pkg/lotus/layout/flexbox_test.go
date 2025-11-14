@@ -13,15 +13,12 @@ func TestDevTools70_30Split(t *testing.T) {
 	root := vdom.HStack(
 		vdom.Box(vdom.Text("App Content")).
 			WithStyle("width", "70%").
-			WithStyle("height", "100%").
-			WithID("app-container"),
+			WithStyle("height", "100%"),
 		vdom.Box(vdom.Text("DevTools Panel")).
 			WithStyle("width", "30%").
 			WithStyle("height", "100%").
-			WithStyle("border", "single").
-			WithID("devtools-container"),
-	).WithID("devtools-layout")
-
+			WithStyle("border", "single"),
+	)
 	// Resolve styles
 	resolver := style.NewResolver("")
 	styled := resolver.Resolve(root)

@@ -3,7 +3,6 @@ package snapshot
 import (
 	"testing"
 
-	"github.com/speier/smith/pkg/lotus/render"
 	"github.com/speier/smith/pkg/lotus/vdom"
 )
 
@@ -20,13 +19,9 @@ func TestDebugChatLayout(t *testing.T) {
 			vdom.Text("Lotus Chat"),
 		).WithBorderStyle(vdom.BorderStyleRounded),
 
-		// Messages
+		// Messages - now using overflow:auto via flex-grow
 		vdom.Box(
-			render.NewScrollView().
-				WithAutoScroll(true).
-				WithContent(
-					vdom.VStack(messages...).WithGap(1),
-				),
+			vdom.VStack(messages...).WithGap(1),
 		).
 			WithFlexGrow(1).
 			WithBorderStyle(vdom.BorderStyleRounded),

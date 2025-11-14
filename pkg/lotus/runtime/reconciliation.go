@@ -19,6 +19,9 @@ func (fm *focusManager) reconcileComponents(element *vdom.Element, path string) 
 		return
 	}
 
+	// Set the path on the element for stable identification
+	element.Path = path
+
 	// If this element has a component, check cache
 	if element.Component != nil {
 		// Generate a stable key for this component position

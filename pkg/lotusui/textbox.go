@@ -4,7 +4,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/speier/smith/pkg/lotus/render"
 	"github.com/speier/smith/pkg/lotus/tty"
 	"github.com/speier/smith/pkg/lotus/vdom"
 )
@@ -13,8 +12,8 @@ import (
 // Useful for markdown rendering (glamour), syntax highlighting, etc.
 type LineRenderer func(text string) string
 
-// TextBox is a convenience wrapper around ScrollView for displaying text lines
-// It provides a simple API for appending lines while using ScrollView for scrolling
+// Deprecated: Use Box with overflow:auto instead (via WithFlexGrow).
+// TextBox is a convenience wrapper for displaying text lines with scrolling.
 type TextBox struct {
 	ID string // Component ID
 
@@ -24,9 +23,6 @@ type TextBox struct {
 
 	// Rendering
 	Renderer LineRenderer // Optional custom renderer (e.g., glamour for markdown)
-
-	// Scrolling (delegated to ScrollView)
-	scrollView *render.ScrollView
 
 	// Dimensions (set by layout or manually)
 	Width  int // Visible width (0 = auto)
@@ -40,8 +36,12 @@ type TextBox struct {
 
 	// Streaming state
 	streamBuffer string // Buffer for partial line (streaming mode)
+
+	// Scroll state (for manual scrolling)
+	scrollOffset int
 }
 
+// Deprecated: Use Box(VStack(lines...)).WithFlexGrow(1) for auto overflow scrolling.
 // NewTextBox creates a new scrollable text box
 func NewTextBox(id ...string) *TextBox {
 	boxID := ""
@@ -57,9 +57,6 @@ func NewTextBox(id ...string) *TextBox {
 		WordWrap:  false,
 		Focusable: false, // Not focusable by default (read-only display)
 	}
-
-	// Create internal ScrollView
-	tb.scrollView = render.NewScrollView().WithID(boxID + "-scroll")
 
 	return tb
 }
@@ -142,29 +139,34 @@ func (tb *TextBox) Clear() {
 	tb.streamBuffer = ""
 }
 
-// Scrolling methods - delegate to ScrollView
+// Scrolling methods - no-op (deprecated - use Box with overflow:auto)
 func (tb *TextBox) ScrollUp() {
-	tb.scrollView.ScrollUp(1)
+	if tb.scrollOffset > 0 {
+		tb.scrollOffset--
+	}
 }
 
 func (tb *TextBox) ScrollDown() {
-	tb.scrollView.ScrollDown(1)
+	tb.scrollOffset++
 }
 
 func (tb *TextBox) ScrollPageUp() {
-	tb.scrollView.PageUp()
+	tb.scrollOffset -= tb.Height
+	if tb.scrollOffset < 0 {
+		tb.scrollOffset = 0
+	}
 }
 
 func (tb *TextBox) ScrollPageDown() {
-	tb.scrollView.PageDown()
+	tb.scrollOffset += tb.Height
 }
 
 func (tb *TextBox) ScrollToTop() {
-	tb.scrollView.ScrollToTop()
+	tb.scrollOffset = 0
 }
 
 func (tb *TextBox) ScrollToBottom() {
-	tb.scrollView.ScrollToBottom()
+	tb.scrollOffset = len(tb.Lines)
 }
 
 // Render generates the Element for the text box
@@ -187,28 +189,29 @@ func (tb *TextBox) Render() *vdom.Element {
 		}
 		elements[i] = vdom.Text(displayLine)
 	}
-	content := vdom.VStack(elements...)
 
-	// Update ScrollView settings
-	if tb.Width > 0 {
-		tb.scrollView.Width = tb.Width
-	}
+	// Return VStack with overflow:auto if dimensions are set
+	result := vdom.VStack(elements...)
 	if tb.Height > 0 {
-		tb.scrollView.Height = tb.Height
+		return vdom.Box(result).WithFlexGrow(1) // Auto overflow:auto
 	}
-
-	// Use ScrollView for rendering with scrolling
-	tb.scrollView.Content = content
-
-	return tb.scrollView.Render()
+	return result
 }
 
 // --- Focusable interface (for keyboard scrolling) ---
 
-// HandleKeyEvent handles keyboard events - delegates to ScrollView
+// HandleKeyEvent handles keyboard events
 func (tb *TextBox) HandleKeyEvent(event tty.KeyEvent) bool {
-	// Delegate to ScrollView for consistent keyboard shortcuts
-	return tb.scrollView.HandleKeyEvent(event)
+	// Simple arrow key scrolling
+	switch event.Code {
+	case "up":
+		tb.ScrollUp()
+		return true
+	case "down":
+		tb.ScrollDown()
+		return true
+	}
+	return false
 }
 
 // GetCursorOffset returns 0 (read-only component has no cursor)

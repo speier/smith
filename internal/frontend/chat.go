@@ -6,14 +6,12 @@ import (
 	"github.com/speier/smith/pkg/agent/session"
 	"github.com/speier/smith/pkg/lotus"
 	"github.com/speier/smith/pkg/lotus/primitives"
-	"github.com/speier/smith/pkg/lotus/render"
 )
 
 // ChatUI represents the main chat interface (React-like component)
 type ChatUI struct {
 	session        session.Session
 	input          *primitives.Input
-	scrollView     *render.ScrollView
 	messageList    *MessageList
 	renderCallback func() // Callback to trigger re-renders from async operations
 }
@@ -26,16 +24,11 @@ func NewChatUI(sess session.Session) *ChatUI {
 	}
 
 	// Setup input with inline handler
-	app.input = lotus.CreateInput("Type your message...", func(value string) {
+	app.input = primitives.CreateInput("Type your message...", func(value string) {
 		if value != "" {
 			app.handleSubmit(value)
 		}
-	}).WithID("chat-input")
-
-	// Setup scroll view for messages
-	app.scrollView = render.NewScrollView().
-		WithID("messages-scroll").
-		WithAutoScroll(true)
+	})
 
 	// Load existing history
 	app.loadHistory()
@@ -133,17 +126,9 @@ func (app *ChatUI) handleSubmit(message string) {
 
 // Render - 3-panel layout: header, messages, input (React render pattern)
 func (app *ChatUI) Render() *lotus.Element {
-	// Update scroll view content
-	app.scrollView.WithContent(app.messageList.Render())
-
 	return lotus.VStack(
-		// Header - SMITH ASCII logo + version
-		// lotus.Box(lotus.Text("💬 SMITH - Multi-Agent System")).
-		// 	WithBorderStyle(lotus.BorderStyleRounded).
-		// 	WithColor("10"), // Bright green
-
 		// Messages (fills remaining space with scrolling)
-		lotus.Box(app.scrollView).
+		lotus.Box(app.messageList.Render()).
 			WithFlexGrow(1).
 			WithBorderStyle(lotus.BorderStyleRounded),
 
