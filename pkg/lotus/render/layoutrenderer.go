@@ -188,7 +188,7 @@ func (lr *LayoutRenderer) renderLineWithANSI(buf *Buffer, line string, startX, y
 	x := startX
 	currentStyle := baseStyle
 	i := 0
-	
+
 	for i < len(line) {
 		// Check for ANSI escape sequence
 		if line[i] == '\033' && i+1 < len(line) && line[i+1] == '[' {
@@ -200,15 +200,15 @@ func (lr *LayoutRenderer) renderLineWithANSI(buf *Buffer, line string, startX, y
 			if j < len(line) {
 				// Extract the code
 				code := line[i+2 : j]
-				
+
 				// Apply ANSI code to current style
 				currentStyle = lr.applyANSICode(code, baseStyle, currentStyle)
-				
+
 				i = j + 1 // Skip past the ANSI sequence
 				continue
 			}
 		}
-		
+
 		// Regular character - render it
 		ch, size := decodeRune(line[i:])
 		if ch != 0 {
@@ -263,7 +263,7 @@ func (lr *LayoutRenderer) applyANSICode(code string, baseStyle, currentStyle Sty
 	if code == "0" || code == "" {
 		return baseStyle
 	}
-	
+
 	// Parse color codes
 	switch code {
 	case "30":
@@ -291,7 +291,7 @@ func (lr *LayoutRenderer) applyANSICode(code string, baseStyle, currentStyle Sty
 	case "4":
 		currentStyle.Underline = true
 	}
-	
+
 	return currentStyle
 }
 
