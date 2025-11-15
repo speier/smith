@@ -32,6 +32,13 @@ func Text(text string) *Element {
 // VStack creates a vertical stack (flex-direction: column)
 // Accepts string (auto-wrapped as Text), *Element, or Component
 func VStack(children ...any) *Element {
+	// Special case: if single argument is a []string, convert it
+	if len(children) == 1 {
+		if msgs, ok := children[0].([]string); ok {
+			children = Strings(msgs)
+		}
+	}
+
 	elements := make([]*Element, 0, len(children))
 	for _, child := range children {
 		if elem := toElement(child); elem != nil {
@@ -87,6 +94,17 @@ func Map[T any](items []T, fn func(T) *Element) []any {
 	result := make([]any, len(items))
 	for i, item := range items {
 		result[i] = fn(item)
+	}
+	return result
+}
+
+// Strings converts []string to []any for use in VStack/HStack
+// Strings are auto-converted to Text elements by toElement()
+// Usage: lotus.VStack(lotus.Strings(messages)...)
+func Strings(items []string) []any {
+	result := make([]any, len(items))
+	for i, item := range items {
+		result[i] = item
 	}
 	return result
 }

@@ -70,10 +70,8 @@ func (sm *scrollManager) UpdateDimensions(id string, contentW, contentH, viewpor
 	state.viewportHeight = viewportH
 
 	// Auto-scroll to bottom when content grows (like chat messages)
-	// If we were already at the bottom, stay at the bottom
-	wasAtBottom := oldContentHeight > 0 && state.offsetY >= oldContentHeight-state.viewportHeight
-	if wasAtBottom || oldContentHeight == 0 {
-		// Scroll to bottom to show new content
+	// Always scroll to bottom when content height increases
+	if contentH > oldContentHeight {
 		state.offsetY = max(0, state.contentHeight-state.viewportHeight)
 	}
 

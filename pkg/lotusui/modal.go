@@ -1,4 +1,4 @@
-package ui
+package lotusui
 
 import (
 	"github.com/speier/smith/pkg/lotus/tty"
@@ -143,14 +143,31 @@ func (m *Modal) Render() *vdom.Element {
 
 	modalContent := vdom.VStack(modalParts...)
 
-	// Modal box with border and background
+	// Modal box with border, background, and fixed width
 	modalBox := vdom.Box(modalContent).
 		WithBorderStyle(m.Border).
-		WithStyle("background-color", "#1a1a1a")
+		WithStyle("background-color", "#1a1a1a").
+		WithStyle("box-shadow", "0 4px 6px rgba(0, 0, 0, 0.3)") // Subtle shadow
 
-	// For now, just return the modal box
-	// In a real implementation, we'd render it centered over a backdrop
-	return modalBox
+	// Set width if specified
+	if m.Width > 0 {
+		modalBox = modalBox.WithWidth(m.Width)
+	}
+
+	// Backdrop: full-screen overlay that centers the modal
+	// Uses flexbox to center both horizontally and vertically
+	backdrop := vdom.Box(modalBox).
+		WithStyle("background-color", "rgba(0, 0, 0, 0.5)"). // Semi-transparent dark overlay
+		WithAlignItems(vdom.AlignItemsCenter).               // Center horizontally
+		WithJustifyContent(vdom.JustifyContentCenter).       // Center vertically
+		WithStyle("position", "absolute").                   // Overlay on top
+		WithStyle("top", "0").
+		WithStyle("left", "0").
+		WithStyle("right", "0").
+		WithStyle("bottom", "0").
+		WithStyle("z-index", "1000") // On top of everything
+
+	return backdrop
 }
 
 // renderButton renders a single button
@@ -203,6 +220,16 @@ func (m *Modal) Close() {
 	if m.OnClose != nil {
 		m.OnClose()
 	}
+}
+
+// IsOpen returns whether the modal is currently open
+func (m *Modal) IsOpen() bool {
+	return m.Open
+}
+
+// ShouldCloseOnEscape returns whether ESC key should close the modal
+func (m *Modal) ShouldCloseOnEscape() bool {
+	return m.CloseOnEscape
 }
 
 // ClickButton triggers the focused button

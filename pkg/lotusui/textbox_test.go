@@ -1,4 +1,4 @@
-package ui
+package lotusui
 
 import (
 	"testing"
@@ -13,10 +13,6 @@ func TestTextBox_New(t *testing.T) {
 
 	if len(tb.Lines) != 0 {
 		t.Error("Expected empty lines initially")
-	}
-
-	if tb.scrollView == nil {
-		t.Error("ScrollView should be initialized")
 	}
 }
 
@@ -61,21 +57,6 @@ func TestTextBox_Clear(t *testing.T) {
 	}
 }
 
-func TestTextBox_AutoScroll(t *testing.T) {
-	tb := NewTextBox().WithAutoScroll(true)
-
-	// Verify autoscroll is enabled
-	if !tb.scrollView.AutoScroll {
-		t.Error("AutoScroll should be enabled")
-	}
-
-	// Disable and verify
-	tb.WithAutoScroll(false)
-	if tb.scrollView.AutoScroll {
-		t.Error("AutoScroll should be disabled")
-	}
-}
-
 func TestTextBox_Render(t *testing.T) {
 	tb := NewTextBox()
 	tb.AppendLine("Line 1")
@@ -100,7 +81,6 @@ func TestTextBox_FluentAPI(t *testing.T) {
 	tb := NewTextBox().
 		WithHeight(20).
 		WithWidth(80).
-		WithAutoScroll(true).
 		WithFocusable(true)
 
 	if tb.Height != 20 {
@@ -108,9 +88,6 @@ func TestTextBox_FluentAPI(t *testing.T) {
 	}
 	if tb.Width != 80 {
 		t.Errorf("Expected width=80, got %d", tb.Width)
-	}
-	if !tb.scrollView.AutoScroll {
-		t.Error("Expected AutoScroll enabled")
 	}
 	if !tb.Focusable {
 		t.Error("Expected Focusable enabled")

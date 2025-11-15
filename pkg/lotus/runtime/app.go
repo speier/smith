@@ -6,6 +6,7 @@ import (
 	"syscall"
 
 	"github.com/speier/smith/pkg/lotus/layout"
+	"github.com/speier/smith/pkg/lotus/primitives"
 	"github.com/speier/smith/pkg/lotus/render"
 	"github.com/speier/smith/pkg/lotus/style"
 	"github.com/speier/smith/pkg/lotus/tty"
@@ -26,9 +27,37 @@ func (e *elementApp) Render() *vdom.Element {
 	return e.element
 }
 
+// factoryApp wraps a factory function to satisfy App interface
+type factoryApp struct {
+	factory func(Context) App
+	app     App
+	ctx     Context
+}
+
+func (f *factoryApp) Render() *vdom.Element {
+	return f.app.Render()
+}
+
+func (f *factoryApp) GetContext() Context {
+	return f.ctx
+}
+
+func (f *factoryApp) SetRenderCallback(callback func()) {
+	// Create context with render callback
+	f.ctx = Context{renderCallback: callback}
+	// Call factory to create actual app with context
+	f.app = f.factory(f.ctx)
+	// If the created app also has SetRenderCallback, wire it up
+	if setter, ok := f.app.(interface{ SetRenderCallback(func()) }); ok {
+		setter.SetRenderCallback(callback)
+	}
+}
+
 // Run creates and runs a Lotus terminal app
 // Accepts:
 //   - App interface (with Render method)
+//   - func() App (simple factory function)
+//   - func(Context) App (factory function receiving context)
 //   - FunctionalComponent (func(Context) *vdom.Element)
 //   - *vdom.Element (static element)
 //   - string (markup string, optionally followed by data for {0}, {1}, etc.)
@@ -38,6 +67,12 @@ func Run(app any, data ...any) error {
 	switch v := app.(type) {
 	case App:
 		appInstance = v
+	case func() App:
+		// Simple factory function without context
+		appInstance = v()
+	case func(Context) App:
+		// Factory function - wrap to defer context creation until SetRenderCallback
+		appInstance = &factoryApp{factory: v}
 	case FunctionalComponent:
 		// Wrap functional component to satisfy App interface
 		appInstance = &functionalApp{renderFn: v}
@@ -191,6 +226,27 @@ func Run(app any, data ...any) error {
 			return false
 		}
 
+		// ESC key - check for open modals first (framework-level modal handling)
+		if event.Key == tty.KeyEscape {
+			element := appInstance.Render()
+			if handleModalEscape(element) {
+				term.RequestRender()
+				return true
+			}
+		}
+
+		// Get context from app if available
+		ctx := Context{}
+		if ctxProvider, ok := appInstance.(interface{ GetContext() Context }); ok {
+			ctx = ctxProvider.GetContext()
+		}
+
+		// First, check global key handlers (highest priority)
+		if handleGlobalKeysWithContext(event, ctx) {
+			term.RequestRender()
+			return true
+		}
+
 		// Tab key - cycle focus to next component
 		if event.Key == '\t' {
 			focusMgr.next()
@@ -248,15 +304,37 @@ func Run(app any, data ...any) error {
 		// Route event to the currently focused component
 		focused := focusMgr.getFocused()
 		if focused != nil {
-			handled := focused.HandleKeyEvent(event)
-			// Always trigger re-render after focused component processes event
-			// Even if it returns false (e.g., Input calling OnSubmit), state may have changed
-			if devTools != nil {
-				devTools.Log("Key handled=%v, requesting render", handled)
+			// Get context from app if available
+			ctx := Context{}
+			if ctxProvider, ok := appInstance.(interface{ GetContext() Context }); ok {
+				ctx = ctxProvider.GetContext()
 			}
-			term.RequestRender()
-			if handled {
-				return true
+
+			// Try new interface first (with context)
+			// Note: runtime.Context implements primitives.Context interface
+			if handler, ok := focused.(interface {
+				HandleKeyWithContext(tty.KeyEvent, primitives.Context) bool
+			}); ok {
+				handled := handler.HandleKeyWithContext(event, ctx)
+				if devTools != nil {
+					devTools.Log("Key handled=%v, requesting render", handled)
+				}
+				term.RequestRender()
+				if handled {
+					return true
+				}
+			} else {
+				// Fallback to old interface (backward compatibility)
+				handled := focused.HandleKeyEvent(event)
+				// Always trigger re-render after focused component processes event
+				// Even if it returns false (e.g., Input calling OnSubmit), state may have changed
+				if devTools != nil {
+					devTools.Log("Key handled=%v, requesting render", handled)
+				}
+				term.RequestRender()
+				if handled {
+					return true
+				}
 			}
 			// Event not fully handled, fall through to global handlers
 		}
@@ -315,6 +393,40 @@ func execRestart(statePath string) error {
 	// This is Unix-specific but works on macOS and Linux
 	// The current process is replaced - no new process spawned!
 	return syscall.Exec(binaryPath, []string{binaryPath}, env)
+}
+
+// handleModalEscape searches for open modals in the tree and closes them on ESC
+// Returns true if a modal was found and closed
+func handleModalEscape(elem *vdom.Element) bool {
+	if elem == nil {
+		return false
+	}
+
+	// Check if this element's component implements the Modal interface
+	// Modal interface: IsOpen() bool, ShouldCloseOnEscape() bool, Close()
+	type EscapeableModal interface {
+		IsOpen() bool
+		ShouldCloseOnEscape() bool
+		Close()
+	}
+
+	if component := elem.Component; component != nil {
+		if modal, ok := component.(EscapeableModal); ok {
+			if modal.IsOpen() && modal.ShouldCloseOnEscape() {
+				modal.Close()
+				return true
+			}
+		}
+	}
+
+	// Recurse into children to find nested modals
+	for _, child := range elem.Children {
+		if handleModalEscape(child) {
+			return true
+		}
+	}
+
+	return false
 }
 
 // findScrollableElement searches for the first element with overflow:auto or flex-grow > 0

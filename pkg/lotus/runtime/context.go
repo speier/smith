@@ -15,6 +15,12 @@ func (ctx Context) Rerender() {
 	}
 }
 
+// Update triggers a re-render (alias for Rerender)
+// Use this in goroutines or async callbacks after modifying app state
+func (ctx Context) Update() {
+	ctx.Rerender()
+}
+
 // FunctionalComponent is a function that renders elements with access to Context
 type FunctionalComponent func(Context) *vdom.Element
 
@@ -26,6 +32,10 @@ type functionalApp struct {
 
 func (f *functionalApp) Render() *vdom.Element {
 	return f.renderFn(f.ctx)
+}
+
+func (f *functionalApp) GetContext() Context {
+	return f.ctx
 }
 
 func (f *functionalApp) SetRenderCallback(callback func()) {

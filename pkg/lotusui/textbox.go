@@ -1,4 +1,4 @@
-package ui
+package lotusui
 
 import (
 	"strings"
@@ -238,12 +238,6 @@ func (tb *TextBox) WithLines(lines []string) *TextBox {
 // WithContent sets initial content from a string (split by newlines)
 func (tb *TextBox) WithContent(content string) *TextBox {
 	tb.Lines = strings.Split(content, "\n")
-	return tb
-}
-
-// WithAutoScroll enables auto-scrolling to bottom
-func (tb *TextBox) WithAutoScroll(enabled bool) *TextBox {
-	tb.scrollView.AutoScroll = enabled
 	return tb
 }
 

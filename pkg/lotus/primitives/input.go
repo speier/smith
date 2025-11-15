@@ -34,8 +34,8 @@ type InputProps struct {
 	Width       int
 	Disabled    bool
 	Type        InputType // Input type (text, password, number)
-	OnChange    func(value string)
-	OnSubmit    func(value string)
+	OnChange    any       // func(string) or func(Context, string)
+	OnSubmit    any       // func(string) or func(Context, string)
 }
 
 // Input is a single-line text input field (like HTML <input>)
@@ -67,8 +67,9 @@ type Input struct {
 	Disabled    bool   // If true, component cannot receive focus
 
 	// Event callbacks (React-like props)
-	OnChange func(value string) // Called when text changes
-	OnSubmit func(value string) // Called when Enter is pressed
+	// Supports both func(string) and func(Context, string) signatures
+	OnChange any // Called when text changes
+	OnSubmit any // Called when Enter is pressed
 }
 
 // NewInput creates a new Input with optional ID
@@ -96,7 +97,8 @@ func NewInput(id ...string) *Input {
 
 // CreateInput creates a new single-line input with simplified API (like pi-tui)
 // Usage: CreateInput(placeholder, onSubmit)
-func CreateInput(placeholder string, onSubmit func(string)) *Input {
+// onSubmit can be func(string) or func(Context, string)
+func CreateInput(placeholder string, onSubmit any) *Input {
 	return NewInput().
 		WithPlaceholder(placeholder).
 		WithOnSubmit(onSubmit)
@@ -138,7 +140,8 @@ func (t *Input) WithOnChange(onChange func(string)) *Input {
 }
 
 // WithOnSubmit sets the onSubmit callback and returns the component for chaining
-func (t *Input) WithOnSubmit(onSubmit func(string)) *Input {
+// Supports both func(string) and func(Context, string) signatures
+func (t *Input) WithOnSubmit(onSubmit any) *Input {
 	t.OnSubmit = onSubmit
 	return t
 }

@@ -1,4 +1,4 @@
-package ui
+package lotusui
 
 import (
 	"testing"
@@ -173,5 +173,150 @@ func TestModalRender(t *testing.T) {
 	elem = modal.Render()
 	if elem == nil {
 		t.Error("Open modal should render non-nil")
+	}
+}
+
+func TestModalCentering(t *testing.T) {
+	modal := NewModal().
+		WithTitle("Centered Modal").
+		WithContent(vdom.Text("This should be centered")).
+		WithButtons([]ModalButton{
+			{Label: "OK", Variant: "primary"},
+		})
+
+	modal.Show()
+	elem := modal.Render()
+
+	if elem == nil {
+		t.Fatal("Open modal should render non-nil element")
+	}
+
+	// Verify backdrop (root element) has centering properties
+	backdrop := elem
+	if backdrop.Props.Styles == nil {
+		t.Fatal("Backdrop should have styles")
+	}
+
+	// Check background overlay
+	bgColor := backdrop.Props.Styles["background-color"]
+	if bgColor != "rgba(0, 0, 0, 0.5)" {
+		t.Errorf("Backdrop background = %q, want 'rgba(0, 0, 0, 0.5)'", bgColor)
+	}
+
+	// Check positioning
+	if backdrop.Props.Styles["position"] != "absolute" {
+		t.Error("Backdrop should have position: absolute")
+	}
+	if backdrop.Props.Styles["top"] != "0" {
+		t.Error("Backdrop should have top: 0")
+	}
+	if backdrop.Props.Styles["left"] != "0" {
+		t.Error("Backdrop should have left: 0")
+	}
+	if backdrop.Props.Styles["right"] != "0" {
+		t.Error("Backdrop should have right: 0")
+	}
+	if backdrop.Props.Styles["bottom"] != "0" {
+		t.Error("Backdrop should have bottom: 0")
+	}
+	if backdrop.Props.Styles["z-index"] != "1000" {
+		t.Error("Backdrop should have z-index: 1000")
+	}
+
+	// Check centering using flexbox
+	if backdrop.Props.Styles["align-items"] != string(vdom.AlignItemsCenter) {
+		t.Errorf("Backdrop align-items = %q, want %q", backdrop.Props.Styles["align-items"], string(vdom.AlignItemsCenter))
+	}
+	if backdrop.Props.Styles["justify-content"] != string(vdom.JustifyContentCenter) {
+		t.Errorf("Backdrop justify-content = %q, want %q", backdrop.Props.Styles["justify-content"], string(vdom.JustifyContentCenter))
+	}
+
+	// Verify modal box is a child of backdrop
+	if len(backdrop.Children) != 1 {
+		t.Fatalf("Backdrop should have exactly 1 child (modal box), got %d", len(backdrop.Children))
+	}
+
+	modalBox := backdrop.Children[0]
+	if modalBox.Props.Styles == nil {
+		t.Fatal("Modal box should have styles")
+	}
+
+	// Check shadow
+	shadow := modalBox.Props.Styles["box-shadow"]
+	if shadow == "" {
+		t.Error("Modal box should have box-shadow for visibility")
+	}
+
+	// Check background
+	modalBg := modalBox.Props.Styles["background-color"]
+	if modalBg != "#1a1a1a" {
+		t.Errorf("Modal background = %q, want '#1a1a1a'", modalBg)
+	}
+
+	// Check border style
+	borderStyle := modalBox.Props.Styles["border-style"]
+	if borderStyle != string(vdom.BorderStyleRounded) {
+		t.Errorf("Modal border-style = %q, want %q", borderStyle, string(vdom.BorderStyleRounded))
+	}
+}
+
+func TestModalWidth(t *testing.T) {
+	// Default width
+	modal1 := NewModal().WithContent(vdom.Text("Content"))
+	if modal1.Width != 60 {
+		t.Errorf("Default width = %d, want 60", modal1.Width)
+	}
+
+	// Custom width
+	modal2 := NewModal().
+		WithContent(vdom.Text("Content")).
+		WithWidth(80)
+
+	modal2.Show()
+	elem := modal2.Render()
+
+	// Get modal box (child of backdrop)
+	modalBox := elem.Children[0]
+
+	// Width should be set as a style on the modal box
+	width := modalBox.Props.Styles["width"]
+	if width != "80" {
+		t.Errorf("Modal width style = %q, want '80'", width)
+	}
+}
+
+func TestModalBackdropOverlay(t *testing.T) {
+	modal := NewModal().
+		WithContent(vdom.Text("Content")).
+		WithTitle("Test")
+
+	modal.Show()
+	backdrop := modal.Render()
+
+	// Backdrop should be a Box that fills the screen
+	if backdrop.Type != vdom.BoxElement {
+		t.Errorf("Backdrop type = %v, want BoxElement", backdrop.Type)
+	}
+
+	// Should have semi-transparent background
+	bg := backdrop.Props.Styles["background-color"]
+	if bg != "rgba(0, 0, 0, 0.5)" {
+		t.Errorf("Backdrop overlay color = %q, want semi-transparent black", bg)
+	}
+
+	// Should be positioned to cover entire screen
+	styles := backdrop.Props.Styles
+	requiredPositions := map[string]string{
+		"position": "absolute",
+		"top":      "0",
+		"left":     "0",
+		"right":    "0",
+		"bottom":   "0",
+	}
+
+	for prop, want := range requiredPositions {
+		if got := styles[prop]; got != want {
+			t.Errorf("Backdrop %s = %q, want %q", prop, got, want)
+		}
 	}
 }

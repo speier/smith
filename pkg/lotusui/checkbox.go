@@ -1,4 +1,4 @@
-package ui
+package lotusui
 
 import (
 	"github.com/speier/smith/pkg/lotus/tty"

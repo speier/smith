@@ -65,8 +65,13 @@ func (ta *TextArea) IsFocusable() bool {
 	return ta.input.IsFocusable()
 }
 
-// HandleKeyEvent handles keyboard events
+// HandleKeyEvent implements Focusable interface
 func (ta *TextArea) HandleKeyEvent(event tty.KeyEvent) bool {
+	return ta.HandleKeyWithContext(event, nil)
+}
+
+// HandleKeyWithContext handles key events with context support
+func (ta *TextArea) HandleKeyWithContext(event tty.KeyEvent, ctx Context) bool {
 	// Enter → insert newline (textarea behavior)
 	if event.Key == tty.KeyEnter || event.Key == tty.KeyEnter2 {
 		ta.input.InsertNewline()
@@ -75,14 +80,12 @@ func (ta *TextArea) HandleKeyEvent(event tty.KeyEvent) bool {
 
 	// Shift+Enter → submit
 	if event.Code == tty.SeqShiftEnter {
-		if ta.input.OnSubmit != nil {
-			ta.input.OnSubmit(ta.input.Value)
-		}
+		invokeCallback(ta.input.OnSubmit, ctx, ta.input.Value)
 		return true
 	}
 
 	// Delegate everything else to Input
-	return ta.input.HandleKeyEvent(event)
+	return ta.input.HandleKeyWithContext(event, ctx)
 }
 
 // GetCursorOffset returns cursor position for rendering

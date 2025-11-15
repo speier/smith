@@ -59,6 +59,32 @@ func Compute(node *style.StyledNode, containerWidth, containerHeight int) *Layou
 	// Layout children
 	layoutChildren(box, node)
 
+	// Shrink-wrap flex columns when content exceeds container height
+	// This fixes overflow:auto scroll calculation for dynamically growing content
+	// Only when: no explicit height, is flex column, has children, container has size
+	if resolveDimension(node.Style.Height, containerHeight) <= 0 &&
+		node.Style.Display == "flex" && node.Style.FlexDir == "column" &&
+		containerHeight > 0 && len(box.Children) > 0 {
+		// Calculate actual content height from children
+		maxY := 0
+		for _, child := range box.Children {
+			childBottom := child.Y + child.Height
+			if childBottom > maxY {
+				maxY = childBottom
+			}
+		}
+		// Add bottom padding/border
+		actualHeight := maxY - box.Y + node.Style.PaddingBottom
+		if node.Style.Border {
+			actualHeight++ // Bottom border
+		}
+		// Only grow beyond container height (for scroll calculation)
+		// Don't shrink below container height (preserves fill behavior)
+		if actualHeight > box.Height {
+			box.Height = actualHeight
+		}
+	}
+
 	return box
 }
 
@@ -245,8 +271,9 @@ func layoutFlexColumn(children []*style.StyledNode, x, y, width, height int, par
 			if childHeight > 0 {
 				totalFixed += childHeight + child.Style.MarginTop + child.Style.MarginBottom
 			} else {
-				// No explicit height and no flex-grow - use intrinsic height
-				intrinsic := computeIntrinsicHeight(child)
+				// No explicit height and no flex-grow - use intrinsic height WITH width for wrapping
+				// We know the width at this point, so calculate wrapped height accurately
+				intrinsic := computeIntrinsicHeightWithWidth(child, width)
 				totalFixed += intrinsic + child.Style.MarginTop + child.Style.MarginBottom
 			}
 		}
@@ -265,23 +292,8 @@ func layoutFlexColumn(children []*style.StyledNode, x, y, width, height int, par
 	for i, child := range children {
 		flexGrow := child.Style.FlexGrow
 
-		// Calculate child height
-		var childHeight int
-		if flexGrow > 0 && totalFlexGrow > 0 {
-			// Flexible child - distribute remaining space proportionally
-			childHeight = (remainingHeight * flexGrow) / totalFlexGrow
-		} else {
-			// Fixed height
-			childHeight = resolveDimension(child.Style.Height, height)
-			if childHeight <= 0 {
-				// Use intrinsic height if no explicit height set
-				childHeight = computeIntrinsicHeight(child)
-			}
-		}
-
-		// Calculate child width - respect align-items (cross-axis in column)
+		// Calculate child width FIRST - respect align-items (cross-axis in column)
 		childWidth := resolveDimension(child.Style.Width, width)
-		childX := x + child.Style.MarginLeft
 
 		if childWidth <= 0 {
 			// No explicit width - check align-items behavior
@@ -299,6 +311,23 @@ func layoutFlexColumn(children []*style.StyledNode, x, y, width, height int, par
 				childWidth = ComputeIntrinsicWidth(child)
 			}
 		}
+
+		// NOW calculate child height (using width for wrapping calculation)
+		var childHeight int
+		if flexGrow > 0 && totalFlexGrow > 0 {
+			// Flexible child - distribute remaining space proportionally
+			childHeight = (remainingHeight * flexGrow) / totalFlexGrow
+		} else {
+			// Fixed height
+			childHeight = resolveDimension(child.Style.Height, height)
+			if childHeight <= 0 {
+				// Use intrinsic height WITH width for accurate wrapping calculation
+				childHeight = computeIntrinsicHeightWithWidth(child, childWidth)
+			}
+		}
+
+		// Calculate child X position
+		childX := x + child.Style.MarginLeft
 
 		// Apply align-items to position child horizontally (cross-axis)
 		alignItems := child.Style.AlignSelf
@@ -446,6 +475,7 @@ func resolveDimension(value string, containerSize int) int {
 }
 
 // computeIntrinsicHeight calculates the natural height of a node based on its content
+// For text nodes with WordWrap enabled, this calculates the height AFTER wrapping
 func computeIntrinsicHeight(node *style.StyledNode) int {
 	contentHeight := 1 // default minimum
 
@@ -486,6 +516,84 @@ func computeIntrinsicHeight(node *style.StyledNode) int {
 	}
 
 	return totalHeight
+}
+
+// computeIntrinsicHeightWithWidth calculates height for text that will wrap to a given width
+func computeIntrinsicHeightWithWidth(node *style.StyledNode, availableWidth int) int {
+	if node.Element == nil || node.Element.Type != 1 || node.Element.Text == "" {
+		return computeIntrinsicHeight(node)
+	}
+
+	// Calculate content width after padding/border
+	contentWidth := availableWidth - node.Style.PaddingLeft - node.Style.PaddingRight
+	if node.Style.Border {
+		contentWidth -= 2
+	}
+
+	if contentWidth <= 0 || !node.Style.WordWrap {
+		// Fall back to simple line counting
+		lines := strings.Split(node.Element.Text, "\n")
+		return len(lines) + node.Style.PaddingTop + node.Style.PaddingBottom +
+			node.Style.MarginTop + node.Style.MarginBottom
+	}
+
+	// Calculate wrapped line count
+	wrappedLines := wrapTextForHeight(node.Element.Text, contentWidth)
+
+	contentHeight := len(wrappedLines)
+	totalHeight := contentHeight +
+		node.Style.PaddingTop + node.Style.PaddingBottom +
+		node.Style.MarginTop + node.Style.MarginBottom
+
+	if node.Style.Border {
+		totalHeight += 2
+	}
+
+	return totalHeight
+}
+
+// wrapTextForHeight calculates how many lines text will wrap to at given width
+func wrapTextForHeight(text string, width int) []string {
+	if width <= 0 {
+		return []string{}
+	}
+
+	var lines []string
+	inputLines := strings.Split(text, "\n")
+
+	for _, inputLine := range inputLines {
+		if inputLine == "" {
+			lines = append(lines, "")
+			continue
+		}
+
+		currentLine := ""
+		currentWidth := 0
+
+		words := strings.Fields(inputLine)
+		for i, word := range words {
+			wordWidth := visibleLen(word)
+
+			if currentWidth+wordWidth > width && currentLine != "" {
+				lines = append(lines, currentLine)
+				currentLine = word
+				currentWidth = wordWidth
+			} else {
+				if currentLine != "" {
+					currentLine += " "
+					currentWidth++
+				}
+				currentLine += word
+				currentWidth += wordWidth
+			}
+
+			if i == len(words)-1 && currentLine != "" {
+				lines = append(lines, currentLine)
+			}
+		}
+	}
+
+	return lines
 }
 
 // ComputeIntrinsicWidth calculates the natural width of a node based on its content

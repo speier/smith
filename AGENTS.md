@@ -393,9 +393,60 @@ go test ./...  # Verify
 - Refactoring often fails halfway through
 - Always have an escape route
 
+### Rule #9: Lotus Import Guidelines
+**PREFERRED** - Use public API imports for application code
+
+**Import Pattern:**
+```go
+import (
+    "github.com/speier/smith/pkg/lotus"
+    "github.com/speier/smith/pkg/lotusui"
+)
+```
+
+**Guidelines:**
+- ✅ **DON'T** import `pkg/lotus/primitives` in application code
+- ✅ **DON'T** import `pkg/lotus/vdom` in application code
+- ✅ **DON'T** import `pkg/lotus/runtime` in application code
+- ✅ **DO** use `lotus.CreateInput()` instead of `primitives.CreateInput()`
+- ✅ **DO** use `lotus.Command` instead of `primitives.Command`
+- ✅ **DO** use `lotus.VStack` instead of `vdom.VStack`
+- ✅ **DO** import lotusui directly (package name matches import path now)
+
+**Exposing New APIs:**
+- When adding features that apps need, expose them in `pkg/lotus/lotus.go`
+- Only expose what's needed - don't over-expose internal APIs
+- Add incrementally as use cases arise
+- Document with clear comments showing usage examples
+
+**Example - WRONG:**
+```go
+import (
+    "github.com/speier/smith/pkg/lotus"
+    "github.com/speier/smith/pkg/lotus/primitives"  // ❌ Don't import internal packages
+)
+
+func MyApp() {
+    input := primitives.CreateInput("...", handler)  // ❌
+}
+```
+
+**Example - CORRECT:**
+```go
+import (
+    "github.com/speier/smith/pkg/lotus"
+    "github.com/speier/smith/pkg/lotusui"           // ✅ Clean import
+)
+
+func MyApp() {
+    input := lotus.CreateInput("...", handler)      // ✅ Use public API
+    modal := lotusui.NewModal()                     // ✅ Direct usage
+}
+```
+
 ---
 
-## � Development Workflow
+## 📋 Development Workflow
 
 ### When Starting Work
 1. Read AGENTS.md (this file)

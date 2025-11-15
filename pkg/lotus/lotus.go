@@ -1,6 +1,7 @@
 package lotus
 
 import (
+	"github.com/speier/smith/pkg/lotus/commands"
 	"github.com/speier/smith/pkg/lotus/primitives"
 	"github.com/speier/smith/pkg/lotus/runtime"
 	"github.com/speier/smith/pkg/lotus/vdom"
@@ -72,9 +73,16 @@ const (
 
 // Runtime types
 type (
-	// Context provides access to app lifecycle methods in functional components
-	// Usage: lotus.Run(func(ctx lotus.Context) *lotus.Element { ... })
+	// Context provides access to app lifecycle methods
+	// Usage: lotus.Run(func(ctx lotus.Context) *MyApp { ... })
 	Context = runtime.Context
+
+	// KeyHandler is a function that handles keyboard events
+	// Returns true if the event was handled (stops propagation)
+	KeyHandler = runtime.KeyHandler
+
+	// KeyBinding represents a registered keyboard shortcut
+	KeyBinding = runtime.KeyBinding
 )
 
 // Runtime functions
@@ -82,6 +90,20 @@ var (
 	// Run starts a Lotus terminal application
 	// Accepts: App interface, functional component, Element, or markup string
 	Run = runtime.Run
+
+	// RegisterGlobalKey registers a global keyboard shortcut
+	// Example: lotus.RegisterGlobalKey('o', true, "Open file", handler) for Ctrl+O
+	RegisterGlobalKey = runtime.RegisterGlobalKey
+
+	// RegisterGlobalKeyCode registers a keyboard shortcut by escape sequence
+	// Example: lotus.RegisterGlobalKeyCode(tty.SeqF1, "Show help", handler)
+	RegisterGlobalKeyCode = runtime.RegisterGlobalKeyCode
+
+	// UnregisterAllGlobalKeys clears all global key handlers
+	UnregisterAllGlobalKeys = runtime.UnregisterAllGlobalKeys
+
+	// GetGlobalKeyBindings returns all registered global key bindings
+	GetGlobalKeyBindings = runtime.GetGlobalKeyBindings
 )
 
 // VDOM element constructors
@@ -110,10 +132,21 @@ func Map[T any](items []T, fn func(T) *Element) []any {
 	return vdom.Map(items, fn)
 }
 
+// Strings converts []string to []any for use in VStack/HStack
+// Strings are auto-converted to Text elements
+// Usage: lotus.VStack(lotus.Strings(messages)...)
+func Strings(items []string) []any {
+	return vdom.Strings(items)
+}
+
 // Input types
 type (
 	// InputType defines the type of input (like HTML input type attribute)
 	InputType = primitives.InputType
+
+	// InputComponent represents a single-line or multi-line text input component
+	// Use this type when storing input references in structs
+	InputComponent = primitives.Input
 )
 
 // Input type constants
@@ -125,11 +158,44 @@ const (
 
 // Input components
 var (
-	// Input creates a single-line text input field
-	// Usage: lotus.Input("placeholder", onSubmit)
+	// CreateInput creates a single-line text input field
+	// Usage: lotus.CreateInput("placeholder", onSubmit)
+	CreateInput = primitives.CreateInput
+
+	// Input is an alias for CreateInput (backward compatibility)
 	Input = primitives.CreateInput
 
-	// TextArea creates a multi-line text input field
-	// Usage: lotus.TextArea("placeholder", onSubmit)
+	// CreateTextArea creates a multi-line text input field
+	// Usage: lotus.CreateTextArea("placeholder", onSubmit)
+	CreateTextArea = primitives.CreateTextArea
+
+	// TextArea is an alias for CreateTextArea (backward compatibility)
 	TextArea = primitives.CreateTextArea
+)
+
+// Command system types
+type (
+	// Command represents a slash command that can be executed
+	Command = commands.Command
+
+	// CommandRegistry manages registered slash commands
+	CommandRegistry = commands.CommandRegistry
+)
+
+// Command system functions
+var (
+	// NewCommandRegistry creates a new command registry
+	NewCommandRegistry = commands.NewCommandRegistry
+
+	// RegisterGlobalCommand registers a command globally (available in all apps)
+	// Usage: lotus.RegisterGlobalCommand("clear", "Clear screen", handler)
+	RegisterGlobalCommand = commands.RegisterGlobalCommand
+
+	// GetGlobalCommands returns the global command registry
+	GetGlobalCommands = commands.GetGlobalCommands
+
+	// SetGlobalCommandPrefix sets the command prefix (default: "/")
+	// Examples: lotus.SetGlobalCommandPrefix("!") for !help, !stream
+	// Examples: lotus.SetGlobalCommandPrefix("@bot ") for @bot help
+	SetGlobalCommandPrefix = commands.SetGlobalCommandPrefix
 )

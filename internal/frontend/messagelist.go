@@ -146,8 +146,8 @@ func (m *MessageList) Render() *vdom.Element {
 		}
 	}
 
-	// Return VStack of messages
-	return vdom.VStack(messageElements...)
+	// Return VStack of messages with padding (like Lotus chat example)
+	return vdom.VStack(messageElements...).WithPaddingX(1)
 }
 
 // IsNode implements vdom.Node interface

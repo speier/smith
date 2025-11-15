@@ -2,95 +2,109 @@ package main
 
 import (
 	"fmt"
+	"strings"
+	"time"
 
 	"github.com/speier/smith/pkg/lotus"
 )
 
+// ChatApp demonstrates auto-scrolling and streaming text in a chat UI
 type ChatApp struct {
 	messages []string
 }
 
 func NewChatApp() *ChatApp {
-	return &ChatApp{
+	app := &ChatApp{
 		messages: []string{
-			"💬 Welcome to Lotus Chat!",
+			"💬 Lotus Chat Demo",
 			"",
-			"This demonstrates auto-scrolling chat UX:",
-			"• Type messages and they appear at the bottom",
-			"• New messages auto-scroll to stay visible",
-			"• Use ↑↓ arrow keys to scroll through history",
-			"• Scroll to bottom automatically when typing",
+			"Type /help to see available commands",
 			"",
-			"Try 'long' to add 50 messages and see auto-scroll in action!",
-			"Try 'demo' to simulate a conversation.",
-			"",
-			"────────────────────────────────────────",
 		},
 	}
+
+	// Register commands globally - they work in all inputs
+	lotus.RegisterGlobalCommand("long", "Add 50 messages to test auto-scroll", func(ctx lotus.Context, args []string) {
+		for i := 1; i <= 50; i++ {
+			app.messages = append(app.messages, fmt.Sprintf("[%02d] Message - scroll with ↑↓", i))
+		}
+		app.messages = append(app.messages, "")
+		app.addMessage(assistantPrefix, "✓ Auto-scrolled to bottom")
+	})
+
+	lotus.RegisterGlobalCommand("stream", "Stream text word-by-word like an LLM", func(ctx lotus.Context, args []string) {
+		app.startStreaming(ctx, "This is a streaming response! Watch as text appears word by word, simulating how an LLM streams tokens in real-time. The text automatically wraps to fit the window width and auto-scrolls as new content arrives. Pretty cool, right?")
+	})
+
+	lotus.RegisterGlobalCommand("wrap", "Show text wrapping with a long message", func(ctx lotus.Context, args []string) {
+		app.addMessage(systemPrefix, "This is a very long message that demonstrates automatic text wrapping in Lotus. When text exceeds the window width, it wraps to multiple lines at word boundaries. ANSI colors are preserved, and the layout engine correctly calculates the height needed for wrapped content.")
+	})
+
+	return app
 }
 
-func (app *ChatApp) onSubmit(text string) {
+// Message prefixes
+const (
+	userPrefix      = "\x1b[36m> %s\x1b[0m"
+	assistantPrefix = "\x1b[32m%s\x1b[0m"
+	systemPrefix    = "\x1b[33m%s\x1b[0m"
+)
+
+// addMessage adds a message with the specified color prefix
+func (app *ChatApp) addMessage(prefix, text string) {
+	app.messages = append(app.messages, fmt.Sprintf(prefix, text))
+}
+
+func (app *ChatApp) startStreaming(ctx lotus.Context, fullText string) {
+	// Add initial message with cursor
+	app.messages = append(app.messages, "\x1b[32m▌\x1b[0m")
+	msgIndex := len(app.messages) - 1
+
+	go func() {
+		var current string
+		for i, word := range strings.Fields(fullText) {
+			time.Sleep(50 * time.Millisecond)
+			if i > 0 {
+				current += " "
+			}
+			current += word
+			// Update message in-place with cursor
+			app.messages[msgIndex] = fmt.Sprintf("\x1b[32m%s ▌\x1b[0m", current)
+			ctx.Update() // Use context from parameter
+		}
+		// Final message without cursor
+		app.messages[msgIndex] = fmt.Sprintf("\x1b[32m%s\x1b[0m", current)
+		ctx.Update() // Use context from parameter
+	}()
+}
+
+func (app *ChatApp) onSubmit(ctx lotus.Context, text string) {
 	if text == "" {
 		return
 	}
-	app.messages = append(app.messages, "\x1b[36m> "+text+"\x1b[0m") // Cyan user message
 
-	switch text {
-	case "long":
-		// Add 50 messages to demonstrate auto-scroll
-		for i := 1; i <= 50; i++ {
-			app.messages = append(app.messages, fmt.Sprintf("[%02d] Auto-scroll test message - scroll up with ↑ to see earlier messages", i))
-		}
-		app.messages = append(app.messages, "")
-		app.messages = append(app.messages, "\x1b[32m✓ Added 50 messages! Notice how it auto-scrolled to the bottom.\x1b[0m")
-		app.messages = append(app.messages, "\x1b[32m  Try using ↑ arrow key to scroll up through history.\x1b[0m")
-	case "demo":
-		// Simulate a conversation
-		conversation := []string{
-			"\x1b[32mAssistant: Hello! How can I help you today?\x1b[0m",
-			"",
-			"\x1b[36m> I need help with scrolling\x1b[0m",
-			"",
-			"\x1b[32mAssistant: Great question! In Lotus, scrolling works automatically:\x1b[0m",
-			"\x1b[32m• Messages stay at the bottom (like VS Code Chat)\x1b[0m",
-			"\x1b[32m• New content auto-scrolls into view\x1b[0m",
-			"\x1b[32m• Use arrow keys to scroll through history\x1b[0m",
-			"",
-			"\x1b[36m> That's exactly what I needed!\x1b[0m",
-			"",
-			"\x1b[32mAssistant: Perfect! Try the 'long' command to see it in action.\x1b[0m",
-		}
-		app.messages = append(app.messages, conversation...)
-	default:
-		app.messages = append(app.messages, "\x1b[32mEcho: "+text+"\x1b[0m") // Green echo
-	}
+	app.addMessage(userPrefix, text)
+	app.addMessage(assistantPrefix, "Roger that!")
 }
 
 func (app *ChatApp) Render() *lotus.Element {
 	return lotus.VStack(
-		// Header with instructions
 		lotus.Box(
-			lotus.VStack(
-				lotus.Text("Lotus Chat - Auto-Scroll Demo").WithBold().WithColor("bright-cyan"),
-				lotus.Text("Use ↑↓ to scroll • Try 'long' or 'demo' commands").WithColor("8"),
-			).WithPaddingX(1),
+			lotus.Text("Lotus Chat").WithBold().WithColor("bright-cyan"),
 		).WithBorderStyle(lotus.BorderStyleRounded),
 
-		// Messages area - auto-scrolls to bottom, flex-grow enables overflow:auto
 		lotus.Box(
-			lotus.VStack(lotus.Map(app.messages, lotus.Text)...).
-				WithPaddingX(1),
+			lotus.VStack(app.messages),
 		).WithBorderStyle(lotus.BorderStyleRounded).WithFlexGrow(1),
 
-		// Input
 		lotus.Box(
-			lotus.Input("Type a message (or 'long', 'demo')...", app.onSubmit),
+			lotus.Input("Type a message...", app.onSubmit),
 		).WithBorderStyle(lotus.BorderStyleRounded),
 	)
 }
 
 func main() {
-	if err := lotus.Run(NewChatApp()); err != nil {
+	if err := lotus.Run(NewChatApp); err != nil {
 		panic(err)
 	}
 }
