@@ -361,3 +361,323 @@ func findSubstring(line, word string) bool {
 	}
 	return false
 }
+
+// TestStripANSI tests ANSI escape code removal
+func TestStripANSI(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name:     "plain text",
+			input:    "Hello World",
+			expected: "Hello World",
+		},
+		{
+			name:     "cyan text (36m)",
+			input:    "\x1b[36mHello\x1b[0m",
+			expected: "Hello",
+		},
+		{
+			name:     "green text (32m)",
+			input:    "\x1b[32mWorld\x1b[0m",
+			expected: "World",
+		},
+		{
+			name:     "multiple colors",
+			input:    "\x1b[36mHello\x1b[0m \x1b[32mWorld\x1b[0m",
+			expected: "Hello World",
+		},
+		{
+			name:     "bold text (1m)",
+			input:    "\x1b[1mBold\x1b[0m",
+			expected: "Bold",
+		},
+		{
+			name:     "combined styles (1;32m)",
+			input:    "\x1b[1;32mGreen Bold\x1b[0m",
+			expected: "Green Bold",
+		},
+		{
+			name:     "empty string",
+			input:    "",
+			expected: "",
+		},
+		{
+			name:     "only ANSI codes",
+			input:    "\x1b[36m\x1b[0m",
+			expected: "",
+		},
+		{
+			name:     "chat message simulation",
+			input:    "\x1b[32mAssistant: Hello! How can I help you today?\x1b[0m",
+			expected: "Assistant: Hello! How can I help you today?",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := stripANSI(tt.input)
+			if result != tt.expected {
+				t.Errorf("stripANSI() = %q, want %q", result, tt.expected)
+			}
+		})
+	}
+}
+
+// TestDisplayWidthWithANSI tests that display width ignores ANSI codes
+func TestDisplayWidthWithANSI(t *testing.T) {
+	lr := NewLayoutRenderer()
+
+	tests := []struct {
+		name     string
+		input    string
+		expected int
+	}{
+		{
+			name:     "plain text",
+			input:    "Hello",
+			expected: 5,
+		},
+		{
+			name:     "cyan colored text",
+			input:    "\x1b[36mHello\x1b[0m",
+			expected: 5, // ANSI codes should not count
+		},
+		{
+			name:     "green colored text",
+			input:    "\x1b[32mWorld\x1b[0m",
+			expected: 5,
+		},
+		{
+			name:     "text with spaces and colors",
+			input:    "\x1b[36mHello\x1b[0m \x1b[32mWorld\x1b[0m",
+			expected: 11, // "Hello World" = 11 chars
+		},
+		{
+			name:     "chat message with color",
+			input:    "\x1b[32mAssistant: Hello!\x1b[0m",
+			expected: 17, // "Assistant: Hello!" = 17 chars
+		},
+		{
+			name:     "emoji with color",
+			input:    "\x1b[36m> demo\x1b[0m",
+			expected: 6, // "> demo" = 6 chars
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := lr.displayWidth(tt.input)
+			if result != tt.expected {
+				t.Errorf("displayWidth(%q) = %d, want %d", tt.input, result, tt.expected)
+			}
+		})
+	}
+}
+
+// TestWrapTextWithANSI tests that text wrapping handles ANSI codes correctly
+func TestWrapTextWithANSI(t *testing.T) {
+	lr := NewLayoutRenderer()
+
+	tests := []struct {
+		name     string
+		text     string
+		width    int
+		expected []string
+	}{
+		{
+			name:     "plain text no wrap",
+			text:     "Hello World",
+			width:    20,
+			expected: []string{"Hello World"},
+		},
+		{
+			name:     "colored text no wrap",
+			text:     "\x1b[36mHello\x1b[0m \x1b[32mWorld\x1b[0m",
+			width:    20,
+			expected: []string{"\x1b[36mHello\x1b[0m \x1b[32mWorld\x1b[0m"},
+		},
+		{
+			name:  "colored text with wrap",
+			text:  "\x1b[36mHello\x1b[0m \x1b[32mWorld\x1b[0m",
+			width: 5,
+			expected: []string{
+				"\x1b[36mHello\x1b[0m",
+				"\x1b[32mWorld\x1b[0m",
+			},
+		},
+		{
+			name:  "long colored message with wrap - ANSI codes preserved",
+			text:  "\x1b[32mAssistant: Great question! In Lotus, scrolling works automatically\x1b[0m",
+			width: 30,
+			// wrapText() splits by words and preserves ANSI codes in the wrapped text
+			// It doesn't inject ANSI codes per word, but preserves them from the original
+			expected: []string{
+				"\x1b[32mAssistant: Great question! In",
+				"Lotus, scrolling works",
+				"automatically\x1b[0m",
+			},
+		},
+		{
+			name:  "user message simulation",
+			text:  "\x1b[36m> I need help with scrolling\x1b[0m",
+			width: 20,
+			// The wrapping preserves ANSI codes from original text
+			expected: []string{
+				"\x1b[36m> I need help with",
+				"scrolling\x1b[0m",
+			},
+		},
+		{
+			name:  "width calculation ignores ANSI - fits on one line",
+			text:  "\x1b[36mHello\x1b[0m",
+			width: 5, // Exactly fits "Hello" (5 chars)
+			expected: []string{
+				"\x1b[36mHello\x1b[0m",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := lr.wrapText(tt.text, tt.width)
+			if len(result) != len(tt.expected) {
+				t.Errorf("wrapText() line count = %d, want %d", len(result), len(tt.expected))
+				t.Logf("Got lines: %v", result)
+				t.Logf("Want lines: %v", tt.expected)
+				return
+			}
+			for i := range result {
+				if result[i] != tt.expected[i] {
+					t.Errorf("wrapText() line %d = %q, want %q", i, result[i], tt.expected[i])
+				}
+			}
+		})
+	}
+}
+
+// TestRenderTextWithANSI tests that rendering preserves ANSI codes in buffer
+func TestRenderTextWithANSI(t *testing.T) {
+	tests := []struct {
+		name     string
+		text     string
+		width    int
+		height   int
+		validate func(*testing.T, *Buffer)
+	}{
+		{
+			name:   "colored text renders to buffer",
+			text:   "\x1b[36mHello\x1b[0m",
+			width:  10,
+			height: 3,
+			validate: func(t *testing.T, buf *Buffer) {
+				// Buffer should contain the actual text "Hello"
+				line := ""
+				for x := 0; x < buf.Width; x++ {
+					cell := buf.Get(x, 0)
+					if cell.Char != ' ' && cell.Char != '\u200B' {
+						line += string(cell.Char)
+					}
+				}
+				if !findSubstring(line, "Hello") {
+					t.Errorf("Expected buffer to contain 'Hello', got: %q", line)
+				}
+			},
+		},
+		{
+			name:   "chat message renders correctly",
+			text:   "\x1b[32mAssistant: Hello!\x1b[0m",
+			width:  30,
+			height: 5,
+			validate: func(t *testing.T, buf *Buffer) {
+				// Buffer should contain "Assistant: Hello!"
+				line := ""
+				for x := 0; x < buf.Width; x++ {
+					cell := buf.Get(x, 0)
+					if cell.Char != ' ' && cell.Char != '\u200B' {
+						line += string(cell.Char)
+					}
+				}
+				if !findSubstring(line, "Assistant:") {
+					t.Errorf("Expected buffer to contain 'Assistant:', got: %q", line)
+				}
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			root := vdom.Box(vdom.Text(tt.text))
+			resolver := style.NewResolver("")
+			styled := resolver.Resolve(root)
+			layoutBox := layout.Compute(styled, tt.width, tt.height)
+
+			lr := NewLayoutRenderer()
+			buffer := lr.RenderToBuffer(layoutBox, tt.width, tt.height)
+
+			tt.validate(t, buffer)
+		})
+	}
+}
+
+// TestChatExampleANSIRendering tests the exact chat example scenario
+func TestChatExampleANSIRendering(t *testing.T) {
+	// Simulate the chat example messages with ANSI colors
+	messages := []string{
+		"\x1b[36m> demo\x1b[0m",
+		"",
+		"\x1b[32mAssistant: Hello! How can I help you today?\x1b[0m",
+		"",
+		"\x1b[36m> I need help with scrolling\x1b[0m",
+		"",
+		"\x1b[32mAssistant: Great question! In Lotus, scrolling works automatically:\x1b[0m",
+		"\x1b[32m• Messages stay at the bottom (like VS Code Chat)\x1b[0m",
+		"\x1b[32m• New content auto-scrolls into view\x1b[0m",
+		"\x1b[32m• Use arrow keys to scroll through history\x1b[0m",
+	}
+
+	width := 80
+	height := 20
+
+	// Create a VStack with all messages (like the chat example)
+	children := make([]any, len(messages))
+	for i, msg := range messages {
+		children[i] = vdom.Text(msg)
+	}
+	root := vdom.VStack(children...)
+
+	resolver := style.NewResolver("")
+	styled := resolver.Resolve(root)
+	layoutBox := layout.Compute(styled, width, height)
+
+	lr := NewLayoutRenderer()
+	buffer := lr.RenderToBuffer(layoutBox, width, height)
+
+	// Verify buffer contains expected content
+	bufferText := buffer.ToString()
+
+	// Strip ANSI from buffer to check content
+	cleanText := stripANSI(bufferText)
+
+	// Check key phrases are present
+	expectedPhrases := []string{
+		"demo",
+		"Assistant:",
+		"scrolling",
+		"Messages stay at the bottom",
+		"arrow keys",
+	}
+
+	for _, phrase := range expectedPhrases {
+		if !findSubstring(cleanText, phrase) {
+			t.Errorf("Expected buffer to contain %q, but it was not found", phrase)
+			maxLen := 500
+			if len(cleanText) < maxLen {
+				maxLen = len(cleanText)
+			}
+			t.Logf("Buffer content (first %d chars): %s", maxLen, cleanText[:maxLen])
+		}
+	}
+}

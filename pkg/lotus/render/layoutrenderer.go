@@ -178,25 +178,121 @@ func (lr *LayoutRenderer) renderText(buf *Buffer, box *layout.LayoutBox, bufStyl
 			x = contentX + (contentWidth - lineWidth)
 		}
 
-		// Write line to buffer
-		for _, ch := range line {
+		// Parse and render line with ANSI support
+		lr.renderLineWithANSI(buf, line, x, y, contentX, contentWidth, bufStyle)
+	}
+}
+
+// renderLineWithANSI renders a line of text, parsing ANSI escape codes and applying them as styles
+func (lr *LayoutRenderer) renderLineWithANSI(buf *Buffer, line string, startX, y, contentX, contentWidth int, baseStyle Style) {
+	x := startX
+	currentStyle := baseStyle
+	i := 0
+	
+	for i < len(line) {
+		// Check for ANSI escape sequence
+		if line[i] == '\033' && i+1 < len(line) && line[i+1] == '[' {
+			// Found ANSI sequence, parse it
+			j := i + 2
+			for j < len(line) && (line[j] < 'A' || line[j] > 'Z') && (line[j] < 'a' || line[j] > 'z') {
+				j++
+			}
+			if j < len(line) {
+				// Extract the code
+				code := line[i+2 : j]
+				
+				// Apply ANSI code to current style
+				currentStyle = lr.applyANSICode(code, baseStyle, currentStyle)
+				
+				i = j + 1 // Skip past the ANSI sequence
+				continue
+			}
+		}
+		
+		// Regular character - render it
+		ch, size := decodeRune(line[i:])
+		if ch != 0 {
 			charWidth := runewidth.RuneWidth(ch)
 			// Check if there's enough space for the full character width
 			if x+charWidth > contentX+contentWidth {
 				break // Don't exceed content width
 			}
-			buf.Set(x, y, Cell{Char: ch, Style: bufStyle})
+			buf.Set(x, y, Cell{Char: ch, Style: currentStyle})
 
 			// For wide characters (emoji, CJK), mark the next cell as occupied
-			// Use a zero-width space (U+200B) as a placeholder
 			if charWidth == 2 {
-				buf.Set(x+1, y, Cell{Char: '\u200B', Style: bufStyle})
+				buf.Set(x+1, y, Cell{Char: '\u200B', Style: currentStyle})
 			}
 
-			// Increment by actual character width (emojis = 2, normal = 1)
 			x += charWidth
 		}
+		i += size
 	}
+}
+
+// decodeRune extracts the next rune from a byte slice
+func decodeRune(s string) (rune, int) {
+	if len(s) == 0 {
+		return 0, 0
+	}
+	// Simple UTF-8 decoding
+	for i, r := range s {
+		if i == 0 {
+			// Calculate size by checking how many continuation bytes follow
+			size := 1
+			if r >= 0x80 {
+				// Multi-byte sequence
+				b := s[0]
+				if b&0xE0 == 0xC0 {
+					size = 2
+				} else if b&0xF0 == 0xE0 {
+					size = 3
+				} else if b&0xF8 == 0xF0 {
+					size = 4
+				}
+			}
+			return r, size
+		}
+	}
+	return 0, 0
+}
+
+// applyANSICode applies an ANSI escape code to the current style
+func (lr *LayoutRenderer) applyANSICode(code string, baseStyle, currentStyle Style) Style {
+	// Reset code
+	if code == "0" || code == "" {
+		return baseStyle
+	}
+	
+	// Parse color codes
+	switch code {
+	case "30":
+		currentStyle.FgColor = "black"
+	case "31":
+		currentStyle.FgColor = "red"
+	case "32":
+		currentStyle.FgColor = "green"
+	case "33":
+		currentStyle.FgColor = "yellow"
+	case "34":
+		currentStyle.FgColor = "blue"
+	case "35":
+		currentStyle.FgColor = "magenta"
+	case "36":
+		currentStyle.FgColor = "cyan"
+	case "37":
+		currentStyle.FgColor = "white"
+	case "1":
+		currentStyle.Bold = true
+	case "2":
+		currentStyle.Dim = true
+	case "3":
+		currentStyle.Italic = true
+	case "4":
+		currentStyle.Underline = true
+	}
+	
+	return currentStyle
 }
 
 // renderBorder draws a border around a box in the buffer
@@ -316,9 +412,29 @@ func (lr *LayoutRenderer) wrapText(text string, width int) []string {
 	return lines
 }
 
-// displayWidth calculates the display width of a string (for now, just rune count)
+// displayWidth calculates the display width of a string, ignoring ANSI escape codes
 func (lr *LayoutRenderer) displayWidth(s string) int {
-	return runewidth.StringWidth(s)
+	return runewidth.StringWidth(stripANSI(s))
+}
+
+// stripANSI removes ANSI escape sequences from a string
+func stripANSI(s string) string {
+	result := strings.Builder{}
+	inEscape := false
+	for i := 0; i < len(s); i++ {
+		if s[i] == '\033' {
+			inEscape = true
+			continue
+		}
+		if inEscape {
+			if (s[i] >= 'A' && s[i] <= 'Z') || (s[i] >= 'a' && s[i] <= 'z') {
+				inEscape = false
+			}
+			continue
+		}
+		result.WriteByte(s[i])
+	}
+	return result.String()
 }
 
 // styleToBufferStyle converts a ComputedStyle to a buffer Style

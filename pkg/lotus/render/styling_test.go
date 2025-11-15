@@ -298,23 +298,3 @@ func TestMaxLines(t *testing.T) {
 		})
 	}
 }
-
-func stripANSI(s string) string {
-	// Simple ANSI code stripper for testing
-	result := strings.Builder{}
-	inEscape := false
-	for i := 0; i < len(s); i++ {
-		if s[i] == '\033' {
-			inEscape = true
-			continue
-		}
-		if inEscape {
-			if (s[i] >= 'A' && s[i] <= 'Z') || (s[i] >= 'a' && s[i] <= 'z') {
-				inEscape = false
-			}
-			continue
-		}
-		result.WriteByte(s[i])
-	}
-	return result.String()
-}
