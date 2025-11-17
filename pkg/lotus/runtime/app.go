@@ -3,7 +3,6 @@ package runtime
 import (
 	"fmt"
 	"os"
-	"syscall"
 
 	"github.com/speier/smith/pkg/lotus/layout"
 	"github.com/speier/smith/pkg/lotus/render"
@@ -106,9 +105,6 @@ func Run(app App) error {
 
 	// Set up rendering using clean pipeline: vdom → style → layout → buffer → diff → ansi
 	term.OnRender(func() string {
-		if devTools != nil {
-			devTools.Log("Render() called")
-		}
 		// Create context for this render cycle
 		renderCtx := Context{RenderCallback: term.RequestRender}
 		// Render once and update focus on that tree
@@ -225,6 +221,8 @@ func Run(app App) error {
 			} else {
 				devTools.Enable()
 			}
+			// Force full re-render when toggling DevTools to avoid artifacts
+			previousBuffer = nil
 			return true
 		}
 
@@ -232,37 +230,19 @@ func Run(app App) error {
 		if devTools != nil && devTools.IsEnabled() && event.Key == 16 { // Ctrl+P
 			if dt, ok := devTools.(interface{ CyclePosition() }); ok {
 				dt.CyclePosition()
+				// Force full re-render when changing position to avoid artifacts
+				previousBuffer = nil
 			}
 			return true
-		}
-
-		// First, try to route to app if it implements Focusable (backward compatibility)
-		if focusable, ok := appInstance.(Focusable); ok {
-			if focusable.HandleKeyEvent(event) {
-				return true
-			}
 		}
 
 		// Route event to the currently focused component
 		focused := focusMgr.getFocused()
 		if focused != nil {
-			// Try new interface first (with context)
 			if handler, ok := focused.(interface {
-				HandleKeyWithContext(Context, tty.KeyEvent) bool
+				HandleKey(Context, tty.KeyEvent) bool
 			}); ok {
-				handled := handler.HandleKeyWithContext(ctx, event)
-				if devTools != nil {
-					devTools.Log("Key handled=%v, requesting render", handled)
-				}
-				term.RequestRender()
-				if handled {
-					return true
-				}
-			} else {
-				// Fallback to old interface (backward compatibility)
-				handled := focused.HandleKeyEvent(event)
-				// Always trigger re-render after focused component processes event
-				// Even if it returns false (e.g., Input calling OnSubmit), state may have changed
+				handled := handler.HandleKey(ctx, event)
 				if devTools != nil {
 					devTools.Log("Key handled=%v, requesting render", handled)
 				}
@@ -271,7 +251,6 @@ func Run(app App) error {
 					return true
 				}
 			}
-			// Event not fully handled, fall through to global handlers
 		}
 
 		// If no focused component handled it, try global handlers in the tree
@@ -300,7 +279,7 @@ func Run(app App) error {
 	if hmrRestart {
 		// Terminal is now cleanly restored (thanks to defers in Start())
 		// Use syscall.Exec to replace this process with the new binary
-		if execErr := execRestart(hmrStatePath); execErr != nil {
+		if execErr := hmrManager.ExecRestart(hmrStatePath); execErr != nil {
 			return fmt.Errorf("HMR restart failed: %w (original error: %v)", execErr, err)
 		}
 	}
@@ -318,29 +297,6 @@ func RunFunc(component FunctionalComponent) error {
 // Accepts: *vdom.Element
 func RunElement(element *vdom.Element) error {
 	return Run(&elementApp{element: element})
-}
-
-// execRestart replaces the current process with the HMR-rebuilt binary
-func execRestart(statePath string) error {
-	// This is a bit hacky but we need to import devtools package
-	// For now, inline the exec logic here
-	binaryPath := "/tmp/lotus-hmr-app"
-
-	// Verify the new binary exists
-	if _, err := os.Stat(binaryPath); err != nil {
-		return fmt.Errorf("rebuilt binary not found: %w", err)
-	}
-
-	// Prepare environment with state path
-	env := os.Environ()
-	if statePath != "" {
-		env = append(env, fmt.Sprintf("LOTUS_STATE_PATH=%s", statePath))
-	}
-
-	// Use syscall.Exec to replace current process with new binary
-	// This is Unix-specific but works on macOS and Linux
-	// The current process is replaced - no new process spawned!
-	return syscall.Exec(binaryPath, []string{binaryPath}, env)
 }
 
 // handleModalEscape searches for open modals in the tree and closes them on ESC

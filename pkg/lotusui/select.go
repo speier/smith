@@ -334,13 +334,8 @@ func (s *Select) emitChange(ctx context.Context) {
 	}
 }
 
-// HandleKey processes keyboard events
-func (s *Select) HandleKey(event tty.KeyEvent) bool {
-	return s.HandleKeyWithContext(context.Context{}, event)
-}
-
-// HandleKeyWithContext processes keyboard events with context
-func (s *Select) HandleKeyWithContext(ctx context.Context, event tty.KeyEvent) bool {
+// HandleKey processes keyboard events with context
+func (s *Select) HandleKey(ctx context.Context, event tty.KeyEvent) bool {
 	if s.Disabled {
 		return false
 	}
@@ -383,11 +378,6 @@ func (s *Select) HandleKeyWithContext(ctx context.Context, event tty.KeyEvent) b
 }
 
 // Focusable interface implementation
-
-// HandleKeyEvent implements Focusable interface
-func (s *Select) HandleKeyEvent(event tty.KeyEvent) bool {
-	return s.HandleKey(event)
-}
 
 // IsFocusable implements Focusable interface
 func (s *Select) IsFocusable() bool {

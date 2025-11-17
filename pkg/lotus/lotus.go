@@ -4,6 +4,7 @@ import (
 	"github.com/speier/smith/pkg/lotus/context"
 	"github.com/speier/smith/pkg/lotus/primitives"
 	"github.com/speier/smith/pkg/lotus/runtime"
+	"github.com/speier/smith/pkg/lotus/tty"
 	"github.com/speier/smith/pkg/lotus/vdom"
 
 	// Import devtools to register factories
@@ -92,6 +93,34 @@ type (
 
 	// KeyBinding represents a registered keyboard shortcut
 	KeyBinding = runtime.KeyBinding
+
+	// KeyEvent represents a keyboard input event
+	KeyEvent = tty.KeyEvent
+)
+
+// Key constants for special keys
+const (
+	KeyCtrlC     = tty.KeyCtrlC
+	KeyCtrlD     = tty.KeyCtrlD
+	KeyBackspace = tty.KeyBackspace
+	KeyEnter     = tty.KeyEnter
+	KeyEscape    = tty.KeyEscape
+)
+
+// Key sequence constants for arrow keys and special keys
+const (
+	SeqUp         = tty.SeqUp
+	SeqDown       = tty.SeqDown
+	SeqLeft       = tty.SeqLeft
+	SeqRight      = tty.SeqRight
+	SeqHome       = tty.SeqHome
+	SeqEnd        = tty.SeqEnd
+	SeqDelete     = tty.SeqDelete
+	SeqCtrlLeft   = tty.SeqCtrlLeft
+	SeqCtrlRight  = tty.SeqCtrlRight
+	SeqShiftEnter = tty.SeqShiftEnter
+	SeqPasteStart = tty.SeqPasteStart
+	SeqPasteEnd   = tty.SeqPasteEnd
 )
 
 // Runtime functions
@@ -168,17 +197,11 @@ const (
 
 // Input components
 var (
-	// CreateInput creates a single-line text input field
-	// Usage: lotus.CreateInput("placeholder", onSubmit)
-	CreateInput = primitives.CreateInput
-
-	// Input is an alias for CreateInput (backward compatibility)
+	// Input creates a single-line text input field
+	// Usage: lotus.Input("placeholder", onSubmit)
 	Input = primitives.CreateInput
 
-	// CreateTextArea creates a multi-line text input field
-	// Usage: lotus.CreateTextArea("placeholder", onSubmit)
-	CreateTextArea = primitives.CreateTextArea
-
-	// TextArea is an alias for CreateTextArea (backward compatibility)
+	// TextArea creates a multi-line text input field
+	// Usage: lotus.TextArea("placeholder", onSubmit)
 	TextArea = primitives.CreateTextArea
 )

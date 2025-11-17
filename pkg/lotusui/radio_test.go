@@ -140,7 +140,7 @@ func TestRadioGroupKeyboardNavigation(t *testing.T) {
 
 		// Press Down arrow
 		downEvent := tty.KeyEvent{Key: 27, Code: tty.SeqDown}
-		handled := group.HandleKey(downEvent)
+		handled := group.HandleKey(context.Context{}, downEvent)
 		if !handled {
 			t.Error("RadioGroup should handle Down arrow")
 		}
@@ -150,20 +150,20 @@ func TestRadioGroupKeyboardNavigation(t *testing.T) {
 		}
 
 		// Press Down again
-		group.HandleKey(downEvent)
+		group.HandleKey(context.Context{}, downEvent)
 		if group.focusedIndex != 2 {
 			t.Errorf("Expected focusedIndex 2 after second Down, got %d", group.focusedIndex)
 		}
 
 		// Press Down again - should wrap to 0
-		group.HandleKey(downEvent)
+		group.HandleKey(context.Context{}, downEvent)
 		if group.focusedIndex != 0 {
 			t.Errorf("Expected focusedIndex 0 after wrap, got %d", group.focusedIndex)
 		}
 
 		// Press Up arrow
 		upEvent := tty.KeyEvent{Key: 27, Code: tty.SeqUp}
-		handled = group.HandleKey(upEvent)
+		handled = group.HandleKey(context.Context{}, upEvent)
 		if !handled {
 			t.Error("RadioGroup should handle Up arrow")
 		}
@@ -188,7 +188,7 @@ func TestRadioGroupKeyboardNavigation(t *testing.T) {
 
 		// Press Space
 		spaceEvent := tty.KeyEvent{Key: ' ', Char: " "}
-		handled := group.HandleKey(spaceEvent)
+		handled := group.HandleKey(context.Context{}, spaceEvent)
 		if !handled {
 			t.Error("RadioGroup should handle Space key")
 		}

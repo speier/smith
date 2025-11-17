@@ -2,6 +2,9 @@ package layout
 
 import (
 	"testing"
+
+	"github.com/speier/smith/pkg/lotus/style"
+	"github.com/speier/smith/pkg/lotus/vdom"
 )
 
 func TestVisibleLen(t *testing.T) {
@@ -53,10 +56,53 @@ func TestVisibleLen(t *testing.T) {
 }
 
 func TestComputeIntrinsicWidthWithANSI(t *testing.T) {
-	// This tests that ComputeIntrinsicWidth correctly uses visibleLen
-	// We'll need to create a styled node with ANSI text
+	// Test that ComputeIntrinsicWidth correctly handles ANSI-styled text
+	// by using visibleLen to exclude escape codes from width calculation
 
-	// TODO: Add test cases for actual styled nodes with ANSI codes
-	// This would require creating vdom elements and style nodes
-	t.Skip("Need to add integration test with actual styled nodes")
+	tests := []struct {
+		name          string
+		element       *vdom.Element
+		expectedWidth int
+	}{
+		{
+			name:          "plain text",
+			element:       vdom.Text("Hello"),
+			expectedWidth: 5,
+		},
+		{
+			name:          "text with color",
+			element:       vdom.Text("Hello").WithColor("red"),
+			expectedWidth: 5, // ANSI codes should not count
+		},
+		{
+			name:          "text with bold",
+			element:       vdom.Text("Hello").WithBold(),
+			expectedWidth: 5,
+		},
+		{
+			name:          "text with color and bold",
+			element:       vdom.Text("World").WithColor("bright-cyan").WithBold(),
+			expectedWidth: 5,
+		},
+		{
+			name:          "multi-line text with ANSI",
+			element:       vdom.Text("Line 1\nLine 2").WithColor("green"),
+			expectedWidth: 6, // Longest line is "Line 1" or "Line 2" = 6 chars
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Apply styles to generate ANSI codes
+			resolver := style.NewResolver("")
+			styledNode := resolver.Resolve(tt.element)
+
+			// Compute intrinsic width
+			width := ComputeIntrinsicWidth(styledNode)
+
+			if width != tt.expectedWidth {
+				t.Errorf("Expected width %d, got %d", tt.expectedWidth, width)
+			}
+		})
+	}
 }

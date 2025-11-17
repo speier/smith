@@ -17,6 +17,7 @@ type HMRManager interface {
 	Stop() error
 	SetCleanupHandler(func())
 	SetExitHandler(func())
+	ExecRestart(statePath string) error
 }
 
 // Global factories (set by devtools package to avoid import cycle)
@@ -46,8 +47,12 @@ func wrapWithDevTools(app *vdom.Element, devToolsPanel *vdom.Element, devTools D
 	}
 
 	// Style DevTools panel with border and dark background
-	styledDevTools := vdom.Box(devToolsPanel).
+	// Put overflow on the inner content, border on the outer box
+	scrollableContent := vdom.Box(devToolsPanel).
 		WithStyle("background-color", "#1a1a1a").
+		WithOverflow("auto")
+
+	styledDevTools := vdom.Box(scrollableContent).
 		WithBorderStyle(vdom.BorderStyleRounded)
 
 	switch position {
@@ -55,29 +60,29 @@ func wrapWithDevTools(app *vdom.Element, devToolsPanel *vdom.Element, devTools D
 		// Right side: HStack with app (60%) + devtools (40%)
 		// Apply flex-grow directly to preserve app's internal flex behavior
 		return vdom.HStack(
-			app.Clone().WithFlexGrow(3),    // 60% (3/5) - app maintains internal flex
-			styledDevTools.WithFlexGrow(2), // 40% (2/5)
+			app.Clone().WithFlexGrow(3),              // 60% (3/5) - app maintains internal flex
+			vdom.Box(styledDevTools).WithFlexGrow(2), // 40% (2/5) - wrap to prevent mutation
 		)
 
 	case "bottom":
 		// Bottom: VStack with app (70%) + devtools (30%)
 		return vdom.VStack(
-			app.Clone().WithFlexGrow(7),    // 70% - app maintains internal flex
-			styledDevTools.WithFlexGrow(3), // 30%
+			app.Clone().WithFlexGrow(7),              // 70% - app maintains internal flex
+			vdom.Box(styledDevTools).WithFlexGrow(3), // 30% - wrap to prevent mutation
 		)
 
 	case "left":
 		// Left side: HStack with devtools (40%) + app (60%)
 		return vdom.HStack(
-			styledDevTools.WithFlexGrow(2), // 40% (2/5)
-			app.Clone().WithFlexGrow(3),    // 60% (3/5) - app maintains internal flex
+			vdom.Box(styledDevTools).WithFlexGrow(2), // 40% (2/5) - wrap to prevent mutation
+			app.Clone().WithFlexGrow(3),              // 60% (3/5) - app maintains internal flex
 		)
 
 	default:
 		// Fallback to right
 		return vdom.HStack(
 			app.Clone().WithFlexGrow(3),
-			styledDevTools.WithFlexGrow(2),
+			vdom.Box(styledDevTools).WithFlexGrow(2),
 		)
 	}
 }

@@ -226,6 +226,13 @@ func (lr *LayoutRenderer) renderLineWithANSI(buf *Buffer, line string, startX, y
 		// Regular character - render it
 		ch, size := decodeRune(line[i:])
 		if ch != 0 {
+			// Skip variation selectors (U+FE00-U+FE0F, U+E0100-U+E01EF)
+			// These are zero-width characters that modify the preceding character
+			if (ch >= 0xFE00 && ch <= 0xFE0F) || (ch >= 0xE0100 && ch <= 0xE01EF) {
+				i += size
+				continue
+			}
+
 			charWidth := runewidth.RuneWidth(ch)
 			// Check if there's enough space for the full character width
 			if x+charWidth > contentX+contentWidth {

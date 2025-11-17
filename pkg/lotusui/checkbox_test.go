@@ -51,7 +51,7 @@ func TestCheckboxCallback(t *testing.T) {
 	})
 
 	// Use keyboard event (space) to toggle - this triggers callback
-	cb.HandleKeyWithContext(context.Context{}, tty.KeyEvent{Key: ' '})
+	cb.HandleKey(context.Context{}, tty.KeyEvent{Key: ' '})
 
 	if !called {
 		t.Error("OnChange callback not called")

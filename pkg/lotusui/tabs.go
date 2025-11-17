@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/speier/smith/pkg/lotus/context"
 	"github.com/speier/smith/pkg/lotus/tty"
 	"github.com/speier/smith/pkg/lotus/vdom"
 )
@@ -288,8 +289,8 @@ func (t *Tabs) emitChange() {
 	}
 }
 
-// HandleKey processes keyboard events
-func (t *Tabs) HandleKey(event tty.KeyEvent) bool {
+// HandleKey processes keyboard events with context
+func (t *Tabs) HandleKey(ctx context.Context, event tty.KeyEvent) bool {
 	// Arrow keys for tab navigation (Left/Right at top level)
 	switch event.Code {
 	case tty.SeqLeft:
@@ -320,11 +321,6 @@ func (t *Tabs) HandleKey(event tty.KeyEvent) bool {
 }
 
 // Focusable interface implementation
-
-// HandleKeyEvent implements Focusable interface
-func (t *Tabs) HandleKeyEvent(event tty.KeyEvent) bool {
-	return t.HandleKey(event)
-}
 
 // IsFocusable implements Focusable interface
 // Tabs itself is not focusable - its children are focusable

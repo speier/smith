@@ -188,7 +188,7 @@ func TestInput_HandleKey(t *testing.T) {
 
 	// Test printable character
 	event := tty.KeyEvent{Key: 'a', Char: "a"}
-	handled := input.HandleKey(event)
+	handled := input.HandleKey(Context{}, event)
 	if !handled {
 		t.Error("Expected printable char to be handled")
 	}
@@ -198,7 +198,7 @@ func TestInput_HandleKey(t *testing.T) {
 
 	// Test Enter (should NOT be handled)
 	event = tty.KeyEvent{Key: tty.KeyEnter}
-	handled = input.HandleKey(event)
+	handled = input.HandleKey(Context{}, event)
 	if handled {
 		t.Error("Expected Enter to NOT be handled")
 	}

@@ -665,6 +665,11 @@ func visibleLen(s string) int {
 			}
 			continue
 		}
+		// Skip variation selectors (U+FE00-U+FE0F, U+E0100-U+E01EF)
+		// These are zero-width characters that modify the preceding character
+		if (r >= 0xFE00 && r <= 0xFE0F) || (r >= 0xE0100 && r <= 0xE01EF) {
+			continue
+		}
 		// Use RuneWidth to account for wide characters (emojis = 2, normal = 1)
 		count += runewidth.RuneWidth(r)
 	}

@@ -3,6 +3,7 @@ package lotusui
 import (
 	"testing"
 
+	"github.com/speier/smith/pkg/lotus/context"
 	"github.com/speier/smith/pkg/lotus/tty"
 	"github.com/speier/smith/pkg/lotus/vdom"
 )
@@ -189,7 +190,7 @@ func TestTabsKeyboardNavigation(t *testing.T) {
 	t.Run("CtrlNumberSwitchesTabs", func(t *testing.T) {
 		// Ctrl+1 (byte value 1)
 		event := tty.KeyEvent{Key: 1}
-		handled := tabs.HandleKey(event)
+		handled := tabs.HandleKey(context.Context{}, event)
 		if !handled {
 			t.Error("Tabs should handle Ctrl+1")
 		}
@@ -199,7 +200,7 @@ func TestTabsKeyboardNavigation(t *testing.T) {
 
 		// Ctrl+2 (byte value 2)
 		event = tty.KeyEvent{Key: 2}
-		handled = tabs.HandleKey(event)
+		handled = tabs.HandleKey(context.Context{}, event)
 		if !handled {
 			t.Error("Tabs should handle Ctrl+2")
 		}
@@ -209,7 +210,7 @@ func TestTabsKeyboardNavigation(t *testing.T) {
 
 		// Ctrl+3 (byte value 3)
 		event = tty.KeyEvent{Key: 3}
-		handled = tabs.HandleKey(event)
+		handled = tabs.HandleKey(context.Context{}, event)
 		if !handled {
 			t.Error("Tabs should handle Ctrl+3")
 		}
@@ -226,7 +227,7 @@ func TestTabsKeyboardNavigation(t *testing.T) {
 
 		// Right arrow
 		rightEvent := tty.KeyEvent{Key: 27, Code: tty.SeqRight}
-		handled := tabs.HandleKey(rightEvent)
+		handled := tabs.HandleKey(context.Context{}, rightEvent)
 		if !handled {
 			t.Error("Tabs should handle Right arrow")
 		}
@@ -236,7 +237,7 @@ func TestTabsKeyboardNavigation(t *testing.T) {
 
 		// Left arrow
 		leftEvent := tty.KeyEvent{Key: 27, Code: tty.SeqLeft}
-		handled = tabs.HandleKey(leftEvent)
+		handled = tabs.HandleKey(context.Context{}, leftEvent)
 		if !handled {
 			t.Error("Tabs should handle Left arrow")
 		}

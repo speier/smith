@@ -58,7 +58,8 @@ func TestFormIntegration(t *testing.T) {
 
 	// Simulate typing 'h' in first input
 	event := tty.KeyEvent{Key: 'h', Char: "h"}
-	handled := nameInput.HandleKeyEvent(event)
+	ctx := Context{}
+	handled := nameInput.HandleKey(ctx, event)
 	t.Logf("Typing 'h' - handled: %v, value: %q, cursorPos: %d", handled, nameInput.Value, nameInput.CursorPos)
 
 	if !handled {
@@ -167,7 +168,8 @@ func TestSimpleInputIntegration(t *testing.T) {
 
 	// Type a character
 	event := tty.KeyEvent{Key: 'a', Char: "a"}
-	handled := input1.HandleKeyEvent(event)
+	ctx := Context{}
+	handled := input1.HandleKey(ctx, event)
 	t.Logf("Typing 'a' - handled: %v, value: %q", handled, input1.Value)
 
 	if !handled {

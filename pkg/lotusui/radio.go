@@ -182,13 +182,8 @@ func (r *Radio) emitSelect(ctx context.Context) {
 	}
 }
 
-// HandleKey processes keyboard events
-func (r *Radio) HandleKey(event tty.KeyEvent) bool {
-	return r.HandleKeyWithContext(context.Context{}, event)
-}
-
-// HandleKeyWithContext processes keyboard events with context
-func (r *Radio) HandleKeyWithContext(ctx context.Context, event tty.KeyEvent) bool {
+// HandleKey processes keyboard events with context
+func (r *Radio) HandleKey(ctx context.Context, event tty.KeyEvent) bool {
 	if r.Disabled {
 		return false
 	}
@@ -204,11 +199,6 @@ func (r *Radio) HandleKeyWithContext(ctx context.Context, event tty.KeyEvent) bo
 }
 
 // Focusable interface implementation
-
-// HandleKeyEvent implements Focusable interface
-func (r *Radio) HandleKeyEvent(event tty.KeyEvent) bool {
-	return r.HandleKey(event)
-}
 
 // IsFocusable implements Focusable interface
 func (r *Radio) IsFocusable() bool {
@@ -335,8 +325,8 @@ func (g *RadioGroup) Render() *vdom.Element {
 	return vdom.VStack(childrenAny...)
 }
 
-// HandleKey processes keyboard events for navigation
-func (g *RadioGroup) HandleKey(event tty.KeyEvent) bool {
+// HandleKey processes keyboard events for navigation with context
+func (g *RadioGroup) HandleKey(ctx context.Context, event tty.KeyEvent) bool {
 	// Check arrow keys via escape sequences
 	switch event.Code {
 	case tty.SeqUp:
@@ -396,11 +386,6 @@ func (g *RadioGroup) focusPrevious() {
 }
 
 // Focusable interface implementation
-
-// HandleKeyEvent implements Focusable interface
-func (g *RadioGroup) HandleKeyEvent(event tty.KeyEvent) bool {
-	return g.HandleKey(event)
-}
 
 // IsFocusable implements Focusable interface
 func (g *RadioGroup) IsFocusable() bool {

@@ -204,7 +204,7 @@ func TestInput_ShiftEnterInsertsNewline(t *testing.T) {
 
 	// Shift+Enter inserts newline
 	event := tty.KeyEvent{Key: 27, Code: tty.SeqShiftEnter}
-	handled := input.HandleKey(event)
+	handled := input.HandleKey(Context{}, event)
 
 	if !handled {
 		t.Error("Expected Shift+Enter to be handled")
@@ -231,7 +231,7 @@ func TestInput_EnterStillSubmits(t *testing.T) {
 
 	// Regular Enter submits
 	event := tty.KeyEvent{Key: 13} // Enter
-	input.HandleKey(event)
+	input.HandleKey(Context{}, event)
 
 	if !submitted {
 		t.Error("Expected Enter to trigger submit")
@@ -281,7 +281,7 @@ func TestInput_UpDownArrowKeys(t *testing.T) {
 
 	// Down arrow
 	downEvent := tty.KeyEvent{Key: 27, Code: tty.SeqDown}
-	handled := input.HandleKey(downEvent)
+	handled := input.HandleKey(Context{}, downEvent)
 	if !handled {
 		t.Error("Expected Down arrow to be handled")
 	}
@@ -293,7 +293,7 @@ func TestInput_UpDownArrowKeys(t *testing.T) {
 
 	// Up arrow
 	upEvent := tty.KeyEvent{Key: 27, Code: tty.SeqUp}
-	handled = input.HandleKey(upEvent)
+	handled = input.HandleKey(Context{}, upEvent)
 	if !handled {
 		t.Error("Expected Up arrow to be handled")
 	}

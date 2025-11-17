@@ -156,13 +156,8 @@ func (c *Checkbox) emitChange(ctx context.Context) {
 	}
 }
 
-// HandleKey processes keyboard events
-func (c *Checkbox) HandleKey(event tty.KeyEvent) bool {
-	return c.HandleKeyWithContext(context.Context{}, event)
-}
-
-// HandleKeyWithContext processes keyboard events with context
-func (c *Checkbox) HandleKeyWithContext(ctx context.Context, event tty.KeyEvent) bool {
+// HandleKey processes keyboard events with context
+func (c *Checkbox) HandleKey(ctx context.Context, event tty.KeyEvent) bool {
 	if c.Disabled {
 		return false
 	}
@@ -179,11 +174,6 @@ func (c *Checkbox) HandleKeyWithContext(ctx context.Context, event tty.KeyEvent)
 }
 
 // Focusable interface implementation
-
-// HandleKeyEvent implements Focusable interface
-func (c *Checkbox) HandleKeyEvent(event tty.KeyEvent) bool {
-	return c.HandleKey(event)
-}
 
 // IsFocusable implements Focusable interface
 func (c *Checkbox) IsFocusable() bool {

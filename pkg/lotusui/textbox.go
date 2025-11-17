@@ -4,6 +4,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/speier/smith/pkg/lotus/context"
 	"github.com/speier/smith/pkg/lotus/tty"
 	"github.com/speier/smith/pkg/lotus/vdom"
 )
@@ -200,8 +201,8 @@ func (tb *TextBox) Render() *vdom.Element {
 
 // --- Focusable interface (for keyboard scrolling) ---
 
-// HandleKeyEvent handles keyboard events
-func (tb *TextBox) HandleKeyEvent(event tty.KeyEvent) bool {
+// HandleKey handles keyboard events with context
+func (tb *TextBox) HandleKey(ctx context.Context, event tty.KeyEvent) bool {
 	// Simple arrow key scrolling
 	switch event.Code {
 	case "up":

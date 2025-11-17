@@ -6,14 +6,8 @@ import (
 
 // This file contains keyboard event handling for Input component
 
-// HandleKey handles a key event and returns true if it was handled
-// Returns false if the key should be handled by the application (e.g., Enter)
-func (t *Input) HandleKey(event tty.KeyEvent) bool {
-	return t.HandleKeyWithContext(Context{}, event)
-}
-
-// HandleKeyWithContext handles a key event with context support
-func (t *Input) HandleKeyWithContext(ctx Context, event tty.KeyEvent) bool {
+// HandleKey handles a key event with context support
+func (t *Input) HandleKey(ctx Context, event tty.KeyEvent) bool {
 	oldValue := t.Value
 
 	// Printable characters
@@ -159,11 +153,4 @@ func (t *Input) adjustScroll() {
 	if t.CursorPos < t.Scroll {
 		t.Scroll = t.CursorPos
 	}
-}
-
-// HandleKeyEvent implements Focusable interface (backward compatibility)
-// Processes keyboard events when this component has focus
-// Returns true if the event was handled, false to bubble up (e.g., Enter key)
-func (t *Input) HandleKeyEvent(event tty.KeyEvent) bool {
-	return t.HandleKeyWithContext(Context{}, event)
 }

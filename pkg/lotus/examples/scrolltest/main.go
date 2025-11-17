@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/speier/smith/pkg/lotus"
-	"github.com/speier/smith/pkg/lotus/tty"
 )
 
 type ScrollTestApp struct {
@@ -53,7 +52,7 @@ func (app *ScrollTestApp) Render(ctx lotus.Context) *lotus.Element {
 	)
 }
 
-func (app *ScrollTestApp) HandleKeyEvent(event tty.KeyEvent) bool {
+func (app *ScrollTestApp) HandleKey(ctx lotus.Context, event lotus.KeyEvent) bool {
 	if event.Key == 'a' || event.Key == 'A' {
 		fmt.Printf("Adding 10 items... (total will be %d)\n", len(app.items)+10)
 		app.addItems()

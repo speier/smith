@@ -41,6 +41,7 @@ func New() *DevTools {
 	}
 
 	dt.Log("🛠️ DevTools initialized")
+	dt.Log("   Ctrl+T: Toggle DevTools | Ctrl+P: Cycle position")
 
 	return dt
 }
@@ -79,7 +80,7 @@ func (dt *DevTools) Render() *vdom.Element {
 		children = append(children, vdom.Text(log))
 	}
 
-	return vdom.VStack(children...)
+	return vdom.VStack(children...).WithPadding(1)
 }
 
 // Enable turns DevTools on

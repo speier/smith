@@ -1,6 +1,7 @@
 package lotusui
 
 import (
+	"github.com/speier/smith/pkg/lotus/context"
 	"github.com/speier/smith/pkg/lotus/tty"
 	"github.com/speier/smith/pkg/lotus/vdom"
 )
@@ -280,8 +281,8 @@ func (m *Modal) FocusPreviousButton() {
 	}
 }
 
-// HandleKey processes keyboard events
-func (m *Modal) HandleKey(event tty.KeyEvent) bool {
+// HandleKey processes keyboard events with context
+func (m *Modal) HandleKey(ctx context.Context, event tty.KeyEvent) bool {
 	if !m.Open {
 		return false
 	}
@@ -318,11 +319,6 @@ func (m *Modal) HandleKey(event tty.KeyEvent) bool {
 }
 
 // Focusable interface implementation
-
-// HandleKeyEvent implements Focusable interface
-func (m *Modal) HandleKeyEvent(event tty.KeyEvent) bool {
-	return m.HandleKey(event)
-}
 
 // IsFocusable implements Focusable interface
 func (m *Modal) IsFocusable() bool {

@@ -251,7 +251,7 @@ func (h *HMR) checkStatefulIDs() {
 
 // ExecRestart replaces the current process with the rebuilt binary using syscall.Exec
 // This should be called after the app has cleanly exited and terminal is restored
-func ExecRestart(statePath string) error {
+func (h *HMR) ExecRestart(statePath string) error {
 	binaryPath := "/tmp/lotus-hmr-app"
 
 	// Verify the new binary exists
