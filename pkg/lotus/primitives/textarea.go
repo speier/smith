@@ -18,9 +18,9 @@ func NewTextArea() *TextArea {
 	}
 }
 
-// CreateTextArea creates a new multi-line input with simplified API
+// CreateTextArea creates a new multi-line text area with simplified API (like pi-tui)
 // Usage: CreateTextArea(placeholder, onSubmit)
-func CreateTextArea(placeholder string, onSubmit func(string)) *TextArea {
+func CreateTextArea(placeholder string, onSubmit func(Context, string)) *TextArea {
 	return NewTextArea().
 		WithPlaceholder(placeholder).
 		WithOnSubmit(onSubmit)
@@ -38,14 +38,14 @@ func (ta *TextArea) WithValue(value string) *TextArea {
 	return ta
 }
 
-// WithOnChange sets the change callback
-func (ta *TextArea) WithOnChange(fn func(string)) *TextArea {
+// WithOnChange sets the onChange callback (triggers on every change)
+func (ta *TextArea) WithOnChange(fn func(Context, string)) *TextArea {
 	ta.input.OnChange = fn
 	return ta
 }
 
-// WithOnSubmit sets the submit callback (Ctrl+Enter or Shift+Enter)
-func (ta *TextArea) WithOnSubmit(fn func(string)) *TextArea {
+// WithOnSubmit sets the onSubmit callback (triggers on Ctrl+Enter)
+func (ta *TextArea) WithOnSubmit(fn func(Context, string)) *TextArea {
 	ta.input.OnSubmit = fn
 	return ta
 }
@@ -67,11 +67,11 @@ func (ta *TextArea) IsFocusable() bool {
 
 // HandleKeyEvent implements Focusable interface
 func (ta *TextArea) HandleKeyEvent(event tty.KeyEvent) bool {
-	return ta.HandleKeyWithContext(event, nil)
+	return ta.HandleKeyWithContext(Context{}, event)
 }
 
 // HandleKeyWithContext handles key events with context support
-func (ta *TextArea) HandleKeyWithContext(event tty.KeyEvent, ctx Context) bool {
+func (ta *TextArea) HandleKeyWithContext(ctx Context, event tty.KeyEvent) bool {
 	// Enter → insert newline (textarea behavior)
 	if event.Key == tty.KeyEnter || event.Key == tty.KeyEnter2 {
 		ta.input.InsertNewline()
@@ -80,12 +80,14 @@ func (ta *TextArea) HandleKeyWithContext(event tty.KeyEvent, ctx Context) bool {
 
 	// Shift+Enter → submit
 	if event.Code == tty.SeqShiftEnter {
-		invokeCallback(ta.input.OnSubmit, ctx, ta.input.Value)
+		if ta.input.OnSubmit != nil {
+			ta.input.OnSubmit(ctx, ta.input.Value)
+		}
 		return true
 	}
 
 	// Delegate everything else to Input
-	return ta.input.HandleKeyWithContext(event, ctx)
+	return ta.input.HandleKeyWithContext(ctx, event)
 }
 
 // GetCursorOffset returns cursor position for rendering

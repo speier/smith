@@ -11,7 +11,7 @@ import (
 // - Superior rendering performance
 
 func main() {
-	if err := lotus.Run(func(ctx lotus.Context) *lotus.Element {
+	if err := lotus.RunFunc(func(ctx lotus.Context) *lotus.Element {
 		return lotus.VStack(
 			lotus.Text("👋 Hello, Lotus!").WithBold().WithColor("bright-cyan"),
 			lotus.Text("Press Ctrl+C to exit"),

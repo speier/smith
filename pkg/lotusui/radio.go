@@ -1,6 +1,7 @@
 package lotusui
 
 import (
+	"github.com/speier/smith/pkg/lotus/context"
 	"github.com/speier/smith/pkg/lotus/tty"
 	"github.com/speier/smith/pkg/lotus/vdom"
 )
@@ -23,7 +24,7 @@ type Radio struct {
 	Disabled bool
 
 	// Callbacks
-	OnSelect func(string) // Called with this radio's value when selected
+	OnSelect func(context.Context, string) // Called with this radio's value when selected
 
 	// Internal
 	focused bool
@@ -68,7 +69,7 @@ type RadioGroup struct {
 	Spacing   int    // Space between radio buttons
 
 	// Callbacks
-	OnChange func(string)
+	OnChange func(context.Context, string)
 
 	// Internal
 	focusedIndex int
@@ -126,7 +127,7 @@ func (r *Radio) WithDisabled(disabled bool) *Radio {
 }
 
 // WithOnSelect sets the select callback
-func (r *Radio) WithOnSelect(callback func(string)) *Radio {
+func (r *Radio) WithOnSelect(callback func(context.Context, string)) *Radio {
 	r.OnSelect = callback
 	return r
 }
@@ -171,25 +172,31 @@ func (r *Radio) Select() {
 		return
 	}
 	r.Selected = true
-	r.emitSelect()
+	r.emitSelect(context.Context{})
 }
 
 // emitSelect triggers the OnSelect callback
-func (r *Radio) emitSelect() {
+func (r *Radio) emitSelect(ctx context.Context) {
 	if r.OnSelect != nil {
-		r.OnSelect(r.Value)
+		r.OnSelect(ctx, r.Value)
 	}
 }
 
 // HandleKey processes keyboard events
 func (r *Radio) HandleKey(event tty.KeyEvent) bool {
+	return r.HandleKeyWithContext(context.Context{}, event)
+}
+
+// HandleKeyWithContext processes keyboard events with context
+func (r *Radio) HandleKeyWithContext(ctx context.Context, event tty.KeyEvent) bool {
 	if r.Disabled {
 		return false
 	}
 
 	// Space key (ASCII 32) or Enter
 	if event.Key == ' ' || event.IsEnter() {
-		r.Select()
+		r.Selected = true
+		r.emitSelect(ctx)
 		return true
 	}
 
@@ -261,9 +268,9 @@ func (g *RadioGroup) WithDirection(direction string) *RadioGroup {
 }
 
 // WithOnChange sets the change callback
-func (g *RadioGroup) WithOnChange(callback func(string)) *RadioGroup {
-	g.OnChange = callback
-	return g
+func (rg *RadioGroup) WithOnChange(callback func(context.Context, string)) *RadioGroup {
+	rg.OnChange = callback
+	return rg
 }
 
 // buildRadios creates Radio components from options
@@ -275,15 +282,15 @@ func (g *RadioGroup) buildRadios() {
 			WithValue(opt.Value).
 			WithIcon(g.Icon).
 			WithSelected(opt.Value == g.Selected).
-			WithOnSelect(func(value string) {
-				g.selectValue(value)
+			WithOnSelect(func(ctx context.Context, value string) {
+				g.selectValue(ctx, value)
 			})
 		g.radios[i] = radio
 	}
 }
 
 // selectValue handles selection of a radio
-func (g *RadioGroup) selectValue(value string) {
+func (g *RadioGroup) selectValue(ctx context.Context, value string) {
 	if g.Selected == value {
 		return
 	}
@@ -292,7 +299,7 @@ func (g *RadioGroup) selectValue(value string) {
 	g.updateSelection()
 
 	if g.OnChange != nil {
-		g.OnChange(value)
+		g.OnChange(ctx, value)
 	}
 }
 

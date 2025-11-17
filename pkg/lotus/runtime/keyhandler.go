@@ -1,7 +1,6 @@
 package runtime
 
 import (
-	"github.com/speier/smith/pkg/lotus/commands"
 	"github.com/speier/smith/pkg/lotus/tty"
 )
 
@@ -20,15 +19,6 @@ type KeyBinding struct {
 
 // globalKeyHandlers stores registered global key handlers
 var globalKeyHandlers []*KeyBinding
-
-// globalCommandRegistry stores the global command registry
-var globalCommandRegistry *commands.CommandRegistry
-
-// RegisterGlobalCommands sets the global command registry
-// Commands will be checked before input callbacks are invoked
-func RegisterGlobalCommands(registry *commands.CommandRegistry) {
-	globalCommandRegistry = registry
-}
 
 // RegisterGlobalKey registers a global keyboard shortcut
 // Example: RegisterGlobalKey('o', true, "Open file", handler) for Ctrl+O

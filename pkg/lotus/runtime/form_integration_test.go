@@ -23,15 +23,15 @@ func TestFormIntegration(t *testing.T) {
 	renderFunc := func() *vdom.Element {
 		return vdom.VStack(
 			vdom.Text("Name:"),
-			primitives.CreateInput("Enter your name", func(text string) {
+			primitives.CreateInput("Enter your name", func(ctx primitives.Context, text string) {
 				app.name = text
 			}),
 			vdom.Text("Email:"),
-			primitives.CreateInput("Enter your email", func(text string) {
+			primitives.CreateInput("Enter your email", func(ctx primitives.Context, text string) {
 				app.email = text
 			}),
 			vdom.Text("Message:"),
-			primitives.CreateInput("Enter a message", func(text string) {
+			primitives.CreateInput("Enter a message", func(ctx primitives.Context, text string) {
 				app.message = text
 			}),
 		)

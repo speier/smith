@@ -1,7 +1,7 @@
 package lotus
 
 import (
-	"github.com/speier/smith/pkg/lotus/commands"
+	"github.com/speier/smith/pkg/lotus/context"
 	"github.com/speier/smith/pkg/lotus/primitives"
 	"github.com/speier/smith/pkg/lotus/runtime"
 	"github.com/speier/smith/pkg/lotus/vdom"
@@ -73,9 +73,18 @@ const (
 
 // Runtime types
 type (
+	// App interface for stateful applications
+	// Implement this interface to create a Lotus app with state and lifecycle
+	// Example:
+	//   type MyApp struct { count int }
+	//   func (a *MyApp) Render(ctx lotus.Context) *lotus.Element { ... }
+	//   lotus.Run(&MyApp{})
+	App = runtime.App
+
 	// Context provides access to app lifecycle methods
-	// Usage: lotus.Run(func(ctx lotus.Context) *MyApp { ... })
-	Context = runtime.Context
+	// Usage: func(ctx lotus.Context, value string)
+	// Always pass context as first parameter (Go convention)
+	Context = context.Context
 
 	// KeyHandler is a function that handles keyboard events
 	// Returns true if the event was handled (stops propagation)
@@ -88,8 +97,16 @@ type (
 // Runtime functions
 var (
 	// Run starts a Lotus terminal application
-	// Accepts: App interface, functional component, Element, or markup string
+	// Accepts types implementing App interface
 	Run = runtime.Run
+
+	// RunFunc runs a functional component
+	// Accepts: func(lotus.Context) *lotus.Element
+	RunFunc = runtime.RunFunc
+
+	// RunElement runs a static element
+	// Accepts: *lotus.Element
+	RunElement = runtime.RunElement
 
 	// RegisterGlobalKey registers a global keyboard shortcut
 	// Example: lotus.RegisterGlobalKey('o', true, "Open file", handler) for Ctrl+O
@@ -132,13 +149,6 @@ func Map[T any](items []T, fn func(T) *Element) []any {
 	return vdom.Map(items, fn)
 }
 
-// Strings converts []string to []any for use in VStack/HStack
-// Strings are auto-converted to Text elements
-// Usage: lotus.VStack(lotus.Strings(messages)...)
-func Strings(items []string) []any {
-	return vdom.Strings(items)
-}
-
 // Input types
 type (
 	// InputType defines the type of input (like HTML input type attribute)
@@ -171,31 +181,4 @@ var (
 
 	// TextArea is an alias for CreateTextArea (backward compatibility)
 	TextArea = primitives.CreateTextArea
-)
-
-// Command system types
-type (
-	// Command represents a slash command that can be executed
-	Command = commands.Command
-
-	// CommandRegistry manages registered slash commands
-	CommandRegistry = commands.CommandRegistry
-)
-
-// Command system functions
-var (
-	// NewCommandRegistry creates a new command registry
-	NewCommandRegistry = commands.NewCommandRegistry
-
-	// RegisterGlobalCommand registers a command globally (available in all apps)
-	// Usage: lotus.RegisterGlobalCommand("clear", "Clear screen", handler)
-	RegisterGlobalCommand = commands.RegisterGlobalCommand
-
-	// GetGlobalCommands returns the global command registry
-	GetGlobalCommands = commands.GetGlobalCommands
-
-	// SetGlobalCommandPrefix sets the command prefix (default: "/")
-	// Examples: lotus.SetGlobalCommandPrefix("!") for !help, !stream
-	// Examples: lotus.SetGlobalCommandPrefix("@bot ") for @bot help
-	SetGlobalCommandPrefix = commands.SetGlobalCommandPrefix
 )

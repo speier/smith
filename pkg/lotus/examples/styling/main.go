@@ -113,7 +113,7 @@ func main() {
 		WithPaddingY(1).
 		WithAlignItems(lotus.AlignItemsCenter)
 
-	if err := lotus.Run(app); err != nil {
+	if err := lotus.RunElement(app); err != nil {
 		panic(err)
 	}
 }

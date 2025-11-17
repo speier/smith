@@ -21,7 +21,7 @@ func SaveAppState(app App, path string) error {
 	}
 
 	// Traverse the element tree and collect state from stateful components
-	element := app.Render()
+	element := app.Render(Context{})
 	components := collectStatefulComponents(element)
 
 	if len(components) > 0 {
@@ -61,7 +61,7 @@ func LoadAppState(app App, path string) error {
 
 	// Restore component state
 	if componentStates, ok := state["components"].(map[string]interface{}); ok {
-		element := app.Render()
+		element := app.Render(Context{})
 		components := collectStatefulComponents(element)
 
 		for _, comp := range components {

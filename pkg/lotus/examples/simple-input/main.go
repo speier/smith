@@ -10,11 +10,11 @@ func NewSimpleTest() *SimpleTest {
 	return &SimpleTest{}
 }
 
-func (app *SimpleTest) onSubmit(text string) {
+func (app *SimpleTest) onSubmit(ctx lotus.Context, text string) {
 	app.message = "You typed: " + text
 }
 
-func (app *SimpleTest) Render() *lotus.Element {
+func (app *SimpleTest) Render(ctx lotus.Context) *lotus.Element {
 	return lotus.VStack(
 		lotus.Text("Simple Input Test").WithBold(),
 		lotus.Text(app.message),

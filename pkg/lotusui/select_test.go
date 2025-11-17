@@ -1,6 +1,10 @@
 package lotusui
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/speier/smith/pkg/lotus/context"
+)
 
 func TestSelectBasic(t *testing.T) {
 	sel := NewSelect().WithStringOptions([]string{"Option 1", "Option 2", "Option 3"})
@@ -25,13 +29,16 @@ func TestSelectSetSelected(t *testing.T) {
 
 	sel := NewSelect().
 		WithStringOptions([]string{"Option 1", "Option 2"}).
-		WithOnChange(func(index int, value string) {
+		WithOnChange(func(ctx context.Context, index int, value string) {
 			called = true
 			receivedIndex = index
 			receivedValue = value
 		})
 
-	sel.SetSelected(1)
+	// Use keyboard to select - open dropdown, highlight option 1, select it
+	sel.Open = true
+	sel.highlightedIndex = 1
+	sel.SelectHighlighted(context.Context{})
 
 	if !called {
 		t.Error("OnChange callback not called")
@@ -109,7 +116,7 @@ func TestSelectDisabled(t *testing.T) {
 	}
 
 	// Can't change selection when disabled
-	sel.SetSelected(1)
+	sel.SelectOption(1)
 	if sel.Selected == 1 {
 		t.Error("Disabled select should not allow selection change")
 	}

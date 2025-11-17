@@ -52,15 +52,29 @@ func (lr *LayoutRenderer) renderBox(buf *Buffer, box *layout.LayoutBox) {
 
 		// Calculate content bounds
 		var maxContentWidth, maxContentHeight int
-		for _, child := range box.Children {
-			childRight := child.X + child.Width - box.X
-			childBottom := child.Y + child.Height - box.Y
+
+		// Calculate bounds recursively from all descendants, not just immediate children
+		var calculateMaxBounds func(*layout.LayoutBox)
+		calculateMaxBounds = func(lb *layout.LayoutBox) {
+			// Calculate this box's bounds
+			childRight := lb.X + lb.Width - box.X
+			childBottom := lb.Y + lb.Height - box.Y
 			if childRight > maxContentWidth {
 				maxContentWidth = childRight
 			}
 			if childBottom > maxContentHeight {
 				maxContentHeight = childBottom
 			}
+
+			// Recurse into children
+			for _, child := range lb.Children {
+				calculateMaxBounds(child)
+			}
+		}
+
+		// Calculate from all children recursively
+		for _, child := range box.Children {
+			calculateMaxBounds(child)
 		}
 
 		// Update scroll manager with dimensions

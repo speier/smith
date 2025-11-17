@@ -3,6 +3,7 @@ package lotusui
 import (
 	"fmt"
 
+	"github.com/speier/smith/pkg/lotus/context"
 	"github.com/speier/smith/pkg/lotus/tty"
 	"github.com/speier/smith/pkg/lotus/vdom"
 )
@@ -36,7 +37,7 @@ type Select struct {
 	Disabled bool
 
 	// Callbacks
-	OnChange func(int, string) // Called with (index, value) when selection changes
+	OnChange func(context.Context, int, string) // Called with (context, index, value) when selection changes
 
 	// Internal
 	focused          bool
@@ -105,7 +106,7 @@ func (s *Select) WithDisabled(disabled bool) *Select {
 }
 
 // WithOnChange sets the change callback
-func (s *Select) WithOnChange(callback func(int, string)) *Select {
+func (s *Select) WithOnChange(callback func(context.Context, int, string)) *Select {
 	s.OnChange = callback
 	return s
 }
@@ -242,17 +243,20 @@ func (s *Select) Close() {
 }
 
 // SelectHighlighted selects the currently highlighted option
-func (s *Select) SelectHighlighted() {
+func (s *Select) SelectHighlighted(ctx context.Context) {
 	if s.highlightedIndex >= 0 && s.highlightedIndex < len(s.Options) {
 		if !s.Options[s.highlightedIndex].Disabled {
-			s.SetSelected(s.highlightedIndex)
+			if s.Selected != s.highlightedIndex {
+				s.Selected = s.highlightedIndex
+				s.emitChange(ctx)
+			}
 			s.Close()
 		}
 	}
 }
 
-// SetSelected changes the selected option
-func (s *Select) SetSelected(index int) {
+// SelectOption sets the selected option by index
+func (s *Select) SelectOption(index int) {
 	if s.Disabled {
 		return
 	}
@@ -264,7 +268,6 @@ func (s *Select) SetSelected(index int) {
 	}
 	if s.Selected != index {
 		s.Selected = index
-		s.emitChange()
 	}
 }
 
@@ -321,18 +324,23 @@ func (s *Select) HighlightPrevious() {
 }
 
 // emitChange triggers the OnChange callback
-func (s *Select) emitChange() {
+func (s *Select) emitChange(ctx context.Context) {
 	if s.OnChange != nil {
 		value := ""
 		if s.Selected >= 0 && s.Selected < len(s.Options) {
 			value = s.Options[s.Selected].Value
 		}
-		s.OnChange(s.Selected, value)
+		s.OnChange(ctx, s.Selected, value)
 	}
 }
 
 // HandleKey processes keyboard events
 func (s *Select) HandleKey(event tty.KeyEvent) bool {
+	return s.HandleKeyWithContext(context.Context{}, event)
+}
+
+// HandleKeyWithContext processes keyboard events with context
+func (s *Select) HandleKeyWithContext(ctx context.Context, event tty.KeyEvent) bool {
 	if s.Disabled {
 		return false
 	}
@@ -340,7 +348,7 @@ func (s *Select) HandleKey(event tty.KeyEvent) bool {
 	// Space or Enter to toggle/select
 	if event.Key == ' ' || event.IsEnter() {
 		if s.Open {
-			s.SelectHighlighted()
+			s.SelectHighlighted(ctx)
 		} else {
 			s.Toggle()
 		}

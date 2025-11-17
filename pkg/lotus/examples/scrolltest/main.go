@@ -34,7 +34,7 @@ func (app *ScrollTestApp) addItems() {
 	}
 }
 
-func (app *ScrollTestApp) Render() *lotus.Element {
+func (app *ScrollTestApp) Render(ctx lotus.Context) *lotus.Element {
 	return lotus.VStack(
 		lotus.Text(fmt.Sprintf("Total items: %d", len(app.items))).
 			WithBold().

@@ -1,6 +1,11 @@
 package lotusui
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/speier/smith/pkg/lotus/context"
+	"github.com/speier/smith/pkg/lotus/tty"
+)
 
 func TestCheckboxToggle(t *testing.T) {
 	cb := NewCheckbox().WithLabel("Accept terms")
@@ -40,12 +45,13 @@ func TestCheckboxCallback(t *testing.T) {
 	called := false
 	var receivedValue bool
 
-	cb := NewCheckbox().WithOnChange(func(checked bool) {
+	cb := NewCheckbox().WithOnChange(func(ctx context.Context, checked bool) {
 		called = true
 		receivedValue = checked
 	})
 
-	cb.Toggle()
+	// Use keyboard event (space) to toggle - this triggers callback
+	cb.HandleKeyWithContext(context.Context{}, tty.KeyEvent{Key: ' '})
 
 	if !called {
 		t.Error("OnChange callback not called")

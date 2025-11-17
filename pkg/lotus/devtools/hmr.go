@@ -228,7 +228,7 @@ func (h *HMR) SetExitHandler(handler func()) {
 
 // checkStatefulIDs warns about Stateful components without IDs
 func (h *HMR) checkStatefulIDs() {
-	element := h.app.Render()
+	element := h.app.Render(runtime.Context{})
 	components := runtime.CollectStatefulComponents(element)
 
 	var missingIDs []string

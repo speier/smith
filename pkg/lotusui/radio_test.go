@@ -3,6 +3,7 @@ package lotusui
 import (
 	"testing"
 
+	"github.com/speier/smith/pkg/lotus/context"
 	"github.com/speier/smith/pkg/lotus/tty"
 )
 
@@ -46,13 +47,13 @@ func TestRadioGroupChangeSelection(t *testing.T) {
 	group := NewRadioGroup().
 		WithOptions(options).
 		WithSelected("opt1").
-		WithOnChange(func(value string) {
+		WithOnChange(func(ctx context.Context, value string) {
 			called = true
 			receivedValue = value
 		})
 
 	// Change selection
-	group.selectValue("opt2")
+	group.selectValue(context.Context{}, "opt2")
 
 	if !called {
 		t.Error("OnChange callback not called")
@@ -178,7 +179,7 @@ func TestRadioGroupKeyboardNavigation(t *testing.T) {
 			WithDirection("vertical")
 
 		selectedValue := ""
-		group.OnChange = func(value string) {
+		group.OnChange = func(ctx context.Context, value string) {
 			selectedValue = value
 		}
 

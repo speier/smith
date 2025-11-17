@@ -28,24 +28,24 @@ func NewFormApp() *FormApp {
 	}
 }
 
-func (app *FormApp) onNameSubmit(text string) {
+func (app *FormApp) onNameSubmit(ctx lotus.Context, text string) {
 	app.name = text
 	app.results = append(app.results, fmt.Sprintf("Name: %s", text))
 }
 
-func (app *FormApp) onEmailSubmit(text string) {
+func (app *FormApp) onEmailSubmit(ctx lotus.Context, text string) {
 	app.email = text
 	app.results = append(app.results, fmt.Sprintf("Email: %s", text))
 }
 
-func (app *FormApp) onMessageSubmit(text string) {
+func (app *FormApp) onMessageSubmit(ctx lotus.Context, text string) {
 	app.message = text
 	app.results = append(app.results, fmt.Sprintf("Message: %s", text))
 }
 
 // in the form app we might showcase input types like name text, password password, age number, email validation
 
-func (app *FormApp) Render() *lotus.Element {
+func (app *FormApp) Render(ctx lotus.Context) *lotus.Element {
 	return lotus.VStack(
 		lotus.Box(
 			lotus.Text("Multi-Input Form Test").

@@ -31,11 +31,15 @@ func Text(text string) *Element {
 
 // VStack creates a vertical stack (flex-direction: column)
 // Accepts string (auto-wrapped as Text), *Element, or Component
+// Special case: single []string argument is automatically converted
 func VStack(children ...any) *Element {
 	// Special case: if single argument is a []string, convert it
 	if len(children) == 1 {
 		if msgs, ok := children[0].([]string); ok {
-			children = Strings(msgs)
+			children = make([]any, len(msgs))
+			for i, msg := range msgs {
+				children[i] = msg
+			}
 		}
 	}
 
@@ -57,7 +61,18 @@ func VStack(children ...any) *Element {
 
 // HStack creates a horizontal stack (flex-direction: row)
 // Accepts string (auto-wrapped as Text), *Element, or Component
+// Special case: single []string argument is automatically converted
 func HStack(children ...any) *Element {
+	// Special case: if single argument is a []string, convert it
+	if len(children) == 1 {
+		if msgs, ok := children[0].([]string); ok {
+			children = make([]any, len(msgs))
+			for i, msg := range msgs {
+				children[i] = msg
+			}
+		}
+	}
+
 	elements := make([]*Element, 0, len(children))
 	for _, child := range children {
 		if elem := toElement(child); elem != nil {

@@ -6,7 +6,6 @@ import (
 	"syscall"
 
 	"github.com/speier/smith/pkg/lotus/layout"
-	"github.com/speier/smith/pkg/lotus/primitives"
 	"github.com/speier/smith/pkg/lotus/render"
 	"github.com/speier/smith/pkg/lotus/style"
 	"github.com/speier/smith/pkg/lotus/tty"
@@ -15,7 +14,7 @@ import (
 
 // App interface represents a Lotus application (like React.Component)
 type App interface {
-	Render() *vdom.Element
+	Render(ctx Context) *vdom.Element
 }
 
 // elementApp wraps a static Element to satisfy App interface
@@ -23,71 +22,14 @@ type elementApp struct {
 	element *vdom.Element
 }
 
-func (e *elementApp) Render() *vdom.Element {
+func (e *elementApp) Render(ctx Context) *vdom.Element {
 	return e.element
 }
 
-// factoryApp wraps a factory function to satisfy App interface
-type factoryApp struct {
-	factory func(Context) App
-	app     App
-	ctx     Context
-}
-
-func (f *factoryApp) Render() *vdom.Element {
-	return f.app.Render()
-}
-
-func (f *factoryApp) GetContext() Context {
-	return f.ctx
-}
-
-func (f *factoryApp) SetRenderCallback(callback func()) {
-	// Create context with render callback
-	f.ctx = Context{renderCallback: callback}
-	// Call factory to create actual app with context
-	f.app = f.factory(f.ctx)
-	// If the created app also has SetRenderCallback, wire it up
-	if setter, ok := f.app.(interface{ SetRenderCallback(func()) }); ok {
-		setter.SetRenderCallback(callback)
-	}
-}
-
 // Run creates and runs a Lotus terminal app
-// Accepts:
-//   - App interface (with Render method)
-//   - func() App (simple factory function)
-//   - func(Context) App (factory function receiving context)
-//   - FunctionalComponent (func(Context) *vdom.Element)
-//   - *vdom.Element (static element)
-//   - string (markup string, optionally followed by data for {0}, {1}, etc.)
-func Run(app any, data ...any) error {
-	// Convert to App if needed
-	var appInstance App
-	switch v := app.(type) {
-	case App:
-		appInstance = v
-	case func() App:
-		// Simple factory function without context
-		appInstance = v()
-	case func(Context) App:
-		// Factory function - wrap to defer context creation until SetRenderCallback
-		appInstance = &factoryApp{factory: v}
-	case FunctionalComponent:
-		// Wrap functional component to satisfy App interface
-		appInstance = &functionalApp{renderFn: v}
-	case func(Context) *vdom.Element:
-		// Support bare function type
-		appInstance = &functionalApp{renderFn: FunctionalComponent(v)}
-	case *vdom.Element:
-		appInstance = &elementApp{element: v}
-	case string:
-		// Parse markup string to element with optional data
-		elem := vdom.Markup(v, data...)
-		appInstance = &elementApp{element: elem}
-	default:
-		return fmt.Errorf("app must be App interface, FunctionalComponent, *vdom.Element, or markup string, got %T", app)
-	}
+// Accepts App interface implementations (types with Render(Context) *Element method)
+func Run(app App) error {
+	appInstance := app
 
 	// Check for state restoration from HMR
 	if statePath := os.Getenv("LOTUS_STATE_PATH"); statePath != "" {
@@ -167,8 +109,10 @@ func Run(app any, data ...any) error {
 		if devTools != nil {
 			devTools.Log("Render() called")
 		}
+		// Create context for this render cycle
+		renderCtx := Context{RenderCallback: term.RequestRender}
 		// Render once and update focus on that tree
-		element := appInstance.Render()
+		element := appInstance.Render(renderCtx)
 
 		// Rebuild focus list and update component states on the rendered tree
 		focusMgr.rebuild(element)
@@ -228,18 +172,16 @@ func Run(app any, data ...any) error {
 
 		// ESC key - check for open modals first (framework-level modal handling)
 		if event.Key == tty.KeyEscape {
-			element := appInstance.Render()
+			renderCtx := Context{RenderCallback: term.RequestRender}
+			element := appInstance.Render(renderCtx)
 			if handleModalEscape(element) {
 				term.RequestRender()
 				return true
 			}
 		}
 
-		// Get context from app if available
-		ctx := Context{}
-		if ctxProvider, ok := appInstance.(interface{ GetContext() Context }); ok {
-			ctx = ctxProvider.GetContext()
-		}
+		// Create context for event handling
+		ctx := Context{RenderCallback: term.RequestRender}
 
 		// First, check global key handlers (highest priority)
 		if handleGlobalKeysWithContext(event, ctx) {
@@ -304,18 +246,11 @@ func Run(app any, data ...any) error {
 		// Route event to the currently focused component
 		focused := focusMgr.getFocused()
 		if focused != nil {
-			// Get context from app if available
-			ctx := Context{}
-			if ctxProvider, ok := appInstance.(interface{ GetContext() Context }); ok {
-				ctx = ctxProvider.GetContext()
-			}
-
 			// Try new interface first (with context)
-			// Note: runtime.Context implements primitives.Context interface
 			if handler, ok := focused.(interface {
-				HandleKeyWithContext(tty.KeyEvent, primitives.Context) bool
+				HandleKeyWithContext(Context, tty.KeyEvent) bool
 			}); ok {
-				handled := handler.HandleKeyWithContext(event, ctx)
+				handled := handler.HandleKeyWithContext(ctx, event)
 				if devTools != nil {
 					devTools.Log("Key handled=%v, requesting render", handled)
 				}
@@ -340,7 +275,8 @@ func Run(app any, data ...any) error {
 		}
 
 		// If no focused component handled it, try global handlers in the tree
-		element := appInstance.Render()
+		renderCtx2 := Context{RenderCallback: term.RequestRender}
+		element := appInstance.Render(renderCtx2)
 		if handleEventInTreeGlobal(element, event, focusMgr) {
 			term.RequestRender() // Trigger re-render after global handler handles event
 			return true
@@ -370,6 +306,18 @@ func Run(app any, data ...any) error {
 	}
 
 	return err
+}
+
+// RunFunc runs a functional component as a Lotus app
+// Accepts: func(Context) *vdom.Element
+func RunFunc(component FunctionalComponent) error {
+	return Run(&functionalApp{renderFn: component})
+}
+
+// RunElement runs a static element as a Lotus app
+// Accepts: *vdom.Element
+func RunElement(element *vdom.Element) error {
+	return Run(&elementApp{element: element})
 }
 
 // execRestart replaces the current process with the HMR-rebuilt binary

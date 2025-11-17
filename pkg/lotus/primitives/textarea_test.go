@@ -225,7 +225,7 @@ func TestInput_EnterStillSubmits(t *testing.T) {
 	input.CursorPos = 5
 
 	submitted := false
-	input.OnSubmit = func(value string) {
+	input.OnSubmit = func(ctx Context, value string) {
 		submitted = true
 	}
 

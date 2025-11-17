@@ -270,7 +270,19 @@ func (t *Terminal) Start() error {
 			t.render()
 
 		case <-t.renderChan:
-			// External render request (e.g., from HMR/DevTools)
+			// External render request (e.g., from streaming updates)
+			// Drain any pending render requests before rendering
+			// (we only need to render once with the latest state)
+		drainLoop:
+			for {
+				select {
+				case <-t.renderChan:
+					// Discard duplicate render requests
+				default:
+					break drainLoop
+				}
+			}
+			// Now render once with latest state
 			t.render()
 
 		case err := <-errChan:

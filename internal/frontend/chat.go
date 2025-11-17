@@ -15,7 +15,6 @@ type ChatUI struct {
 	input          *lotus.InputComponent
 	messageList    *MessageList
 	renderCallback func() // Callback to trigger re-renders from async operations (streaming)
-	commands       *lotus.CommandRegistry
 	modal          *lotusui.Modal
 }
 
@@ -24,11 +23,7 @@ func NewChatUI(sess session.Session) *ChatUI {
 	app := &ChatUI{
 		session:     sess,
 		messageList: NewMessageList(),
-		commands:    lotus.NewCommandRegistry(),
 	}
-
-	// Register slash commands
-	app.registerCommands()
 
 	// Setup input with inline handler
 	app.input = lotus.CreateInput("Type your message...", func(value string) {
@@ -103,63 +98,16 @@ func (app *ChatUI) buildHeaderV2() *lotus.Element {
 }
 
 // handleSubmit sends the message to the agent or executes slash command
-func (app *ChatUI) handleSubmit(message string) {
-	// Check for slash command
-	if strings.HasPrefix(message, "/") {
-		if app.commands.Execute(message) {
-			// Command executed, clear input
-			app.input.Clear()
-			return
-		}
-		// Unknown command - show error
-		app.messageList.AddMessage("system", fmt.Sprintf("Unknown command: %s\nType /help for available commands", message))
-		app.input.Clear()
+func (app *ChatUI) handleSubmit(value string) {
+	// Check if it's a command
+	if strings.HasPrefix(value, "/") {
+		app.handleCommand(value)
 		return
 	}
 
-	// Add user message immediately
-	app.messageList.AddMessage("user", message)
-
-	// Clear input
-	app.input.Clear()
-
-	// Show "thinking" indicator
-	app.messageList.SetStreaming(true, "")
-
-	// Send message asynchronously
-	go func() {
-		stream, err := app.session.SendMessage(message)
-		if err != nil {
-			app.messageList.SetStreaming(false, "")
-			app.messageList.AddMessage("system", fmt.Sprintf("Error: %v", err))
-			// Async update needs manual re-render trigger
-			if app.renderCallback != nil {
-				app.renderCallback()
-			}
-			return
-		}
-
-		// Stream response with live updates
-		var responseBuf string
-		for chunk := range stream {
-			responseBuf += chunk
-			// Update streaming buffer and trigger re-render (async operation)
-			app.messageList.SetStreaming(true, responseBuf)
-			if app.renderCallback != nil {
-				app.renderCallback()
-			}
-		}
-
-		// Add complete assistant response
-		app.messageList.SetStreaming(false, "")
-		if responseBuf != "" {
-			app.messageList.AddMessage("assistant", responseBuf)
-		}
-		// Final re-render after streaming completes
-		if app.renderCallback != nil {
-			app.renderCallback()
-		}
-	}()
+	// TODO: Handle regular message submission
+	app.messageList.AddMessage("user", value)
+	app.messageList.AddMessage("assistant", "Message handling will be implemented with agent integration")
 }
 
 // Render - 3-panel layout: header, messages, input (React render pattern)
@@ -186,39 +134,33 @@ func (app *ChatUI) Render() *lotus.Element {
 	return content
 }
 
-// registerCommands registers all available slash commands
-func (app *ChatUI) registerCommands() {
-	// /help - Show available commands
-	app.commands.Register(&lotus.Command{
-		Name:        "help",
-		Description: "Show available commands",
-		Handler: func(args []string) {
-			helpText := "Available commands:\n"
-			for _, cmd := range app.commands.List() {
-				helpText += fmt.Sprintf("  /%s - %s\n", cmd.Name, cmd.Description)
-			}
-			app.messageList.AddMessage("system", helpText)
-		},
-	})
+// handleCommand handles slash commands at application level
+func (app *ChatUI) handleCommand(text string) {
+	parts := strings.Fields(text)
+	if len(parts) == 0 {
+		return
+	}
 
-	// /clear - Clear conversation
-	app.commands.Register(&lotus.Command{
-		Name:        "clear",
-		Description: "Clear conversation history",
-		Aliases:     []string{"cls"},
-		Handler: func(args []string) {
-			app.showClearConfirmation()
-		},
-	})
+	cmd := strings.TrimPrefix(parts[0], "/")
+	args := parts[1:]
 
-	// /model - Change model (placeholder)
-	app.commands.Register(&lotus.Command{
-		Name:        "model",
-		Description: "Change LLM model",
-		Handler: func(args []string) {
-			app.showModelPicker(args)
-		},
-	})
+	switch cmd {
+	case "help":
+		helpText := "Available commands:\n"
+		helpText += "  /help - Show available commands\n"
+		helpText += "  /clear - Clear conversation history\n"
+		helpText += "  /model - Change LLM model\n"
+		app.messageList.AddMessage("system", helpText)
+
+	case "clear", "cls":
+		app.showClearConfirmation()
+
+	case "model":
+		app.showModelPicker(args)
+
+	default:
+		app.messageList.AddMessage("system", fmt.Sprintf("Unknown command: /%s (try /help)", cmd))
+	}
 }
 
 // showClearConfirmation shows a modal to confirm clearing conversation

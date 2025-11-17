@@ -1,6 +1,7 @@
 package lotusui
 
 import (
+	"github.com/speier/smith/pkg/lotus/context"
 	"github.com/speier/smith/pkg/lotus/tty"
 	"github.com/speier/smith/pkg/lotus/vdom"
 )
@@ -22,7 +23,7 @@ type Checkbox struct {
 	Disabled bool
 
 	// Callbacks
-	OnChange func(bool)
+	OnChange func(context.Context, bool)
 
 	// Internal
 	focused bool
@@ -93,7 +94,7 @@ func (c *Checkbox) WithDisabled(disabled bool) *Checkbox {
 }
 
 // WithOnChange sets the change callback
-func (c *Checkbox) WithOnChange(callback func(bool)) *Checkbox {
+func (c *Checkbox) WithOnChange(callback func(context.Context, bool)) *Checkbox {
 	c.OnChange = callback
 	return c
 }
@@ -136,7 +137,6 @@ func (c *Checkbox) Toggle() {
 		return
 	}
 	c.Checked = !c.Checked
-	c.emitChange()
 }
 
 // SetChecked sets the checked state
@@ -146,26 +146,32 @@ func (c *Checkbox) SetChecked(checked bool) {
 	}
 	if c.Checked != checked {
 		c.Checked = checked
-		c.emitChange()
 	}
 }
 
 // emitChange triggers the OnChange callback
-func (c *Checkbox) emitChange() {
+func (c *Checkbox) emitChange(ctx context.Context) {
 	if c.OnChange != nil {
-		c.OnChange(c.Checked)
+		c.OnChange(ctx, c.Checked)
 	}
 }
 
 // HandleKey processes keyboard events
 func (c *Checkbox) HandleKey(event tty.KeyEvent) bool {
+	return c.HandleKeyWithContext(context.Context{}, event)
+}
+
+// HandleKeyWithContext processes keyboard events with context
+func (c *Checkbox) HandleKeyWithContext(ctx context.Context, event tty.KeyEvent) bool {
 	if c.Disabled {
 		return false
 	}
 
 	// Space key (ASCII 32) or Enter
-	if event.Key == ' ' || event.IsEnter() {
-		c.Toggle()
+	if event.Key == ' ' || event.Key == 13 {
+		// Space or Enter: toggle
+		c.Checked = !c.Checked
+		c.emitChange(ctx)
 		return true
 	}
 
